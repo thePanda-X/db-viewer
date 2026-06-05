@@ -1,4 +1,4 @@
-import type { Connection, PostgresConfig } from '@/types/connection'
+import type { Connection, PostgresConfig, RedisConfig } from '@/types/connection'
 import type {
   QueryRequest,
   QueryResponse,
@@ -8,6 +8,12 @@ import type {
   DatabaseInfo,
   TableInfo,
 } from '@/types/postgres'
+import type {
+  RedisCommandResult,
+  RedisKeyMeta,
+  RedisKeyType,
+  RedisKeyValue,
+} from '@/types/redis'
 
 export interface OpenFileOptions {
   filters?: Array<{ name: string; extensions: string[] }>
@@ -59,5 +65,118 @@ export const api = {
     }): Promise<SaveChangesResponse> => window.api.postgres.saveChanges(args),
     disconnect: (args: { connectionId: string; database?: string }): Promise<{ ok: true }> =>
       window.api.postgres.disconnect(args),
+  },
+  redis: {
+    ping: (args: { connectionId: string; config: RedisConfig }) =>
+      window.api.redis.ping(args) as Promise<
+        { ok: true; reply: string } | { ok: false; error: string }
+      >,
+    scanAll: (args: { connectionId: string; config: RedisConfig; match: string }) =>
+      window.api.redis.scanAll(args) as Promise<
+        { ok: true; keys: string[] } | { ok: false; error: string }
+      >,
+    getMeta: (args: { connectionId: string; config: RedisConfig; key: string }) =>
+      window.api.redis.getMeta(args) as Promise<
+        { ok: true; meta: RedisKeyMeta } | { ok: false; error: string }
+      >,
+    getValue: (args: {
+      connectionId: string
+      config: RedisConfig
+      key: string
+      type: RedisKeyType
+    }) =>
+      window.api.redis.getValue(args) as Promise<
+        { ok: true; value: RedisKeyValue } | { ok: false; error: string }
+      >,
+    deleteKeys: (args: { connectionId: string; config: RedisConfig; keys: string[] }) =>
+      window.api.redis.deleteKeys(args) as Promise<
+        { ok: true; deleted: number } | { ok: false; error: string }
+      >,
+    setTtl: (args: {
+      connectionId: string
+      config: RedisConfig
+      key: string
+      ms: number
+    }): Promise<{ ok: true } | { ok: false; error: string }> => window.api.redis.setTtl(args),
+    setString: (args: {
+      connectionId: string
+      config: RedisConfig
+      key: string
+      value: string
+    }): Promise<{ ok: true } | { ok: false; error: string }> => window.api.redis.setString(args),
+    setHashField: (args: {
+      connectionId: string
+      config: RedisConfig
+      key: string
+      field: string
+      value: string
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      window.api.redis.setHashField(args),
+    deleteHashField: (args: {
+      connectionId: string
+      config: RedisConfig
+      key: string
+      field: string
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      window.api.redis.deleteHashField(args),
+    pushListElement: (args: {
+      connectionId: string
+      config: RedisConfig
+      key: string
+      value: string
+      position: 'head' | 'tail'
+    }): Promise<{ ok: true; length: number } | { ok: false; error: string }> =>
+      window.api.redis.pushListElement(args),
+    removeListElement: (args: {
+      connectionId: string
+      config: RedisConfig
+      key: string
+      index: number
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      window.api.redis.removeListElement(args),
+    addSetMember: (args: {
+      connectionId: string
+      config: RedisConfig
+      key: string
+      member: string
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      window.api.redis.addSetMember(args),
+    removeSetMember: (args: {
+      connectionId: string
+      config: RedisConfig
+      key: string
+      member: string
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      window.api.redis.removeSetMember(args),
+    setZsetMember: (args: {
+      connectionId: string
+      config: RedisConfig
+      key: string
+      member: string
+      score: number
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      window.api.redis.setZsetMember(args),
+    removeZsetMember: (args: {
+      connectionId: string
+      config: RedisConfig
+      key: string
+      member: string
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      window.api.redis.removeZsetMember(args),
+    addStreamEntry: (args: {
+      connectionId: string
+      config: RedisConfig
+      key: string
+      fields: string[]
+    }): Promise<{ ok: true; id: string } | { ok: false; error: string }> =>
+      window.api.redis.addStreamEntry(args),
+    executeCommand: (args: {
+      connectionId: string
+      config: RedisConfig
+      command: string[]
+    }): Promise<{ ok: true; result: RedisCommandResult } | { ok: false; error: string }> =>
+      window.api.redis.executeCommand(args),
+    disconnect: (args: { connectionId: string; db?: number }): Promise<{ ok: true }> =>
+      window.api.redis.disconnect(args),
   },
 }

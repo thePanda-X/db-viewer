@@ -11,6 +11,26 @@ import {
   runReadOnlyQuery,
   saveChanges,
 } from './postgres'
+import {
+  addSetMember as redisAddSetMember,
+  addStreamEntry as redisAddStreamEntry,
+  deleteHashField as redisDeleteHashField,
+  deleteKeys as redisDeleteKeys,
+  disconnect as redisDisconnect,
+  executeCommand as redisExecuteCommand,
+  getMeta as redisGetMeta,
+  getValue as redisGetValue,
+  ping as redisPing,
+  pushListElement as redisPushListElement,
+  removeListElement as redisRemoveListElement,
+  removeSetMember as redisRemoveSetMember,
+  removeZsetMember as redisRemoveZsetMember,
+  scanAll as redisScanAll,
+  setHashField as redisSetHashField,
+  setStringValue as redisSetStringValue,
+  setTtl as redisSetTtl,
+  setZsetMember as redisSetZsetMember,
+} from './redis'
 import type {
   PostgresConfig,
   QueryRequest,
@@ -19,6 +39,7 @@ import type {
   SaveChangesResponse,
   TableMeta,
 } from '../src/types/postgres'
+import type { RedisCommandResult, RedisKeyMeta, RedisKeyValue, RedisKeyType } from '../src/types/redis'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -81,6 +102,16 @@ interface ListTablesArgs extends PostgresInvokeArgs {
 
 function toErrorPayload(err: unknown) {
   return { error: err instanceof Error ? err.message : String(err) }
+}
+
+function toErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  try {
+    return JSON.stringify(err)
+  } catch {
+    return 'Unknown error'
+  }
 }
 
 app.whenReady().then(() => {
@@ -286,6 +317,252 @@ app.whenReady().then(() => {
     'postgres:disconnect',
     async (_event, args: { connectionId: string; database?: string }) => {
       pgDisconnect(args.connectionId, args.database)
+      return { ok: true }
+    },
+  )
+
+  type RedisInvokeArgs = {
+    connectionId: string
+    config: import('../src/types/connection').RedisConfig
+  }
+
+  ipcMain.handle(
+    'redis:ping',
+    async (_event, args: RedisInvokeArgs) => {
+      try {
+        const reply = await redisPing(args.connectionId, args.config)
+        return { ok: true as const, reply }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:scanAll',
+    async (_event, args: RedisInvokeArgs & { match: string }) => {
+      try {
+        const keys = await redisScanAll(args.connectionId, args.config, args.match)
+        return { ok: true as const, keys }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:getMeta',
+    async (_event, args: RedisInvokeArgs & { key: string }): Promise<
+      { ok: true; meta: RedisKeyMeta } | { ok: false; error: string }
+    > => {
+      try {
+        const meta = await redisGetMeta(args.connectionId, args.config, args.key)
+        return { ok: true, meta }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:getValue',
+    async (
+      _event,
+      args: RedisInvokeArgs & { key: string; type: RedisKeyType },
+    ): Promise<{ ok: true; value: RedisKeyValue } | { ok: false; error: string }> => {
+      try {
+        const value = await redisGetValue(args.connectionId, args.config, args.key, args.type)
+        return { ok: true, value }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:deleteKeys',
+    async (_event, args: RedisInvokeArgs & { keys: string[] }) => {
+      try {
+        const deleted = await redisDeleteKeys(args.connectionId, args.config, args.keys)
+        return { ok: true as const, deleted }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:setTtl',
+    async (_event, args: RedisInvokeArgs & { key: string; ms: number }) => {
+      try {
+        await redisSetTtl(args.connectionId, args.config, args.key, args.ms)
+        return { ok: true as const }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:setString',
+    async (_event, args: RedisInvokeArgs & { key: string; value: string }) => {
+      try {
+        await redisSetStringValue(args.connectionId, args.config, args.key, args.value)
+        return { ok: true as const }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:setHashField',
+    async (
+      _event,
+      args: RedisInvokeArgs & { key: string; field: string; value: string },
+    ) => {
+      try {
+        await redisSetHashField(args.connectionId, args.config, args.key, args.field, args.value)
+        return { ok: true as const }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:deleteHashField',
+    async (_event, args: RedisInvokeArgs & { key: string; field: string }) => {
+      try {
+        await redisDeleteHashField(args.connectionId, args.config, args.key, args.field)
+        return { ok: true as const }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:pushListElement',
+    async (
+      _event,
+      args: RedisInvokeArgs & { key: string; value: string; position: 'head' | 'tail' },
+    ) => {
+      try {
+        const length = await redisPushListElement(
+          args.connectionId,
+          args.config,
+          args.key,
+          args.value,
+          args.position,
+        )
+        return { ok: true as const, length }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:removeListElement',
+    async (_event, args: RedisInvokeArgs & { key: string; index: number }) => {
+      try {
+        await redisRemoveListElement(args.connectionId, args.config, args.key, args.index)
+        return { ok: true as const }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:addSetMember',
+    async (_event, args: RedisInvokeArgs & { key: string; member: string }) => {
+      try {
+        await redisAddSetMember(args.connectionId, args.config, args.key, args.member)
+        return { ok: true as const }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:removeSetMember',
+    async (_event, args: RedisInvokeArgs & { key: string; member: string }) => {
+      try {
+        await redisRemoveSetMember(args.connectionId, args.config, args.key, args.member)
+        return { ok: true as const }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:setZsetMember',
+    async (
+      _event,
+      args: RedisInvokeArgs & { key: string; member: string; score: number },
+    ) => {
+      try {
+        await redisSetZsetMember(
+          args.connectionId,
+          args.config,
+          args.key,
+          args.member,
+          args.score,
+        )
+        return { ok: true as const }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:removeZsetMember',
+    async (_event, args: RedisInvokeArgs & { key: string; member: string }) => {
+      try {
+        await redisRemoveZsetMember(args.connectionId, args.config, args.key, args.member)
+        return { ok: true as const }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:addStreamEntry',
+    async (_event, args: RedisInvokeArgs & { key: string; fields: string[] }) => {
+      try {
+        const id = await redisAddStreamEntry(args.connectionId, args.config, args.key, args.fields)
+        return { ok: true as const, id }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:executeCommand',
+    async (
+      _event,
+      args: RedisInvokeArgs & { command: string[] },
+    ): Promise<{ ok: true; result: RedisCommandResult } | { ok: false; error: string }> => {
+      try {
+        const result = await redisExecuteCommand(args.connectionId, args.config, args.command)
+        return { ok: true, result }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'redis:disconnect',
+    async (_event, args: { connectionId: string; db?: number }) => {
+      redisDisconnect(args.connectionId, args.db)
       return { ok: true }
     },
   )

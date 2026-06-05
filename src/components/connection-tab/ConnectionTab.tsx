@@ -1,10 +1,11 @@
-import { Database, FileText, Search, KeyRound, DatabaseBackup, Table2, Code2 } from 'lucide-react'
+import { Database, FileText, Search, DatabaseBackup, Table2, Code2 } from 'lucide-react'
 import type { Connection } from '@/types/connection'
 import { getConnectionTypeDef } from '@/data/connectionTypes'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { PostgresTab } from './postgres/PostgresTab'
+import { RedisTab } from './redis/RedisTab'
 
 interface ConnectionTabProps {
   connection: Connection
@@ -19,6 +20,10 @@ const STUB_SECTIONS = [
 export function ConnectionTab({ connection }: ConnectionTabProps) {
   if (connection.type === 'postgres') {
     return <PostgresTab connection={connection} />
+  }
+
+  if (connection.type === 'redis') {
+    return <RedisTab connection={connection} />
   }
 
   const def = getConnectionTypeDef(connection.type)
@@ -79,8 +84,6 @@ export function ConnectionTab({ connection }: ConnectionTabProps) {
             <FileText className="h-3.5 w-3.5" />
           ) : connection.type === 'opensearch' ? (
             <Search className="h-3.5 w-3.5" />
-          ) : connection.type === 'redis' ? (
-            <KeyRound className="h-3.5 w-3.5" />
           ) : (
             <Database className="h-3.5 w-3.5" />
           )}
