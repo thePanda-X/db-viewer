@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { useActiveRefresh } from '@/lib/hotkeys'
+import { toast } from '@/state/toastStore'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { PostgresSidebar } from './PostgresSidebar'
+import { PostgresSidebar, type RefreshRefHandle } from './PostgresSidebar'
 import { TableView } from './TableView'
 import { QueryBar } from './QueryBar'
 import { QueryResultView } from './QueryResultView'
@@ -37,10 +39,32 @@ export function PostgresTab({ connection }: PostgresTabProps) {
   const [customResult, setCustomResult] = useState<QueryResult | null>(null)
   const [customError, setCustomError] = useState<string | null>(null)
   const [customRunning, setCustomRunning] = useState(false)
+  const [lastCustomSql, setLastCustomSql] = useState<string | null>(null)
   const runSeq = useRef(0)
   const hasPendingChanges = pendingChanges > 0
   const showCustomResults = customResult !== null || customError !== null || customRunning
   const currentConfig = useMemo(() => ({ ...config, database }), [config, database])
+
+  const sidebarRefreshRef = useRef<RefreshRefHandle>({ current: null })
+  const tableRefreshRef = useRef<RefreshRefHandle>({ current: null })
+  const queryRefreshRef = useRef<RefreshRefHandle>({ current: null })
+
+  const refreshAll = useCallback(() => {
+    sidebarRefreshRef.current.current?.()
+    if (selectedTable) tableRefreshRef.current.current?.()
+    if (lastCustomSql) queryRefreshRef.current.current?.()
+    toast({
+      message: `Refreshed ${connection.name}`,
+      detail: [
+        selectedTable ? `table ${selectedTable.schema}.${selectedTable.table}` : 'sidebar',
+        lastCustomSql ? 'last query' : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    })
+  }, [connection.name, selectedTable, lastCustomSql])
+
+  useActiveRefresh(refreshAll, connection.name)
 
   const prevDatabase = useRef(database)
   useEffect(() => {
@@ -148,6 +172,7 @@ export function PostgresTab({ connection }: PostgresTabProps) {
 
   const runCustomQuery = useCallback(
     (sql: string) => {
+      setLastCustomSql(sql)
       void executeRun(sql)
     },
     [executeRun],
@@ -171,6 +196,7 @@ export function PostgresTab({ connection }: PostgresTabProps) {
         onSelectTable={handleSelectTable}
         selectedSchema={schema}
         onSchemaChange={handleSchemaChange}
+        refreshRef={sidebarRefreshRef.current}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -216,6 +242,7 @@ export function PostgresTab({ connection }: PostgresTabProps) {
                 table={selectedTable.table}
                 onPendingChangesChange={handlePendingChangesChange}
                 onConfirmNavigationRequest={guarded}
+                refreshRef={tableRefreshRef.current}
               />
             </div>
           )}
@@ -226,6 +253,10 @@ export function PostgresTab({ connection }: PostgresTabProps) {
                 error={customError}
                 running={customRunning}
                 onClose={clearCustomResult}
+                {...(lastCustomSql
+                  ? { onRerun: () => void executeRun(lastCustomSql) }
+                  : {})}
+                refreshRef={queryRefreshRef.current}
               />
             </div>
           )}

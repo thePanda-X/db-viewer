@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useHotkey } from '@/lib/hotkeys'
 import type { RedisConfig } from '@/types/connection'
 import type { RedisCommandReply } from '@/types/redis'
 
@@ -193,6 +194,13 @@ export function CommandBar({ connectionId, config, onAfterCommand, currentKey }:
     },
     [connectionId, config, running, tokenize, onAfterCommand],
   )
+
+  useHotkey('Mod+L', {
+    label: 'Focus command bar',
+    group: 'Redis',
+    description: 'Focus the command input',
+    handler: () => inputRef.current?.focus(),
+  })
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {

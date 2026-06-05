@@ -3,6 +3,8 @@ import { KeyRound, Loader2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { useActiveRefresh } from '@/lib/hotkeys'
+import { toast } from '@/state/toastStore'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,39 +50,6 @@ export function RedisTab({ connection }: RedisTabProps) {
     setScanSeq((s) => s + 1)
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    const match = filter.trim() === '' ? SCAN_MATCH : `*${filter.trim()}*`
-    setLoadingKeys(true)
-    setKeysError(null)
-    api.redis
-      .scanAll({ connectionId: connection.id, config, match })
-      .then((res) => {
-        if (cancelled) return
-        if (!res.ok) {
-          setKeysError(res.error)
-          setKeys([])
-        } else {
-          setKeys(res.keys)
-        }
-        setLoadingKeys(false)
-      })
-      .catch((err) => {
-        if (cancelled) return
-        setKeysError(err instanceof Error ? err.message : String(err))
-        setKeys([])
-        setLoadingKeys(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [connection.id, config, filter, scanSeq])
-
-  const tree = useMemo<RedisKeyTree>(
-    () => buildTree(keys, separator),
-    [keys, separator],
-  )
-
   const refreshValue = useCallback(async () => {
     if (!selectedKey) return
     setValueLoading(true)
@@ -121,6 +90,50 @@ export function RedisTab({ connection }: RedisTabProps) {
       setValueLoading(false)
     }
   }, [connection.id, config, selectedKey])
+
+  const refreshAll = useCallback(() => {
+    refresh()
+    if (selectedKey) void refreshValue()
+    toast({
+      message: `Refreshed ${connection.name}`,
+      detail: selectedKey ? `key ${selectedKey}` : 'keys',
+    })
+  }, [refresh, refreshValue, selectedKey, connection.name])
+
+  useActiveRefresh(refreshAll, connection.name)
+
+  useEffect(() => {
+    let cancelled = false
+    const match = filter.trim() === '' ? SCAN_MATCH : `*${filter.trim()}*`
+    setLoadingKeys(true)
+    setKeysError(null)
+    api.redis
+      .scanAll({ connectionId: connection.id, config, match })
+      .then((res) => {
+        if (cancelled) return
+        if (!res.ok) {
+          setKeysError(res.error)
+          setKeys([])
+        } else {
+          setKeys(res.keys)
+        }
+        setLoadingKeys(false)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setKeysError(err instanceof Error ? err.message : String(err))
+        setKeys([])
+        setLoadingKeys(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [connection.id, config, filter, scanSeq])
+
+  const tree = useMemo<RedisKeyTree>(
+    () => buildTree(keys, separator),
+    [keys, separator],
+  )
 
   useEffect(() => {
     void refreshValue()

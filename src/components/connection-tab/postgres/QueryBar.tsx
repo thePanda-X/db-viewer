@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Loader2, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useHotkey } from '@/lib/hotkeys'
 
 interface QueryBarProps {
   database: string
@@ -18,20 +19,25 @@ export function QueryBar({ database, running, onRun }: QueryBarProps) {
     onRun(trimmed)
   }, [sql, onRun])
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const isMod = e.metaKey || e.ctrlKey
-      if (isMod && e.key === 'Enter') {
-        const target = e.target as HTMLElement | null
-        if (target?.tagName === 'TEXTAREA' && target === textareaRef.current) {
-          e.preventDefault()
-          run()
-        }
+  useHotkey('Mod+Enter', {
+    label: 'Run query',
+    group: 'Custom query',
+    description: 'Execute the query in the custom query bar',
+    allowInInputs: true,
+    handler: () => {
+      const target = document.activeElement as HTMLElement | null
+      if (target?.tagName === 'TEXTAREA' && target === textareaRef.current) {
+        run()
       }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [run])
+    },
+  })
+
+  useHotkey('Mod+L', {
+    label: 'Focus query bar',
+    group: 'Custom query',
+    description: 'Focus the custom query bar',
+    handler: () => textareaRef.current?.focus(),
+  })
 
   const disabled = running || !sql.trim()
 

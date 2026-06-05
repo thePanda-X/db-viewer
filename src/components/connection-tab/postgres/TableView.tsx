@@ -10,6 +10,8 @@ import {
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { useHotkey } from '@/lib/hotkeys'
+import { toast } from '@/state/toastStore'
 import {
   Select,
   SelectContent,
@@ -38,6 +40,7 @@ import {
 import { EditableCell } from './EditableCell'
 import type { TableMeta } from '@/types/postgres'
 import type { PostgresConfig } from '@/types/connection'
+import type { RefreshRefHandle } from './PostgresSidebar'
 
 interface TableViewProps {
   connectionId: string
@@ -47,6 +50,7 @@ interface TableViewProps {
   table: string
   onPendingChangesChange?: (count: number) => void
   onConfirmNavigationRequest?: (action: () => void) => void
+  refreshRef?: RefreshRefHandle
 }
 
 const LIMIT_OPTIONS = [100, 250, 500, 1000] as const
@@ -91,6 +95,7 @@ export function TableView({
   table,
   onPendingChangesChange,
   onConfirmNavigationRequest,
+  refreshRef,
 }: TableViewProps) {
   const [meta, setMeta] = useState<TableMeta | null>(null)
   const [metaError, setMetaError] = useState<string | null>(null)
@@ -198,6 +203,18 @@ export function TableView({
     void fetchCount()
   }, [fetchCount])
 
+  useEffect(() => {
+    if (!refreshRef) return
+    refreshRef.current = () => {
+      void fetchMeta()
+      void fetchData()
+      void fetchCount()
+    }
+    return () => {
+      if (refreshRef) refreshRef.current = null
+    }
+  }, [refreshRef, fetchMeta, fetchData, fetchCount])
+
   const pendingCount = useMemo(() => {
     let count = 0
     for (const cols of edits.values()) {
@@ -205,6 +222,20 @@ export function TableView({
     }
     return count
   }, [edits])
+
+  useHotkey('Mod+S', {
+    label: 'Save changes',
+    group: 'Table view',
+    description: 'Save pending row edits',
+    allowInInputs: true,
+    handler: () => {
+      if (pendingCount === 0) {
+        toast({ message: 'No changes to save', variant: 'info' })
+        return
+      }
+      setConfirmSaveOpen(true)
+    },
+  })
 
   useEffect(() => {
     onPendingChangesChange?.(pendingCount)

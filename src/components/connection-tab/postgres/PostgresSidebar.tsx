@@ -14,6 +14,10 @@ import {
 } from '@/components/ui/select'
 import type { DatabaseInfo, TableInfo } from '@/types/postgres'
 
+export interface RefreshRefHandle {
+  current: (() => void) | null
+}
+
 interface PostgresSidebarProps {
   connectionId: string
   config: import('@/types/connection').PostgresConfig
@@ -23,6 +27,7 @@ interface PostgresSidebarProps {
   onSelectTable: (table: { schema: string; table: string }) => void
   selectedSchema: string
   onSchemaChange: (schema: string) => void
+  refreshRef?: RefreshRefHandle
 }
 
 function isError(value: unknown): value is { error: string } {
@@ -38,6 +43,7 @@ export function PostgresSidebar({
   onSelectTable,
   selectedSchema,
   onSchemaChange,
+  refreshRef,
 }: PostgresSidebarProps) {
   const [databases, setDatabases] = useState<DatabaseInfo[] | null>(null)
   const [databasesError, setDatabasesError] = useState<string | null>(null)
@@ -98,6 +104,17 @@ export function PostgresSidebar({
       setTables([])
     }
   }, [selectedDatabase, fetchTables])
+
+  useEffect(() => {
+    if (!refreshRef) return
+    refreshRef.current = () => {
+      void fetchDatabases()
+      if (selectedDatabase) void fetchTables(selectedDatabase)
+    }
+    return () => {
+      if (refreshRef) refreshRef.current = null
+    }
+  }, [refreshRef, fetchDatabases, fetchTables, selectedDatabase])
 
   const schemas = useMemo(() => {
     if (!tables) return []
