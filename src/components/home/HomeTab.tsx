@@ -1,8 +1,11 @@
+import { useCallback } from 'react'
+import { Plus } from 'lucide-react'
 import { useConnectionsStore } from '@/state/connectionsStore'
+import { useActiveRefresh } from '@/lib/hotkeys'
+import { toast } from '@/state/toastStore'
+import { Button } from '@/components/ui/button'
 import { ConnectionGrid } from './ConnectionGrid'
 import { EmptyConnections } from './EmptyConnections'
-import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
 
 interface HomeTabProps {
   onCreateClick?: () => void
@@ -11,6 +14,14 @@ interface HomeTabProps {
 export function HomeTab({ onCreateClick }: HomeTabProps) {
   const connections = useConnectionsStore((s) => s.connections)
   const loading = useConnectionsStore((s) => s.loading)
+  const load = useConnectionsStore((s) => s.load)
+
+  const refresh = useCallback(() => {
+    void load().then(() => {
+      toast({ message: 'Connections refreshed', variant: 'info' })
+    })
+  }, [load])
+  useActiveRefresh(refresh, 'Connections')
 
   return (
     <div className="h-full overflow-y-auto">

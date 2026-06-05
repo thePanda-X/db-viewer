@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ChevronDown,
   ChevronRight,
@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { useHotkey } from '@/lib/hotkeys'
 import {
   Tooltip,
   TooltipContent,
@@ -99,6 +100,28 @@ export function RedisSidebar({
 
   const totalKeys = useMemo(() => countAllKeys(tree), [tree])
 
+  const filterRef = useRef<HTMLInputElement | null>(null)
+  const focusFilter = useCallback(() => {
+    filterRef.current?.focus()
+    filterRef.current?.select()
+  }, [])
+
+  useHotkey('Mod+K', {
+    label: 'Focus filter',
+    group: 'Redis',
+    description: 'Focus the key filter input',
+    handler: focusFilter,
+  })
+
+  useHotkey('Delete', {
+    label: 'Delete key',
+    group: 'Redis',
+    description: 'Delete the selected key',
+    handler: () => {
+      if (selectedKey) onRequestDeleteKey(selectedKey)
+    },
+  })
+
   return (
     <TooltipProvider delayDuration={300}>
       <aside className="flex h-full w-72 shrink-0 flex-col border-r border-border bg-muted/20">
@@ -153,6 +176,7 @@ export function RedisSidebar({
           <div className="relative">
             <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
             <Input
+              ref={filterRef}
               value={filter}
               onChange={(e) => onFilterChange(e.target.value)}
               placeholder="Filter keys (substring)"

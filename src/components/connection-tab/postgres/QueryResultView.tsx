@@ -9,13 +9,17 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
+import { useEffect } from 'react'
 import type { QueryResult } from '@/types/postgres'
+import type { RefreshRefHandle } from './PostgresSidebar'
 
 interface QueryResultViewProps {
   result: QueryResult | null
   error: string | null
   running: boolean
   onClose: () => void
+  onRerun?: () => void
+  refreshRef?: RefreshRefHandle
 }
 
 function formatCell(value: unknown): string {
@@ -32,7 +36,23 @@ function formatCell(value: unknown): string {
   return String(value)
 }
 
-export function QueryResultView({ result, error, running, onClose }: QueryResultViewProps) {
+export function QueryResultView({
+  result,
+  error,
+  running,
+  onClose,
+  onRerun,
+  refreshRef,
+}: QueryResultViewProps) {
+  useEffect(() => {
+    if (!refreshRef || !onRerun) return
+    refreshRef.current = () => {
+      if (!running) onRerun()
+    }
+    return () => {
+      if (refreshRef) refreshRef.current = null
+    }
+  }, [refreshRef, onRerun, running])
   return (
     <div className="flex h-full flex-col bg-background">
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-border bg-muted/20 px-3 text-xs">
