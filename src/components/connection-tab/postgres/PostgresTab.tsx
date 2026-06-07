@@ -23,6 +23,7 @@ import { TableView, type TableViewFilter } from './TableView'
 import { QueryBar } from './QueryBar'
 import { QueryResultView } from './QueryResultView'
 import type { ForeignKey, QueryResult } from '@/types/postgres'
+import { validateForeignKeyValue } from '@/types/postgres'
 import type { Connection, PostgresConfig } from '@/types/connection'
 import type { PostgresTabView, Tab } from '@/types/tab'
 
@@ -183,20 +184,62 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
   }, [])
 
   const handleNavigateRelation = useCallback(
-    (fk: ForeignKey, value: unknown) => {
+    async (fk: ForeignKey, value: unknown) => {
       const display = value === null || value === undefined ? 'NULL' : String(value)
+      const directError = validateForeignKeyValue(fk.referencedUdtName, value)
+      let targetColumn = fk.referencedColumn
+      let usedFallback = false
+
+      if (directError) {
+        // The FK's referenced column doesn't accept this value. This usually
+        // means the FK was defined against a column of the wrong type (a real
+        // schema bug). As a best-effort recovery, try the target table's
+        // primary key — the user almost certainly wants the row whose PK
+        // matches the value.
+        const fallback = await tryPkFallback({
+          connectionId: connection.id,
+          config,
+          database,
+          schema: fk.referencedSchema,
+          table: fk.referencedTable,
+          value,
+        })
+        if (!fallback) {
+          toast({
+            message: `Can't open ${fk.referencedSchema}.${fk.referencedTable}`,
+            detail: `FK value ${display} is incompatible with target column "${fk.referencedColumn}" (${fk.referencedUdtName}): ${directError}.`,
+            variant: 'error',
+          })
+          return
+        }
+        targetColumn = fallback.column
+        usedFallback = true
+      }
+
+      const filterDisplay = usedFallback
+        ? `${targetColumn} = ${display} · FK fallback`
+        : `${fk.referencedColumn} = ${display}`
+
       guarded(() => {
         openRelatedRow(connection, {
           database,
           schema: fk.referencedSchema,
           table: fk.referencedTable,
-          filterColumn: fk.referencedColumn,
+          filterColumn: targetColumn,
           filterValue: value,
-          filterDisplay: `${fk.column} → ${display}`,
+          filterDisplay,
         })
       })
+      if (usedFallback) {
+        toast({
+          message: `Filtered by primary key`,
+          detail: `The foreign key points to "${fk.referencedColumn}" (${fk.referencedUdtName}), but the value is a ${typeof value}. Filtered by the target table's primary key "${targetColumn}" instead.`,
+          variant: 'warning',
+          durationMs: 6000,
+        })
+      }
     },
-    [connection, database, guarded, openRelatedRow],
+    [config, connection, database, guarded, openRelatedRow],
   )
 
   const handleNavigateAdHoc = useCallback(
@@ -457,4 +500,43 @@ function EmptyState({ database }: { database: string }) {
       </div>
     </div>
   )
+}
+
+interface TryPkFallbackArgs {
+  connectionId: string
+  config: PostgresConfig
+  database: string
+  schema: string
+  table: string
+  value: unknown
+}
+
+interface PkFallbackResult {
+  column: string
+  udtName: string
+}
+
+/**
+ * Best-effort fallback when an FK points at a column whose type doesn't accept
+ * the value: fetch the target table's meta and return its single-column
+ * primary key if the value's type matches that PK column. Returns null when
+ * there's no useful single-column PK or the value still doesn't fit.
+ */
+async function tryPkFallback(args: TryPkFallbackArgs): Promise<PkFallbackResult | null> {
+  if (args.value === null || args.value === undefined) return null
+  const result = await api.postgres.getTableMeta({
+    connectionId: args.connectionId,
+    config: args.config,
+    database: args.database,
+    schema: args.schema,
+    table: args.table,
+  })
+  if (!result.ok) return null
+  const pk = result.meta.primaryKey
+  if (!pk || pk.length !== 1) return null
+  const pkColumn = pk[0]
+  const pkMeta = result.meta.columns.find((c) => c.name === pkColumn)
+  if (!pkMeta) return null
+  if (validateForeignKeyValue(pkMeta.udtName, args.value) !== null) return null
+  return { column: pkColumn, udtName: pkMeta.udtName }
 }
