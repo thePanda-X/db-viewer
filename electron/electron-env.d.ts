@@ -70,6 +70,7 @@ interface PostgresForeignKey {
   referencedSchema: string
   referencedTable: string
   referencedColumn: string
+  referencedUdtName: string
   constraintColumns: string[]
 }
 

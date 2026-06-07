@@ -752,6 +752,9 @@ function describeRelationError(error: string, database: string, qualified: strin
   if (/permission denied/i.test(error)) {
     return `Your database user lacks the required permission on ${qualified}.`
   }
+  if (/invalid input syntax for type/i.test(error)) {
+    return `The filter value's type doesn't match the target column's type. This usually means a foreign-key in the source table points to a column whose declared type doesn't match the value being filtered on — a schema inconsistency. Clear the filter to see the full table.`
+  }
   return null
 }
 

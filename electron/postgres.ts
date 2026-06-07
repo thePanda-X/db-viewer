@@ -401,6 +401,7 @@ export async function getTableRelations(
             nr.nspname       AS ref_schema,
             cr.relname       AS ref_table,
             af.attname       AS ref_column,
+            tf.typname       AS ref_udt_name,
             ord.ord          AS ordinal
           FROM pg_constraint c
           JOIN pg_class     c1  ON c1.oid = c.conrelid
@@ -410,6 +411,7 @@ export async function getTableRelations(
           JOIN unnest(c.conkey)   WITH ORDINALITY AS ord(attnum, ord) ON TRUE
           JOIN pg_attribute a  ON a.attrelid = c1.oid   AND a.attnum  = ord.attnum
           JOIN pg_attribute af ON af.attrelid = cr.oid  AND af.attnum = ord.attnum
+          JOIN pg_type      tf ON tf.oid = af.atttypid
           WHERE c.contype = 'f'
             AND n1.nspname = $1
             AND c1.relname = $2
@@ -425,6 +427,7 @@ export async function getTableRelations(
     refSchema: string
     refTable: string
     refColumn: string
+    refUdtName: string
     constraintColumns: string[]
   }
   const grouped = new Map<string, Row>()
@@ -438,6 +441,7 @@ export async function getTableRelations(
         refSchema: String(r[2]),
         refTable: String(r[3]),
         refColumn: String(r[4]),
+        refUdtName: String(r[5]),
         constraintColumns: [],
       }
       grouped.set(constraintName, row)
@@ -450,6 +454,7 @@ export async function getTableRelations(
     referencedSchema: r.refSchema,
     referencedTable: r.refTable,
     referencedColumn: r.refColumn,
+    referencedUdtName: r.refUdtName,
     constraintColumns: r.constraintColumns,
   }))
 }
