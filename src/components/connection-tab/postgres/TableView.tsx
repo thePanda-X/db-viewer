@@ -134,12 +134,20 @@ export function TableView({
   const [saveError, setSaveError] = useState<string | null>(null)
   const [failedRowIndex, setFailedRowIndex] = useState<number | null>(null)
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false)
+  // Structural seq — bumped whenever the table or filter changes. Guards
+  // fetchMeta/fetchRelations/fetchCount so an in-flight stale fetch can't
+  // overwrite the new table's state with the old table's meta.
   const fetchSeq = useRef(0)
+  // Paging seq — bumped on every fetchData call (including limit/offset).
+  // Independent of fetchSeq so changing the limit doesn't invalidate
+  // fetchMeta, which doesn't depend on paging.
+  const dataSeq = useRef(0)
 
   const qualified = `${schema}.${table}`
   const currentConfig = useMemo(() => ({ ...config, database }), [config, database])
 
   const fetchMeta = useCallback(async () => {
+    const seq = fetchSeq.current
     setMetaError(null)
     try {
       const result = await api.postgres.getTableMeta({
@@ -149,20 +157,21 @@ export function TableView({
         schema,
         table,
       })
+      if (seq !== fetchSeq.current) return
       if (result.ok) {
         setMeta(result.meta)
         setEdits(new Map())
       } else {
         setMetaError(result.error)
-        setMeta(null)
       }
     } catch (err) {
+      if (seq !== fetchSeq.current) return
       setMetaError(err instanceof Error ? err.message : String(err))
-      setMeta(null)
     }
   }, [connectionId, config, database, schema, table])
 
   const fetchRelations = useCallback(async () => {
+    const seq = fetchSeq.current
     try {
       const result = await api.postgres.getTableRelations({
         connectionId,
@@ -171,6 +180,7 @@ export function TableView({
         schema,
         table,
       })
+      if (seq !== fetchSeq.current) return
       if (result.ok) {
         setRelations(result.relations)
       } else {
@@ -178,6 +188,7 @@ export function TableView({
         setRelations([])
       }
     } catch {
+      if (seq !== fetchSeq.current) return
       setRelations([])
     }
   }, [connectionId, config, database, schema, table])
@@ -197,7 +208,7 @@ export function TableView({
   )
 
   const fetchData = useCallback(async () => {
-    const seq = ++fetchSeq.current
+    const seq = ++dataSeq.current
     setLoading(true)
     setDataError(null)
     setSaveError(null)
@@ -212,24 +223,23 @@ export function TableView({
         config: currentConfig,
         request: { sql, params: where.params },
       })
-      if (seq !== fetchSeq.current) return
+      if (seq !== dataSeq.current) return
       if (result.ok) {
         setOriginalRows(columnsToRowMap(result.result.columns, result.result.rows))
         setEdits(new Map())
       } else {
         setDataError(result.error)
-        setOriginalRows([])
       }
     } catch (err) {
-      if (seq !== fetchSeq.current) return
+      if (seq !== dataSeq.current) return
       setDataError(err instanceof Error ? err.message : String(err))
-      setOriginalRows([])
     } finally {
-      if (seq === fetchSeq.current) setLoading(false)
+      if (seq === dataSeq.current) setLoading(false)
     }
   }, [connectionId, currentConfig, schema, table, limit, offset, buildWhereAndParams])
 
   const fetchCount = useCallback(async () => {
+    const seq = fetchSeq.current
     setCountLoading(true)
     try {
       const where = buildWhereAndParams([])
@@ -239,6 +249,7 @@ export function TableView({
         config: currentConfig,
         request: { sql, params: where.params },
       })
+      if (seq !== fetchSeq.current) return
       if (result.ok && result.result.rows.length > 0) {
         const n = Number(result.result.rows[0][0])
         setTotalCount(Number.isFinite(n) ? n : null)
@@ -246,11 +257,44 @@ export function TableView({
         setTotalCount(null)
       }
     } catch {
+      if (seq !== fetchSeq.current) return
       setTotalCount(null)
     } finally {
-      setCountLoading(false)
+      if (seq === fetchSeq.current) setCountLoading(false)
     }
   }, [connectionId, currentConfig, schema, table, buildWhereAndParams])
+
+  useEffect(() => {
+    // Table change: invalidate in-flight meta/relations/count fetches and
+    // drop ALL stale UI state (including meta/relations) so we never render
+    // the new table's rows against the old table's column names. Must run
+    // BEFORE the fetch useEffects below so they capture the bumped seq.
+    fetchSeq.current++
+    setOffset(0)
+    setMeta(null)
+    setMetaError(null)
+    setRelations([])
+    setOriginalRows([])
+    setDataError(null)
+    setTotalCount(null)
+    setEdits(new Map())
+    setSaveError(null)
+    setFailedRowIndex(null)
+  }, [schema, table])
+
+  useEffect(() => {
+    // Filter change (same table): meta/relations are still valid for this
+    // table, so leave them alone — fetchMeta/fetchRelations aren't re-called
+    // on filter change. Just invalidate any in-flight data fetch and reset
+    // data/offset/edits so the new WHERE clause takes effect cleanly.
+    fetchSeq.current++
+    setOffset(0)
+    setOriginalRows([])
+    setDataError(null)
+    setEdits(new Map())
+    setSaveError(null)
+    setFailedRowIndex(null)
+  }, [filter?.column, filter?.value])
 
   useEffect(() => {
     void fetchMeta()
@@ -267,10 +311,6 @@ export function TableView({
   useEffect(() => {
     void fetchCount()
   }, [fetchCount])
-
-  useEffect(() => {
-    setOffset(0)
-  }, [schema, table, filter?.column, filter?.value])
 
   useEffect(() => {
     if (!refreshRef) return
