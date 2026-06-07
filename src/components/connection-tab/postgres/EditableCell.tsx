@@ -3,6 +3,13 @@ import { Link } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ColumnMeta, EditableColumnKind } from '@/types/postgres'
 import { editableKindFor } from '@/types/postgres'
@@ -98,6 +105,8 @@ export function EditableCell({
 }: EditableCellProps) {
   const kind = editableKindFor(column.udtName)
   const isEditable = !disabled && !column.isGenerated && kind !== 'readonly' && column.udtName !== 'uuid'
+  const enumValues = column.enumValues
+  const isEnum = enumValues !== undefined && enumValues.length > 0
   const isNull = value === null || value === undefined
   const isDirty = !valuesEqual(value, original)
   const canNavigate = !isNull && navigateTo !== undefined
@@ -108,6 +117,8 @@ export function EditableCell({
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const taRef = useRef<HTMLTextAreaElement | null>(null)
+  const enumPickedRef = useRef(false)
+  const enumOpenRef = useRef(true)
 
   useEffect(() => {
     setDraft(formatValue(value, kind))
@@ -117,6 +128,12 @@ export function EditableCell({
 
   useEffect(() => {
     if (editing) {
+      enumPickedRef.current = false
+      enumOpenRef.current = true
+      if (isEnum) {
+        // Radix Select auto-opens via defaultOpen; nothing else to focus.
+        return
+      }
       if (kind === 'json') {
         taRef.current?.focus()
         taRef.current?.select()
@@ -125,7 +142,7 @@ export function EditableCell({
         inputRef.current?.select()
       }
     }
-  }, [editing, kind])
+  }, [editing, kind, isEnum])
 
   if (!isEditable) {
     if (canNavigate && navigateTo) {
@@ -203,6 +220,12 @@ export function EditableCell({
       setEditing(false)
       return
     }
+    if (isEnum) {
+      // No separate draft to commit; the Select commits on value pick. Closing
+      // edit mode here is just a defensive no-op.
+      setEditing(false)
+      return
+    }
     const parsed = parseInput(kind, draft)
     if (!parsed.ok) {
       setError(parsed.error)
@@ -220,10 +243,66 @@ export function EditableCell({
     onCancel()
   }
 
+  const handleEnumWrapperKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' && isNullDraft) {
+      e.preventDefault()
+      commit()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      cancel()
+    }
+  }
+
+  const handleEnumWrapperBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (enumPickedRef.current) return
+    // The Select moves focus into its portal-rendered content as soon as it
+    // opens; that triggers a blur on the trigger. Don't treat that as the
+    // user leaving the cell.
+    if (enumOpenRef.current) return
+    const next = e.relatedTarget as HTMLElement | null
+    // If the user is moving focus to the null toggle, let the button click
+    // handle the next state change without exiting edit mode.
+    if (next && next.getAttribute('data-null-toggle') === 'true') return
+    setEditing(false)
+  }
+
   return (
-    <div className="flex flex-col gap-1">
+    <div
+      className="flex flex-col gap-1"
+      onKeyDown={isEnum ? handleEnumWrapperKeyDown : undefined}
+      onBlur={isEnum ? handleEnumWrapperBlur : undefined}
+    >
       <div className="flex items-center gap-1">
-        {kind === 'json' ? (
+        {isEnum ? (
+          <Select
+            value={
+              typeof value === 'string' && enumValues!.includes(value) ? value : undefined
+            }
+            onValueChange={(v) => {
+              enumPickedRef.current = true
+              onCommit(v)
+              setEditing(false)
+            }}
+            onOpenChange={(open) => {
+              enumOpenRef.current = open
+            }}
+            defaultOpen
+          >
+            <SelectTrigger
+              disabled={disabled || isNullDraft}
+              className="h-7 px-1.5 py-0 font-mono text-xs"
+            >
+              <SelectValue placeholder="(select value…)" />
+            </SelectTrigger>
+            <SelectContent>
+              {enumValues!.map((v) => (
+                <SelectItem key={v} value={v} className="font-mono text-xs">
+                  {v}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : kind === 'json' ? (
           <textarea
             ref={taRef}
             value={draft}
@@ -264,6 +343,7 @@ export function EditableCell({
         )}
         <button
           type="button"
+          data-null-toggle="true"
           onClick={() => {
             if (!column.isNullable || isNullDraft) {
               const nextNull = !isNullDraft

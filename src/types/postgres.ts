@@ -42,6 +42,12 @@ export interface ColumnMeta {
   isNullable: boolean
   isGenerated: boolean
   isPrimaryKey: boolean
+  /**
+   * Allowed values when the column is a native PostgreSQL `CREATE TYPE … AS
+   * ENUM` (or a domain over one). Ordered as the database declares them.
+   * Undefined for non-enum columns.
+   */
+  enumValues?: string[]
 }
 
 export interface TableMeta {

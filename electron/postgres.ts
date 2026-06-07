@@ -26,6 +26,53 @@ types.setTypeParser(2950, (val) => (val == null ? val : val))
 
 const pools = new Map<string, pg.Pool>()
 
+const enumValueCache = new Map<string, Map<string, string[]>>()
+const enumCacheIndex = new Map<string, Set<string>>()
+
+function buildEnumCacheKey(
+  connectionId: string,
+  database: string,
+  schema: string,
+  table: string,
+): string {
+  return `${connectionId}::${database}::${schema}::${table}`
+}
+
+function getCachedEnumValues(key: string): Map<string, string[]> | null {
+  return enumValueCache.get(key) ?? null
+}
+
+function setCachedEnumValues(
+  key: string,
+  connectionId: string,
+  values: Map<string, string[]>,
+): void {
+  enumValueCache.set(key, values)
+  const set = enumCacheIndex.get(connectionId) ?? new Set<string>()
+  set.add(key)
+  enumCacheIndex.set(connectionId, set)
+}
+
+function invalidateEnumCacheForConnection(connectionId: string): void {
+  const keys = enumCacheIndex.get(connectionId)
+  if (!keys) return
+  for (const k of keys) enumValueCache.delete(k)
+  enumCacheIndex.delete(connectionId)
+}
+
+function invalidateEnumCacheForDatabase(connectionId: string, database: string): void {
+  const keys = enumCacheIndex.get(connectionId)
+  if (!keys) return
+  const prefix = `${connectionId}::${database}::`
+  for (const k of keys) {
+    if (k.startsWith(prefix)) enumValueCache.delete(k)
+  }
+  const remaining = new Set<string>()
+  for (const k of keys) if (!k.startsWith(prefix)) remaining.add(k)
+  if (remaining.size > 0) enumCacheIndex.set(connectionId, remaining)
+  else enumCacheIndex.delete(connectionId)
+}
+
 function buildPoolKey(connectionId: string, database: string): string {
   return `${connectionId}::${database}`
 }
@@ -68,6 +115,7 @@ function dropPool(connectionId: string, database?: string): void {
       })
       pools.delete(key)
     }
+    invalidateEnumCacheForDatabase(connectionId, database)
     return
   }
   for (const [key, pool] of pools.entries()) {
@@ -77,6 +125,7 @@ function dropPool(connectionId: string, database?: string): void {
     })
     pools.delete(key)
   }
+  invalidateEnumCacheForConnection(connectionId)
 }
 
 function toErrorMessage(err: unknown): string {
@@ -264,16 +313,71 @@ export async function getTableMeta(
   if (!pkRes.ok) throw new Error(pkRes.error)
   const primaryKey = pkRes.result.rows.map((r) => String(r[0]))
 
-  const columns: ColumnMeta[] = res.result.rows.map((row) => ({
-    name: String(row[0]),
-    dataType: String(row[1]),
-    udtName: String(row[2]),
-    isNullable: String(row[3]).toUpperCase() === 'YES',
-    isGenerated: String(row[4]) === 'ALWAYS' || String(row[4]) === 'YES',
-    isPrimaryKey: primaryKey.includes(String(row[0])),
-  }))
+  const cacheKey = buildEnumCacheKey(connectionId, database, schema, table)
+  let enumByUdt = getCachedEnumValues(cacheKey)
+  if (!enumByUdt) {
+    enumByUdt = await fetchNativeEnumValues(
+      connectionId,
+      { ...config, database },
+      schema,
+      table,
+    )
+    setCachedEnumValues(cacheKey, connectionId, enumByUdt)
+  }
+
+  const columns: ColumnMeta[] = res.result.rows.map((row) => {
+    const name = String(row[0])
+    const dataType = String(row[1])
+    const udtName = String(row[2])
+    const col: ColumnMeta = {
+      name,
+      dataType,
+      udtName,
+      isNullable: String(row[3]).toUpperCase() === 'YES',
+      isGenerated: String(row[4]) === 'ALWAYS' || String(row[4]) === 'YES',
+      isPrimaryKey: primaryKey.includes(name),
+    }
+    if (dataType === 'USER-DEFINED') {
+      const values = enumByUdt.get(udtName)
+      if (values && values.length > 0) col.enumValues = values
+    }
+    return col
+  })
 
   return { columns, primaryKey: primaryKey.length > 0 ? primaryKey : null }
+}
+
+async function fetchNativeEnumValues(
+  connectionId: string,
+  config: PostgresConfig,
+  schema: string,
+  table: string,
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>()
+  const res = await runReadOnlyQuery(connectionId, config, {
+    sql: `SELECT t.typname AS udt_name, e.enumlabel AS value
+          FROM pg_type t
+          JOIN pg_enum e ON e.enumtypid = t.oid
+          JOIN information_schema.columns c
+            ON c.udt_name = t.typname
+           AND c.table_schema = $1
+           AND c.table_name = $2
+          WHERE t.typtype = 'e'
+          ORDER BY t.typname, e.enumsortorder`,
+    params: [schema, table],
+  })
+  if (!res.ok) return out
+  for (const row of res.result.rows) {
+    const udt = String(row[0])
+    const value = String(row[1])
+    let list = out.get(udt)
+    if (!list) {
+      list = []
+      out.set(udt, list)
+    }
+    list.push(value)
+  }
+  return out
 }
 
 function ident(name: string): string {
