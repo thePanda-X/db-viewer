@@ -39,6 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { EditableCell } from './EditableCell'
 import type { ForeignKey, TableMeta } from '@/types/postgres'
 import type { PostgresConfig } from '@/types/connection'
@@ -482,10 +483,14 @@ export function TableView({
                 >
                   <div className="flex flex-col">
                     <span className="font-mono text-xs">{col.name}</span>
-                    <span className="text-[10px] font-normal text-muted-foreground">
-                      {col.dataType}
-                      {col.isNullable ? '' : ' NOT NULL'}
-                      {col.isPrimaryKey ? ' · PK' : ''}
+                    <span className="flex items-center gap-1 text-[10px] font-normal text-muted-foreground">
+                      {col.enumValues && col.enumValues.length > 0 ? (
+                        <EnumTypeTag values={col.enumValues} />
+                      ) : (
+                        <span>{col.dataType}</span>
+                      )}
+                      {!col.isNullable && <span>NOT NULL</span>}
+                      {col.isPrimaryKey && <span>· PK</span>}
                     </span>
                   </div>
                 </TableHead>
@@ -748,4 +753,38 @@ function describeRelationError(error: string, database: string, qualified: strin
     return `Your database user lacks the required permission on ${qualified}.`
   }
   return null
+}
+
+const ENUM_TAG_PREVIEW_COUNT = 3
+
+function EnumTypeTag({ values }: { values: string[] }) {
+  const preview = values.slice(0, ENUM_TAG_PREVIEW_COUNT).join(', ')
+  const overflow = values.length - ENUM_TAG_PREVIEW_COUNT
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={cn(
+              'inline-flex max-w-[180px] items-center rounded-sm bg-violet-500/10 px-1 font-mono text-violet-700',
+              'dark:text-violet-300',
+            )}
+          >
+            <span className="truncate">
+              enum[{preview}
+              {overflow > 0 ? `, +${overflow}` : ''}]
+            </span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" sideOffset={4}>
+          <div className="max-w-xs text-[11px]">
+            <div className="mb-1 font-semibold uppercase tracking-wider text-muted-foreground">
+              enum values
+            </div>
+            <div className="font-mono">{values.join(', ')}</div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
 }
