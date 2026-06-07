@@ -1,19 +1,36 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Connection, ConnectionType } from '@/types/connection'
-import { HOME_TAB_ID, type Tab, type TabId } from '@/types/tab'
+import { HOME_TAB_ID, type PostgresTabView, type Tab, type TabId } from '@/types/tab'
+
+interface OpenRelatedRowArgs {
+  database: string
+  schema: string
+  table: string
+  filterColumn: string
+  filterValue: unknown
+  filterDisplay: string
+}
 
 interface TabsState {
   tabs: Tab[]
   activeTabId: TabId
   openHome: () => void
   openConnection: (conn: Connection) => void
+  openRelatedRow: (conn: Connection, args: OpenRelatedRowArgs) => void
+  setPostgresView: (tabId: TabId, view: PostgresTabView) => void
   closeTab: (id: TabId) => void
   setActive: (id: TabId) => void
   /** Close any tab whose connectionId is in the given list */
   closeTabsForConnections: (ids: string[]) => void
   /** Update tab title/type for a connection that was edited */
   syncConnection: (conn: Connection) => void
+}
+
+function buildRelatedRowId(connectionId: string, args: OpenRelatedRowArgs): string {
+  return `${connectionId}::related::${args.schema}.${args.table}::${args.filterColumn}=${String(
+    args.filterValue,
+  )}`
 }
 
 export const useTabsStore = create<TabsState>()(
@@ -40,6 +57,40 @@ export const useTabsStore = create<TabsState>()(
           type: conn.type as ConnectionType,
         }
         set({ tabs: [...tabs, next], activeTabId: conn.id })
+      },
+
+      openRelatedRow: (conn, args) => {
+        const id = buildRelatedRowId(conn.id, args)
+        const { tabs } = get()
+        const existing = tabs.find((t) => t.id === id)
+        if (existing) {
+          set({ activeTabId: existing.id })
+          return
+        }
+        const next: Tab = {
+          id,
+          connectionId: conn.id,
+          title: args.table,
+          type: 'postgres',
+          postgresView: {
+            kind: 'relatedRow',
+            database: args.database,
+            schema: args.schema,
+            table: args.table,
+            filterColumn: args.filterColumn,
+            filterValue: args.filterValue,
+            filterDisplay: args.filterDisplay,
+          },
+        }
+        set({ tabs: [...tabs, next], activeTabId: id })
+      },
+
+      setPostgresView: (tabId, view) => {
+        const { tabs } = get()
+        const next = tabs.map((t) =>
+          t.id === tabId ? { ...t, postgresView: view } : t,
+        )
+        set({ tabs: next })
       },
 
       closeTab: (id) => {

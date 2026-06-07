@@ -1,9 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ColumnMeta, EditableColumnKind } from '@/types/postgres'
 import { editableKindFor } from '@/types/postgres'
+
+export interface CellNavigationTarget {
+  /** Qualified or unqualified target table name, used in the tooltip. */
+  table: string
+  /** Called when the user clicks the link icon. */
+  onClick: () => void
+}
 
 interface EditableCellProps {
   value: unknown
@@ -12,6 +21,11 @@ interface EditableCellProps {
   disabled?: boolean
   onCommit: (next: unknown) => void
   onCancel: () => void
+  /**
+   * When set, the cell is rendered as a clickable FK link (in addition to its
+   * normal edit affordance). Only used when the cell is non-null/read-only.
+   */
+  navigateTo?: CellNavigationTarget
 }
 
 function parseInput(kind: EditableColumnKind, raw: string): { ok: true; value: unknown } | { ok: false; error: string } {
@@ -80,11 +94,13 @@ export function EditableCell({
   disabled,
   onCommit,
   onCancel,
+  navigateTo,
 }: EditableCellProps) {
   const kind = editableKindFor(column.udtName)
   const isEditable = !disabled && !column.isGenerated && kind !== 'readonly' && column.udtName !== 'uuid'
   const isNull = value === null || value === undefined
   const isDirty = !valuesEqual(value, original)
+  const canNavigate = !isNull && navigateTo !== undefined
 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<string>(formatValue(value, kind))
@@ -112,6 +128,16 @@ export function EditableCell({
   }, [editing, kind])
 
   if (!isEditable) {
+    if (canNavigate && navigateTo) {
+      return (
+        <NavigationLink
+          value={formatValue(value, kind)}
+          title={String(value)}
+          table={navigateTo.table}
+          onClick={navigateTo.onClick}
+        />
+      )
+    }
     return (
       <span
         className={cn(
@@ -140,20 +166,30 @@ export function EditableCell({
 
   if (!editing) {
     return (
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setEditing(true)}
+      <div
         className={cn(
-          'group/cell relative flex w-full items-center gap-1 rounded-sm px-1.5 py-0.5 text-left font-mono text-xs',
-          'hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          'group/cell relative flex w-full items-center gap-1 rounded-sm text-left font-mono text-xs',
           isNull && 'italic text-muted-foreground',
         )}
         title={isNull ? 'NULL' : String(value)}
       >
-        <span className="block truncate">{isNull ? 'NULL' : formatValue(value, kind)}</span>
-        {isDirty && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-amber-500" aria-label="Modified" />}
-      </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => setEditing(true)}
+          className={cn(
+            'min-w-0 flex-1 truncate rounded-sm px-1.5 py-0.5 text-left',
+            !disabled && 'hover:bg-muted/60',
+            'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          )}
+        >
+          {isNull ? 'NULL' : formatValue(value, kind)}
+        </button>
+        {canNavigate && navigateTo && (
+          <NavigationLinkIcon table={navigateTo.table} onClick={navigateTo.onClick} />
+        )}
+        {isDirty && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-label="Modified" />}
+      </div>
     )
   }
 
@@ -246,5 +282,82 @@ export function EditableCell({
       </div>
       {error && <span className="text-[10px] text-destructive">{error}</span>}
     </div>
+  )
+}
+
+function NavigationLink({
+  value,
+  title,
+  table,
+  onClick,
+}: {
+  value: string
+  title: string
+  table: string
+  onClick: () => void
+}) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onClick()
+            }}
+            className={cn(
+              'flex w-full min-w-0 items-center gap-1 truncate rounded-sm px-1.5 py-0.5 text-left font-mono text-xs',
+              'text-sky-600 hover:bg-sky-500/10 hover:text-sky-700 hover:underline',
+              'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              'dark:text-sky-400 dark:hover:text-sky-300',
+            )}
+            title={title}
+          >
+            <Link className="h-3 w-3 shrink-0 opacity-60" />
+            <span className="truncate">{value}</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={4}>
+          Open related row in <span className="font-mono">{table}</span>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+function NavigationLinkIcon({
+  table,
+  onClick,
+}: {
+  table: string
+  onClick: () => void
+}) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onClick()
+            }}
+            className={cn(
+              'flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground',
+              'hover:bg-sky-500/15 hover:text-sky-600',
+              'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              'opacity-0 group-hover/cell:opacity-100 focus-visible:opacity-100',
+            )}
+            aria-label={`Open related row in ${table}`}
+          >
+            <Link className="h-3 w-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={4}>
+          Open related row in <span className="font-mono">{table}</span>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }

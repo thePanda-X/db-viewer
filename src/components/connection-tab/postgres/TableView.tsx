@@ -3,9 +3,11 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  Filter,
   Loader2,
   Save,
   Undo2,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
@@ -38,9 +40,16 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { EditableCell } from './EditableCell'
-import type { TableMeta } from '@/types/postgres'
+import type { ForeignKey, TableMeta } from '@/types/postgres'
 import type { PostgresConfig } from '@/types/connection'
 import type { RefreshRefHandle } from './PostgresSidebar'
+
+export interface TableViewFilter {
+  column: string
+  value: unknown
+  /** Display value (e.g. "id = 42") shown in the filter chip. */
+  display?: string
+}
 
 interface TableViewProps {
   connectionId: string
@@ -48,6 +57,15 @@ interface TableViewProps {
   database: string
   schema: string
   table: string
+  /** Optional pre-applied WHERE filter. */
+  filter?: TableViewFilter
+  /** Called when the user clears the filter (e.g. to open the full table). */
+  onClearFilter?: () => void
+  /**
+   * Optional callback invoked when the user clicks a clickable FK cell. The
+   * parent is responsible for opening the new tab. Defaults to no-op.
+   */
+  onNavigateRelation?: (fk: ForeignKey, value: unknown) => void
   onPendingChangesChange?: (count: number) => void
   onConfirmNavigationRequest?: (action: () => void) => void
   refreshRef?: RefreshRefHandle
@@ -93,12 +111,16 @@ export function TableView({
   database,
   schema,
   table,
+  filter,
+  onClearFilter,
+  onNavigateRelation,
   onPendingChangesChange,
   onConfirmNavigationRequest,
   refreshRef,
 }: TableViewProps) {
   const [meta, setMeta] = useState<TableMeta | null>(null)
   const [metaError, setMetaError] = useState<string | null>(null)
+  const [relations, setRelations] = useState<ForeignKey[]>([])
   const [originalRows, setOriginalRows] = useState<Row[]>([])
   const [edits, setEdits] = useState<Map<string, Map<string, unknown>>>(new Map())
   const [loading, setLoading] = useState(false)
@@ -139,6 +161,40 @@ export function TableView({
     }
   }, [connectionId, config, database, schema, table])
 
+  const fetchRelations = useCallback(async () => {
+    try {
+      const result = await api.postgres.getTableRelations({
+        connectionId,
+        config,
+        database,
+        schema,
+        table,
+      })
+      if (result.ok) {
+        setRelations(result.relations)
+      } else {
+        // Fall back to an empty list; FK cells just won't be clickable.
+        setRelations([])
+      }
+    } catch {
+      setRelations([])
+    }
+  }, [connectionId, config, database, schema, table])
+
+  const buildWhereAndParams = useCallback(
+    (baseParams: unknown[]): { sql: string; params: unknown[] } => {
+      if (!filter) {
+        return { sql: '', params: baseParams }
+      }
+      const paramIndex = baseParams.length + 1
+      return {
+        sql: ` WHERE ${quoteIdent(filter.column)} = $${paramIndex}`,
+        params: [...baseParams, filter.value],
+      }
+    },
+    [filter],
+  )
+
   const fetchData = useCallback(async () => {
     const seq = ++fetchSeq.current
     setLoading(true)
@@ -146,11 +202,14 @@ export function TableView({
     setSaveError(null)
     setFailedRowIndex(null)
     try {
-      const sql = `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)} LIMIT $1 OFFSET $2`
+      const limitParam = `$${1}`
+      const offsetParam = `$${2}`
+      const where = buildWhereAndParams([limit, offset])
+      const sql = `SELECT * FROM ${quoteIdent(schema)}.${quoteIdent(table)}${where.sql} LIMIT ${limitParam} OFFSET ${offsetParam}`
       const result = await api.postgres.readOnlyQuery({
         connectionId,
         config: currentConfig,
-        request: { sql, params: [limit, offset] },
+        request: { sql, params: where.params },
       })
       if (seq !== fetchSeq.current) return
       if (result.ok) {
@@ -167,16 +226,17 @@ export function TableView({
     } finally {
       if (seq === fetchSeq.current) setLoading(false)
     }
-  }, [connectionId, currentConfig, schema, table, limit, offset])
+  }, [connectionId, currentConfig, schema, table, limit, offset, buildWhereAndParams])
 
   const fetchCount = useCallback(async () => {
     setCountLoading(true)
     try {
-      const sql = `SELECT COUNT(*)::bigint AS n FROM ${quoteIdent(schema)}.${quoteIdent(table)}`
+      const where = buildWhereAndParams([])
+      const sql = `SELECT COUNT(*)::bigint AS n FROM ${quoteIdent(schema)}.${quoteIdent(table)}${where.sql}`
       const result = await api.postgres.readOnlyQuery({
         connectionId,
         config: currentConfig,
-        request: { sql },
+        request: { sql, params: where.params },
       })
       if (result.ok && result.result.rows.length > 0) {
         const n = Number(result.result.rows[0][0])
@@ -189,11 +249,15 @@ export function TableView({
     } finally {
       setCountLoading(false)
     }
-  }, [connectionId, currentConfig, schema, table])
+  }, [connectionId, currentConfig, schema, table, buildWhereAndParams])
 
   useEffect(() => {
     void fetchMeta()
   }, [fetchMeta])
+
+  useEffect(() => {
+    void fetchRelations()
+  }, [fetchRelations])
 
   useEffect(() => {
     void fetchData()
@@ -204,16 +268,21 @@ export function TableView({
   }, [fetchCount])
 
   useEffect(() => {
+    setOffset(0)
+  }, [schema, table, filter?.column, filter?.value])
+
+  useEffect(() => {
     if (!refreshRef) return
     refreshRef.current = () => {
       void fetchMeta()
+      void fetchRelations()
       void fetchData()
       void fetchCount()
     }
     return () => {
       if (refreshRef) refreshRef.current = null
     }
-  }, [refreshRef, fetchMeta, fetchData, fetchCount])
+  }, [refreshRef, fetchMeta, fetchRelations, fetchData, fetchCount])
 
   const pendingCount = useMemo(() => {
     let count = 0
@@ -222,6 +291,16 @@ export function TableView({
     }
     return count
   }, [edits])
+
+  const relationsByColumn = useMemo(() => {
+    const map = new Map<string, ForeignKey>()
+    for (const r of relations) {
+      if (r.constraintColumns.length === 1) {
+        map.set(r.column, r)
+      }
+    }
+    return map
+  }, [relations])
 
   useHotkey('Mod+S', {
     label: 'Save changes',
@@ -440,7 +519,18 @@ export function TableView({
             ) : originalRows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={meta.columns.length} className="h-32 text-center text-xs text-muted-foreground">
-                  No rows.
+                  {filter ? (
+                    <div className="mx-auto flex max-w-sm flex-col items-center gap-1.5">
+                      <span>No rows match the current filter.</span>
+                      {onClearFilter && (
+                        <Button size="sm" variant="outline" className="h-6 text-[11px]" onClick={onClearFilter}>
+                          Show full table
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    'No rows.'
+                  )}
                 </TableCell>
               </TableRow>
             ) : (
@@ -462,6 +552,7 @@ export function TableView({
                     {meta.columns.map((col) => {
                       const edited = rowEdits?.get(col.name)
                       const current = edited !== undefined ? edited : row[col.name]
+                      const fk = relationsByColumn.get(col.name)
                       return (
                         <TableCell
                           key={col.name}
@@ -477,6 +568,14 @@ export function TableView({
                             disabled={!hasPrimaryKey}
                             onCommit={(next) => setCellEdit(rowIdx, col.name, next)}
                             onCancel={() => {}}
+                            {...(fk && current !== null && current !== undefined
+                              ? {
+                                  navigateTo: {
+                                    table: `${fk.referencedSchema}.${fk.referencedTable}`,
+                                    onClick: () => onNavigateRelation?.(fk, current),
+                                  },
+                                }
+                              : {})}
                           />
                         </TableCell>
                       )
@@ -490,7 +589,32 @@ export function TableView({
       </div>
 
       <div className="flex h-11 shrink-0 items-center justify-between border-t border-border bg-muted/20 px-3 text-xs">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {filter && (
+            <div
+              className={cn(
+                'flex h-7 items-center gap-1.5 rounded-md border border-sky-500/40 bg-sky-500/10 pl-2 pr-1 font-mono text-[11px] text-sky-700 dark:text-sky-300',
+              )}
+              title="Active filter — clear it to see all rows"
+            >
+              <Filter className="h-3 w-3 shrink-0" />
+              <span className="truncate">
+                {filter.display ??
+                  `${filter.column} = ${formatFilterValue(filter.value)}`}
+              </span>
+              {onClearFilter && (
+                <button
+                  type="button"
+                  onClick={onClearFilter}
+                  className="ml-0.5 flex h-5 w-5 items-center justify-center rounded-sm text-sky-700/70 hover:bg-sky-500/20 hover:text-sky-900 dark:text-sky-300/70 dark:hover:text-sky-100"
+                  aria-label="Clear filter"
+                  title="Clear filter"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          )}
           <span className="text-muted-foreground">Rows</span>
           <span className="font-mono">
             {showRangeStart.toLocaleString()}–{showRangeEnd.toLocaleString()}
@@ -601,6 +725,19 @@ function quoteIdent(name: string): string {
     throw new Error(`Invalid identifier: ${name}`)
   }
   return `"${name}"`
+}
+
+function formatFilterValue(value: unknown): string {
+  if (value === null || value === undefined) return 'NULL'
+  if (typeof value === 'string') return `'${value}'`
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return String(value)
+    }
+  }
+  return String(value)
 }
 
 function describeRelationError(error: string, database: string, qualified: string): string | null {

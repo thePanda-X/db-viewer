@@ -49,6 +49,23 @@ export interface TableMeta {
   primaryKey: string[] | null
 }
 
+export interface ForeignKey {
+  /** Name of the constraint in the database (used to group composite FKs) */
+  constraintName: string
+  /** Referencing column on the local table */
+  column: string
+  /** Referenced schema, table, and column on the other side */
+  referencedSchema: string
+  referencedTable: string
+  referencedColumn: string
+  /**
+   * All columns that share this constraint, in ordinal order. A length of 1
+   * means the FK is a single-column reference; longer means composite. We only
+   * enable navigation for single-column FKs.
+   */
+  constraintColumns: string[]
+}
+
 export interface SaveChange {
   original: Record<string, unknown>
   changes: Record<string, unknown>

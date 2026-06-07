@@ -6,6 +6,7 @@ import type {
   SaveChangesRequest,
   SaveChangesResponse,
   TableMeta,
+  ForeignKey,
 } from '../src/types/postgres'
 import type { RedisConfig } from '../src/types/connection'
 import type {
@@ -73,6 +74,16 @@ const api = {
     }): Promise<{ ok: true; meta: TableMeta } | { ok: false; error: string }> =>
       ipcRenderer.invoke('postgres:getTableMeta', args) as Promise<
         { ok: true; meta: TableMeta } | { ok: false; error: string }
+      >,
+    getTableRelations: (args: {
+      connectionId: string
+      config: PostgresConfig
+      database: string
+      schema: string
+      table: string
+    }): Promise<{ ok: true; relations: ForeignKey[] } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('postgres:getTableRelations', args) as Promise<
+        { ok: true; relations: ForeignKey[] } | { ok: false; error: string }
       >,
     saveChanges: (args: {
       connectionId: string
