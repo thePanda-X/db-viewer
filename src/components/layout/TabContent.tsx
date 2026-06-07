@@ -25,5 +25,5 @@ export function TabContent({ onCreateClick }: TabContentProps) {
     return <TabNotFound tabId={tab.id} />
   }
 
-  return <ConnectionTab connection={conn} />
+  return <ConnectionTab connection={conn} tab={tab} />
 }

@@ -1,4 +1,4 @@
-import { AlertCircle, Loader2, X } from 'lucide-react'
+import { AlertCircle, Link, Loader2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -8,9 +8,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { useEffect } from 'react'
-import type { QueryResult } from '@/types/postgres'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { api } from '@/lib/api'
+import type { PostgresConfig } from '@/types/connection'
+import type { QueryResult, TableInfo } from '@/types/postgres'
 import type { RefreshRefHandle } from './PostgresSidebar'
 
 interface QueryResultViewProps {
@@ -20,6 +23,18 @@ interface QueryResultViewProps {
   onClose: () => void
   onRerun?: () => void
   refreshRef?: RefreshRefHandle
+  /** Connection context for heuristic FK navigation. */
+  connectionId?: string
+  config?: PostgresConfig
+  database?: string
+  /** Called when the user clicks a clickable FK-like cell. */
+  onNavigateRelation?: (args: {
+    referencedSchema: string
+    referencedTable: string
+    referencedColumn: string
+    value: unknown
+    display: string
+  }) => void
 }
 
 function formatCell(value: unknown): string {
@@ -36,6 +51,24 @@ function formatCell(value: unknown): string {
   return String(value)
 }
 
+/**
+ * Best-effort guess at a referenced table name from a column label. Heuristics:
+ *   "user_id"  → "user"
+ *   "id"       → null (ambiguous)
+ *   "ownerId"  → "owner"
+ * Anything we can't match is left as a plain text cell.
+ */
+function guessReferencedTable(column: string): string | null {
+  const lower = column.toLowerCase()
+  if (lower === 'id' || lower.endsWith('._id')) return null
+  if (lower.endsWith('_id')) {
+    const stem = lower.slice(0, -3)
+    // crude singularization: drop trailing 's' if present
+    return stem.endsWith('s') && stem.length > 1 ? stem.slice(0, -1) : stem
+  }
+  return null
+}
+
 export function QueryResultView({
   result,
   error,
@@ -43,6 +76,10 @@ export function QueryResultView({
   onClose,
   onRerun,
   refreshRef,
+  connectionId,
+  config,
+  database,
+  onNavigateRelation,
 }: QueryResultViewProps) {
   useEffect(() => {
     if (!refreshRef || !onRerun) return
@@ -53,6 +90,46 @@ export function QueryResultView({
       if (refreshRef) refreshRef.current = null
     }
   }, [refreshRef, onRerun, running])
+
+  const canResolve = Boolean(connectionId && config && database)
+  const [tables, setTables] = useState<TableInfo[] | null>(null)
+  const tablesSeq = useRef(0)
+
+  // Refresh table list whenever the database context changes.
+  useEffect(() => {
+    if (!canResolve || !connectionId || !config || !database) {
+      setTables(null)
+      return
+    }
+    const seq = ++tablesSeq.current
+    void (async () => {
+      const res = await api.postgres.listTables({ connectionId, config, database })
+      if (seq !== tablesSeq.current) return
+      if ('error' in res) {
+        setTables([])
+        return
+      }
+      setTables(res)
+    })()
+  }, [canResolve, connectionId, config, database])
+
+  // Map: columnName -> { schema, table, column } for any guess we can resolve.
+  const navigationByColumn = useMemo(() => {
+    if (!result || !tables) return new Map<string, { schema: string; table: string }>()
+    const byLowerName = new Map<string, TableInfo>()
+    for (const t of tables) byLowerName.set(t.name.toLowerCase(), t)
+    const out = new Map<string, { schema: string; table: string }>()
+    for (const col of result.columns) {
+      const guess = guessReferencedTable(col)
+      if (!guess) continue
+      const match = byLowerName.get(guess)
+      if (match) {
+        out.set(col, { schema: match.schema, table: match.name })
+      }
+    }
+    return out
+  }, [result, tables])
+
   return (
     <div className="flex h-full flex-col bg-background">
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-border bg-muted/20 px-3 text-xs">
@@ -104,6 +181,11 @@ export function QueryResultView({
                   <span className="text-amber-600 dark:text-amber-400">truncated to 10 000</span>
                 </>
               )}
+              {navigationByColumn.size > 0 && onNavigateRelation && (
+                <span className="ml-auto text-[10px]">
+                  click <Link className="inline h-2.5 w-2.5 align-middle" /> to open related row
+                </span>
+              )}
             </div>
             <Table>
               <TableHeader>
@@ -111,6 +193,14 @@ export function QueryResultView({
                   {result.columns.map((c) => (
                     <TableHead key={c} className="whitespace-nowrap font-mono text-xs">
                       {c}
+                      {navigationByColumn.has(c) && (
+                        <span
+                          className="ml-1 align-middle text-[10px] text-sky-600/70 dark:text-sky-400/70"
+                          title="Heuristic FK link"
+                        >
+                          <Link className="inline h-2.5 w-2.5" />
+                        </span>
+                      )}
                     </TableHead>
                   ))}
                 </TableRow>
@@ -118,18 +208,61 @@ export function QueryResultView({
               <TableBody>
                 {result.rows.map((row, i) => (
                   <TableRow key={i}>
-                    {row.map((cell, j) => (
-                      <TableCell
-                        key={j}
-                        className={cn(
-                          'max-w-[360px] truncate align-top font-mono text-xs',
-                          (cell === null || cell === undefined) && 'italic text-muted-foreground',
-                        )}
-                        title={formatCell(cell)}
-                      >
-                        {formatCell(cell)}
-                      </TableCell>
-                    ))}
+                    {row.map((cell, j) => {
+                      const colName = result.columns[j]
+                      const nav = navigationByColumn.get(colName)
+                      const isNull = cell === null || cell === undefined
+                      if (nav && !isNull && onNavigateRelation) {
+                        return (
+                          <TableCell
+                            key={j}
+                            className="max-w-[360px] truncate align-top font-mono text-xs"
+                          >
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      onNavigateRelation({
+                                        referencedSchema: nav.schema,
+                                        referencedTable: nav.table,
+                                        referencedColumn: 'id',
+                                        value: cell,
+                                        display: formatCell(cell),
+                                      })
+                                    }
+                                    className={cn(
+                                      'flex max-w-full items-center gap-1 truncate rounded-sm px-1 py-0.5 text-left text-sky-600 hover:bg-sky-500/10 hover:underline',
+                                      'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                                      'dark:text-sky-400 dark:hover:text-sky-300',
+                                    )}
+                                  >
+                                    <Link className="h-3 w-3 shrink-0 opacity-60" />
+                                    <span className="truncate">{formatCell(cell)}</span>
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" sideOffset={4}>
+                                  Open row in <span className="font-mono">{nav.schema}.{nav.table}</span>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </TableCell>
+                        )
+                      }
+                      return (
+                        <TableCell
+                          key={j}
+                          className={cn(
+                            'max-w-[360px] truncate align-top font-mono text-xs',
+                            isNull && 'italic text-muted-foreground',
+                          )}
+                          title={formatCell(cell)}
+                        >
+                          {formatCell(cell)}
+                        </TableCell>
+                      )
+                    })}
                   </TableRow>
                 ))}
               </TableBody>

@@ -5,6 +5,7 @@ import { listConnections, setConnections } from './connections'
 import {
   disconnect as pgDisconnect,
   getTableMeta,
+  getTableRelations,
   listDatabases,
   listTables,
   runQuery,
@@ -38,6 +39,7 @@ import type {
   SaveChangesRequest,
   SaveChangesResponse,
   TableMeta,
+  ForeignKey,
 } from '../src/types/postgres'
 import type { RedisCommandResult, RedisKeyMeta, RedisKeyValue, RedisKeyType } from '../src/types/redis'
 
@@ -291,6 +293,27 @@ app.whenReady().then(() => {
           args.table,
         )
         return { ok: true, meta }
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'postgres:getTableRelations',
+    async (
+      _event,
+      args: TableMetaArgs,
+    ): Promise<{ ok: true; relations: ForeignKey[] } | { ok: false; error: string }> => {
+      try {
+        const relations = await getTableRelations(
+          args.connectionId,
+          args.config,
+          args.database ?? args.config.database,
+          args.schema,
+          args.table,
+        )
+        return { ok: true, relations }
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) }
       }

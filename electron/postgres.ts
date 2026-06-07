@@ -3,6 +3,7 @@ import type pg from 'pg'
 import type {
   ColumnMeta,
   DatabaseInfo,
+  ForeignKey,
   PostgresConfig,
   QueryRequest,
   QueryResponse,
@@ -280,6 +281,73 @@ function ident(name: string): string {
     throw new Error(`Invalid identifier: ${name}`)
   }
   return `"${name}"`
+}
+
+export async function getTableRelations(
+  connectionId: string,
+  config: PostgresConfig,
+  database: string,
+  schema: string,
+  table: string,
+): Promise<ForeignKey[]> {
+  const res = await runReadOnlyQuery(connectionId, { ...config, database }, {
+    sql: `SELECT
+            c.conname        AS constraint_name,
+            a.attname        AS column_name,
+            nr.nspname       AS ref_schema,
+            cr.relname       AS ref_table,
+            af.attname       AS ref_column,
+            ord.ord          AS ordinal
+          FROM pg_constraint c
+          JOIN pg_class     c1  ON c1.oid = c.conrelid
+          JOIN pg_namespace n1  ON n1.oid = c1.relnamespace
+          JOIN pg_class     cr  ON cr.oid = c.confrelid
+          JOIN pg_namespace nr  ON nr.oid = cr.relnamespace
+          JOIN unnest(c.conkey)   WITH ORDINALITY AS ord(attnum, ord) ON TRUE
+          JOIN pg_attribute a  ON a.attrelid = c1.oid   AND a.attnum  = ord.attnum
+          JOIN pg_attribute af ON af.attrelid = cr.oid  AND af.attnum = ord.attnum
+          WHERE c.contype = 'f'
+            AND n1.nspname = $1
+            AND c1.relname = $2
+          ORDER BY c.conname, ord.ord::int`,
+    params: [schema, table],
+  })
+  if (!res.ok) throw new Error(res.error)
+  if (res.result.rows.length === 0) return []
+
+  type Row = {
+    constraintName: string
+    columnName: string
+    refSchema: string
+    refTable: string
+    refColumn: string
+    constraintColumns: string[]
+  }
+  const grouped = new Map<string, Row>()
+  for (const r of res.result.rows) {
+    const constraintName = String(r[0])
+    let row = grouped.get(constraintName)
+    if (!row) {
+      row = {
+        constraintName,
+        columnName: String(r[1]),
+        refSchema: String(r[2]),
+        refTable: String(r[3]),
+        refColumn: String(r[4]),
+        constraintColumns: [],
+      }
+      grouped.set(constraintName, row)
+    }
+    row.constraintColumns.push(String(r[1]))
+  }
+  return Array.from(grouped.values()).map((r) => ({
+    constraintName: r.constraintName,
+    column: r.columnName,
+    referencedSchema: r.refSchema,
+    referencedTable: r.refTable,
+    referencedColumn: r.refColumn,
+    constraintColumns: r.constraintColumns,
+  }))
 }
 
 function literalize(value: unknown): string {

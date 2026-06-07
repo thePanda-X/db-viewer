@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Database, Loader2 } from 'lucide-react'
+import { ArrowLeft, Database, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useActiveRefresh } from '@/lib/hotkeys'
 import { toast } from '@/state/toastStore'
+import { useTabsStore } from '@/state/tabsStore'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,20 +19,28 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { PostgresSidebar, type RefreshRefHandle } from './PostgresSidebar'
-import { TableView } from './TableView'
+import { TableView, type TableViewFilter } from './TableView'
 import { QueryBar } from './QueryBar'
 import { QueryResultView } from './QueryResultView'
-import type { QueryResult } from '@/types/postgres'
+import type { ForeignKey, QueryResult } from '@/types/postgres'
 import type { Connection, PostgresConfig } from '@/types/connection'
+import type { PostgresTabView, Tab } from '@/types/tab'
 
 interface PostgresTabProps {
   connection: Connection
+  tab: Tab
 }
 
 const DEFAULT_SCHEMA = 'public'
 
-export function PostgresTab({ connection }: PostgresTabProps) {
+export function PostgresTab({ connection, tab }: PostgresTabProps) {
   const config = connection.config as PostgresConfig
+  const view: PostgresTabView = useMemo(
+    () => tab.postgresView ?? { kind: 'default' },
+    [tab.postgresView],
+  )
+  const isPinned = view.kind === 'relatedRow'
+
   const [database, setDatabase] = useState<string>(config.database)
   const [schema, setSchema] = useState<string>(DEFAULT_SCHEMA)
   const [selectedTable, setSelectedTable] = useState<{ schema: string; table: string } | null>(null)
@@ -44,25 +54,63 @@ export function PostgresTab({ connection }: PostgresTabProps) {
   const hasPendingChanges = pendingChanges > 0
   const showCustomResults = customResult !== null || customError !== null || customRunning
   const currentConfig = useMemo(() => ({ ...config, database }), [config, database])
+  const setPostgresView = useTabsStore((s) => s.setPostgresView)
+  const openRelatedRow = useTabsStore((s) => s.openRelatedRow)
 
   const sidebarRefreshRef = useRef<RefreshRefHandle>({ current: null })
   const tableRefreshRef = useRef<RefreshRefHandle>({ current: null })
   const queryRefreshRef = useRef<RefreshRefHandle>({ current: null })
 
+  // Sync local state from the tab view when the tab or its view changes.
+  useEffect(() => {
+    if (view.kind === 'relatedRow') {
+      setDatabase(view.database)
+      setSchema(view.schema)
+      setSelectedTable({ schema: view.schema, table: view.table })
+    } else if (view.kind === 'table') {
+      setDatabase(view.database)
+      setSchema(view.schema)
+      setSelectedTable({ schema: view.schema, table: view.table })
+    } else {
+      setSelectedTable(null)
+    }
+    // We intentionally only re-run this when the tab or the structural view
+    // changes — not on every local state update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab.id, view.kind, view.kind === 'relatedRow' ? view.database : null])
+
+  // Mirror local state to the tab view for sidebar-driven changes.
+  useEffect(() => {
+    if (isPinned) return
+    if (selectedTable) {
+      setPostgresView(tab.id, {
+        kind: 'table',
+        database,
+        schema,
+        table: selectedTable.table,
+      })
+    } else {
+      setPostgresView(tab.id, { kind: 'default' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPinned, database, schema, selectedTable?.schema, selectedTable?.table])
+
   const refreshAll = useCallback(() => {
-    sidebarRefreshRef.current.current?.()
-    if (selectedTable) tableRefreshRef.current.current?.()
-    if (lastCustomSql) queryRefreshRef.current.current?.()
+    if (!isPinned) sidebarRefreshRef.current.current?.()
+    tableRefreshRef.current.current?.()
+    if (!isPinned && lastCustomSql) queryRefreshRef.current.current?.()
     toast({
       message: `Refreshed ${connection.name}`,
-      detail: [
-        selectedTable ? `table ${selectedTable.schema}.${selectedTable.table}` : 'sidebar',
-        lastCustomSql ? 'last query' : null,
-      ]
-        .filter(Boolean)
-        .join(' · '),
+      detail: isPinned
+        ? `related view of ${schema}.${view.kind === 'relatedRow' ? view.table : ''}`
+        : [
+            selectedTable ? `table ${selectedTable.schema}.${selectedTable.table}` : 'sidebar',
+            lastCustomSql ? 'last query' : null,
+          ]
+            .filter(Boolean)
+            .join(' · '),
     })
-  }, [connection.name, selectedTable, lastCustomSql])
+  }, [connection.name, isPinned, schema, view, selectedTable, lastCustomSql])
 
   useActiveRefresh(refreshAll, connection.name)
 
@@ -134,6 +182,59 @@ export function PostgresTab({ connection }: PostgresTabProps) {
     setPendingChanges(count)
   }, [])
 
+  const handleNavigateRelation = useCallback(
+    (fk: ForeignKey, value: unknown) => {
+      const display = value === null || value === undefined ? 'NULL' : String(value)
+      guarded(() => {
+        openRelatedRow(connection, {
+          database,
+          schema: fk.referencedSchema,
+          table: fk.referencedTable,
+          filterColumn: fk.referencedColumn,
+          filterValue: value,
+          filterDisplay: `${fk.column} → ${display}`,
+        })
+      })
+    },
+    [connection, database, guarded, openRelatedRow],
+  )
+
+  const handleNavigateAdHoc = useCallback(
+    (args: {
+      referencedSchema: string
+      referencedTable: string
+      referencedColumn: string
+      value: unknown
+      display: string
+    }) => {
+      guarded(() => {
+        openRelatedRow(connection, {
+          database,
+          schema: args.referencedSchema,
+          table: args.referencedTable,
+          filterColumn: args.referencedColumn,
+          filterValue: args.value,
+          filterDisplay: `${args.referencedTable}.${args.referencedColumn} = ${args.display}`,
+        })
+      })
+    },
+    [connection, database, guarded, openRelatedRow],
+  )
+
+  const handleClearFilter = useCallback(() => {
+    if (view.kind !== 'relatedRow') return
+    setPostgresView(tab.id, {
+      kind: 'table',
+      database: view.database,
+      schema: view.schema,
+      table: view.table,
+    })
+  }, [setPostgresView, tab.id, view])
+
+  const handleBackToExplorer = useCallback(() => {
+    setPostgresView(tab.id, { kind: 'default' })
+  }, [setPostgresView, tab.id])
+
   const confirmPendingAction = () => {
     if (pendingAction) {
       const fn = pendingAction
@@ -185,19 +286,36 @@ export function PostgresTab({ connection }: PostgresTabProps) {
     setCustomRunning(false)
   }, [])
 
+  const headerTable = isPinned
+    ? view.kind === 'relatedRow'
+      ? { schema: view.schema, table: view.table }
+      : null
+    : selectedTable
+
+  const activeTableViewFilter: TableViewFilter | undefined =
+    view.kind === 'relatedRow'
+      ? {
+          column: view.filterColumn,
+          value: view.filterValue,
+          display: view.filterDisplay,
+        }
+      : undefined
+
   return (
     <div className="flex h-full overflow-hidden">
-      <PostgresSidebar
-        connectionId={connection.id}
-        config={config}
-        selectedDatabase={database}
-        onDatabaseChange={handleDatabaseChange}
-        selectedTable={selectedTable}
-        onSelectTable={handleSelectTable}
-        selectedSchema={schema}
-        onSchemaChange={handleSchemaChange}
-        refreshRef={sidebarRefreshRef.current}
-      />
+      {!isPinned && (
+        <PostgresSidebar
+          connectionId={connection.id}
+          config={config}
+          selectedDatabase={database}
+          onDatabaseChange={handleDatabaseChange}
+          selectedTable={selectedTable}
+          onSelectTable={handleSelectTable}
+          selectedSchema={schema}
+          onSchemaChange={handleSchemaChange}
+          refreshRef={sidebarRefreshRef.current}
+        />
+      )}
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-9 shrink-0 items-center gap-3 border-b border-border bg-background px-3 text-xs">
@@ -208,13 +326,34 @@ export function PostgresTab({ connection }: PostgresTabProps) {
           </Badge>
           <Separator orientation="vertical" className="h-3" />
           <span className="font-mono text-[11px] text-muted-foreground">{database}</span>
-          {selectedTable && (
+          {headerTable && (
             <>
               <span className="text-muted-foreground">/</span>
-              <span className="font-mono text-[11px]">{selectedTable.schema}</span>
+              <span className="font-mono text-[11px]">{headerTable.schema}</span>
               <span className="text-muted-foreground">.</span>
-              <span className="font-mono text-[11px] font-semibold">{selectedTable.table}</span>
+              <span className="font-mono text-[11px] font-semibold">{headerTable.table}</span>
             </>
+          )}
+          {isPinned && (
+            <Badge
+              variant="outline"
+              className="border-sky-500/40 bg-sky-500/10 px-1.5 py-0 text-[10px] font-normal text-sky-700 dark:text-sky-300"
+              title="This tab was opened from a foreign-key link"
+            >
+              Related row
+            </Badge>
+          )}
+          {isPinned && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-1 h-6 px-2 text-[11px] text-muted-foreground"
+              onClick={handleBackToExplorer}
+              title="Open this table in the sidebar"
+            >
+              <ArrowLeft className="mr-1 h-3 w-3" />
+              Open in sidebar
+            </Button>
           )}
           {hasPendingChanges && (
             <Badge
@@ -227,7 +366,7 @@ export function PostgresTab({ connection }: PostgresTabProps) {
         </header>
 
         <div className="relative min-h-0 flex-1">
-          {selectedTable && (
+          {headerTable && (
             <div
               className={cn(
                 'absolute inset-0',
@@ -238,15 +377,18 @@ export function PostgresTab({ connection }: PostgresTabProps) {
                 connectionId={connection.id}
                 config={config}
                 database={database}
-                schema={selectedTable.schema}
-                table={selectedTable.table}
+                schema={headerTable.schema}
+                table={headerTable.table}
+                {...(activeTableViewFilter ? { filter: activeTableViewFilter } : {})}
+                {...(activeTableViewFilter ? { onClearFilter: handleClearFilter } : {})}
+                onNavigateRelation={handleNavigateRelation}
                 onPendingChangesChange={handlePendingChangesChange}
                 onConfirmNavigationRequest={guarded}
                 refreshRef={tableRefreshRef.current}
               />
             </div>
           )}
-          {showCustomResults && (
+          {!isPinned && showCustomResults && (
             <div className="absolute inset-0">
               <QueryResultView
                 result={customResult}
@@ -257,19 +399,25 @@ export function PostgresTab({ connection }: PostgresTabProps) {
                   ? { onRerun: () => void executeRun(lastCustomSql) }
                   : {})}
                 refreshRef={queryRefreshRef.current}
+                connectionId={connection.id}
+                config={config}
+                database={database}
+                onNavigateRelation={handleNavigateAdHoc}
               />
             </div>
           )}
-          {!selectedTable && !showCustomResults && (
+          {!headerTable && !showCustomResults && (
             <div className="absolute inset-0">
               <EmptyState database={database} />
             </div>
           )}
         </div>
 
-        <div className="h-44 shrink-0 border-t border-border">
-          <QueryBar database={database} running={customRunning} onRun={runCustomQuery} />
-        </div>
+        {!isPinned && (
+          <div className="h-44 shrink-0 border-t border-border">
+            <QueryBar database={database} running={customRunning} onRun={runCustomQuery} />
+          </div>
+        )}
       </div>
 
       <AlertDialog

@@ -7,6 +7,7 @@ import type {
   TableMeta,
   DatabaseInfo,
   TableInfo,
+  ForeignKey,
 } from '@/types/postgres'
 import type {
   RedisCommandResult,
@@ -58,6 +59,14 @@ export const api = {
       table: string
     }): Promise<{ ok: true; meta: TableMeta } | { ok: false; error: string }> =>
       window.api.postgres.getTableMeta(args),
+    getTableRelations: (args: {
+      connectionId: string
+      config: PostgresConfig
+      database: string
+      schema: string
+      table: string
+    }): Promise<{ ok: true; relations: ForeignKey[] } | { ok: false; error: string }> =>
+      window.api.postgres.getTableRelations(args),
     saveChanges: (args: {
       connectionId: string
       config: PostgresConfig

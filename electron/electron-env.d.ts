@@ -64,6 +64,15 @@ interface PostgresTableMeta {
   primaryKey: string[] | null
 }
 
+interface PostgresForeignKey {
+  constraintName: string
+  column: string
+  referencedSchema: string
+  referencedTable: string
+  referencedColumn: string
+  constraintColumns: string[]
+}
+
 interface PostgresSaveChange {
   original: Record<string, unknown>
   changes: Record<string, unknown>
@@ -153,6 +162,13 @@ interface ExposedApi {
       schema: string
       table: string
     }) => Promise<{ ok: true; meta: PostgresTableMeta } | { ok: false; error: string }>
+    getTableRelations: (args: {
+      connectionId: string
+      config: PostgresExposedConfig
+      database: string
+      schema: string
+      table: string
+    }) => Promise<{ ok: true; relations: PostgresForeignKey[] } | { ok: false; error: string }>
     saveChanges: (args: {
       connectionId: string
       config: PostgresExposedConfig
