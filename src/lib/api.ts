@@ -10,6 +10,15 @@ import type {
   ForeignKey,
 } from '@/types/postgres'
 import type {
+  QueryRequest as SqliteQueryRequest,
+  QueryResponse as SqliteQueryResponse,
+  TableMeta as SqliteTableMeta,
+  ForeignKey as SqliteForeignKey,
+  SaveChangesRequest as SqliteSaveChangesRequest,
+  SaveChangesResponse as SqliteSaveChangesResponse,
+  TableInfo as SqliteTableInfo,
+} from '@/types/sqlite'
+import type {
   RedisCommandResult,
   RedisKeyMeta,
   RedisKeyType,
@@ -74,6 +83,41 @@ export const api = {
     }): Promise<SaveChangesResponse> => window.api.postgres.saveChanges(args),
     disconnect: (args: { connectionId: string; database?: string }): Promise<{ ok: true }> =>
       window.api.postgres.disconnect(args),
+  },
+  sqlite: {
+    query: (args: {
+      connectionId: string
+      filePath: string
+      request: SqliteQueryRequest
+    }): Promise<SqliteQueryResponse> => window.api.sqlite.query(args),
+    readOnlyQuery: (args: {
+      connectionId: string
+      filePath: string
+      request: SqliteQueryRequest
+    }): Promise<SqliteQueryResponse> => window.api.sqlite.readOnlyQuery(args),
+    listTables: (args: {
+      connectionId: string
+      filePath: string
+    }): Promise<SqliteTableInfo[] | { error: string }> => window.api.sqlite.listTables(args),
+    getTableMeta: (args: {
+      connectionId: string
+      filePath: string
+      table: string
+    }): Promise<{ ok: true; meta: SqliteTableMeta } | { ok: false; error: string }> =>
+      window.api.sqlite.getTableMeta(args),
+    getTableRelations: (args: {
+      connectionId: string
+      filePath: string
+      table: string
+    }): Promise<{ ok: true; relations: SqliteForeignKey[] } | { ok: false; error: string }> =>
+      window.api.sqlite.getTableRelations(args),
+    saveChanges: (args: {
+      connectionId: string
+      filePath: string
+      request: SqliteSaveChangesRequest
+    }): Promise<SqliteSaveChangesResponse> => window.api.sqlite.saveChanges(args),
+    disconnect: (args: { connectionId: string }): Promise<{ ok: true }> =>
+      window.api.sqlite.disconnect(args),
   },
   redis: {
     ping: (args: { connectionId: string; config: RedisConfig }) =>

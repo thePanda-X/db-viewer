@@ -13,6 +13,15 @@ import {
   saveChanges,
 } from './postgres'
 import {
+  disconnect as sqliteDisconnect,
+  getTableMeta as sqliteGetTableMeta,
+  getTableRelations as sqliteGetTableRelations,
+  listTables as sqliteListTables,
+  runQuery as sqliteRunQuery,
+  runReadOnlyQuery as sqliteRunReadOnlyQuery,
+  saveChanges as sqliteSaveChanges,
+} from './sqlite'
+import {
   addSetMember as redisAddSetMember,
   addStreamEntry as redisAddStreamEntry,
   deleteHashField as redisDeleteHashField,
@@ -41,6 +50,14 @@ import type {
   TableMeta,
   ForeignKey,
 } from '../src/types/postgres'
+import type {
+  QueryRequest as SqliteQueryRequest,
+  QueryResponse as SqliteQueryResponse,
+  SaveChangesRequest as SqliteSaveChangesRequest,
+  SaveChangesResponse as SqliteSaveChangesResponse,
+  TableMeta as SqliteTableMeta,
+  ForeignKey as SqliteForeignKey,
+} from '../src/types/sqlite'
 import type { RedisCommandResult, RedisKeyMeta, RedisKeyValue, RedisKeyType } from '../src/types/redis'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -338,6 +355,82 @@ app.whenReady().then(() => {
     'postgres:disconnect',
     async (_event, args: { connectionId: string; database?: string }) => {
       pgDisconnect(args.connectionId, args.database)
+      return { ok: true }
+    },
+  )
+
+  ipcMain.handle(
+    'sqlite:query',
+    async (_event, args: { connectionId: string; filePath: string; request: SqliteQueryRequest }): Promise<SqliteQueryResponse> => {
+      try {
+        return await sqliteRunQuery(args.connectionId, args.filePath, args.request)
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'sqlite:readOnlyQuery',
+    async (_event, args: { connectionId: string; filePath: string; request: SqliteQueryRequest }): Promise<SqliteQueryResponse> => {
+      try {
+        return await sqliteRunReadOnlyQuery(args.connectionId, args.filePath, args.request)
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'sqlite:listTables',
+    async (_event, args: { connectionId: string; filePath: string }) => {
+      try {
+        return await sqliteListTables(args.connectionId, args.filePath)
+      } catch (err) {
+        return toErrorPayload(err)
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'sqlite:getTableMeta',
+    async (_event, args: { connectionId: string; filePath: string; table: string }): Promise<{ ok: true; meta: SqliteTableMeta } | { ok: false; error: string }> => {
+      try {
+        const meta = await sqliteGetTableMeta(args.connectionId, args.filePath, args.table)
+        return { ok: true, meta }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'sqlite:getTableRelations',
+    async (_event, args: { connectionId: string; filePath: string; table: string }): Promise<{ ok: true; relations: SqliteForeignKey[] } | { ok: false; error: string }> => {
+      try {
+        const relations = await sqliteGetTableRelations(args.connectionId, args.filePath, args.table)
+        return { ok: true, relations }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'sqlite:saveChanges',
+    async (_event, args: { connectionId: string; filePath: string; request: SqliteSaveChangesRequest }): Promise<SqliteSaveChangesResponse> => {
+      try {
+        return await sqliteSaveChanges(args.connectionId, args.filePath, args.request)
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'sqlite:disconnect',
+    async (_event, args: { connectionId: string }) => {
+      sqliteDisconnect(args.connectionId)
       return { ok: true }
     },
   )

@@ -8,6 +8,15 @@ import type {
   TableMeta,
   ForeignKey,
 } from '../src/types/postgres'
+import type {
+  QueryRequest as SqliteQueryRequest,
+  QueryResponse as SqliteQueryResponse,
+  TableMeta as SqliteTableMeta,
+  ForeignKey as SqliteForeignKey,
+  SaveChangesRequest as SqliteSaveChangesRequest,
+  SaveChangesResponse as SqliteSaveChangesResponse,
+  TableInfo as SqliteTableInfo,
+} from '../src/types/sqlite'
 import type { RedisConfig } from '../src/types/connection'
 import type {
   RedisCommandResult,
@@ -93,6 +102,49 @@ const api = {
       ipcRenderer.invoke('postgres:saveChanges', args) as Promise<SaveChangesResponse>,
     disconnect: (args: { connectionId: string; database?: string }): Promise<{ ok: true }> =>
       ipcRenderer.invoke('postgres:disconnect', args) as Promise<{ ok: true }>,
+  },
+  sqlite: {
+    query: (args: {
+      connectionId: string
+      filePath: string
+      request: SqliteQueryRequest
+    }): Promise<SqliteQueryResponse> =>
+      ipcRenderer.invoke('sqlite:query', args) as Promise<SqliteQueryResponse>,
+    readOnlyQuery: (args: {
+      connectionId: string
+      filePath: string
+      request: SqliteQueryRequest
+    }): Promise<SqliteQueryResponse> =>
+      ipcRenderer.invoke('sqlite:readOnlyQuery', args) as Promise<SqliteQueryResponse>,
+    listTables: (args: {
+      connectionId: string
+      filePath: string
+    }): Promise<SqliteTableInfo[] | { error: string }> =>
+      ipcRenderer.invoke('sqlite:listTables', args) as Promise<SqliteTableInfo[] | { error: string }>,
+    getTableMeta: (args: {
+      connectionId: string
+      filePath: string
+      table: string
+    }): Promise<{ ok: true; meta: SqliteTableMeta } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('sqlite:getTableMeta', args) as Promise<
+        { ok: true; meta: SqliteTableMeta } | { ok: false; error: string }
+      >,
+    getTableRelations: (args: {
+      connectionId: string
+      filePath: string
+      table: string
+    }): Promise<{ ok: true; relations: SqliteForeignKey[] } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('sqlite:getTableRelations', args) as Promise<
+        { ok: true; relations: SqliteForeignKey[] } | { ok: false; error: string }
+      >,
+    saveChanges: (args: {
+      connectionId: string
+      filePath: string
+      request: SqliteSaveChangesRequest
+    }): Promise<SqliteSaveChangesResponse> =>
+      ipcRenderer.invoke('sqlite:saveChanges', args) as Promise<SqliteSaveChangesResponse>,
+    disconnect: (args: { connectionId: string }): Promise<{ ok: true }> =>
+      ipcRenderer.invoke('sqlite:disconnect', args) as Promise<{ ok: true }>,
   },
   redis: {
     ping: (args: { connectionId: string; config: RedisConfig }): Promise<

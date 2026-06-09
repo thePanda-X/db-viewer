@@ -1,0 +1,570 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Save,
+  Undo2,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { api } from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import { useHotkey } from '@/lib/hotkeys'
+import { toast } from '@/state/toastStore'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { EditableCell } from '../postgres/EditableCell'
+import type { TableMeta } from '@/types/sqlite'
+import type { ColumnMeta as PostgresColumnMeta } from '@/types/postgres'
+import type { SqliteConfig } from '@/types/connection'
+import type { RefreshRefHandle } from './SqliteSidebar'
+
+interface SqliteTableViewProps {
+  connectionId: string
+  config: SqliteConfig
+  table: string
+  onPendingChangesChange?: (count: number) => void
+  onConfirmNavigationRequest?: (action: () => void) => void
+  refreshRef?: RefreshRefHandle
+}
+
+const LIMIT_OPTIONS = [100, 250, 500, 1000] as const
+
+type Row = Record<string, unknown>
+
+function rowKey(row: Row, pk: string[] | null): string {
+  if (pk && pk.length > 0) {
+    return pk.map((k) => String(row[k] ?? '')).join('::')
+  }
+  return JSON.stringify(row)
+}
+
+function valuesEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (a == null || b == null) return false
+  if (typeof a === 'object' && typeof b === 'object') {
+    try {
+      return JSON.stringify(a) === JSON.stringify(b)
+    } catch {
+      return false
+    }
+  }
+  return false
+}
+
+function columnsToRowMap(columns: string[], rows: unknown[][]): Row[] {
+  return rows.map((r) => {
+    const obj: Row = {}
+    columns.forEach((c, i) => {
+      obj[c] = r[i]
+    })
+    return obj
+  })
+}
+
+export function SqliteTableView({
+  connectionId,
+  config,
+  table,
+  onPendingChangesChange,
+  onConfirmNavigationRequest,
+  refreshRef,
+}: SqliteTableViewProps) {
+  const [meta, setMeta] = useState<TableMeta | null>(null)
+  const [metaError, setMetaError] = useState<string | null>(null)
+  const [originalRows, setOriginalRows] = useState<Row[]>([])
+  const [edits, setEdits] = useState<Map<string, Map<string, unknown>>>(new Map())
+  const [loading, setLoading] = useState(false)
+  const [dataError, setDataError] = useState<string | null>(null)
+  const [limit, setLimit] = useState<number>(100)
+  const [offset, setOffset] = useState<number>(0)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [failedRowIndex, setFailedRowIndex] = useState<number | null>(null)
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false)
+  
+  const fetchSeq = useRef(0)
+  const dataSeq = useRef(0)
+
+  const fetchMeta = useCallback(async () => {
+    const seq = fetchSeq.current
+    setMetaError(null)
+    try {
+      const result = await api.sqlite.getTableMeta({
+        connectionId,
+        filePath: config.filePath,
+        table,
+      })
+      if (seq !== fetchSeq.current) return
+      if (result.ok) {
+        setMeta(result.meta)
+        setEdits(new Map())
+      } else {
+        setMetaError(result.error)
+      }
+    } catch (err) {
+      if (seq !== fetchSeq.current) return
+      setMetaError(err instanceof Error ? err.message : String(err))
+    }
+  }, [connectionId, config.filePath, table])
+
+  const fetchData = useCallback(async () => {
+    const seq = ++dataSeq.current
+    setLoading(true)
+    setDataError(null)
+    setSaveError(null)
+    setFailedRowIndex(null)
+    try {
+      const sql = `SELECT * FROM ${quoteIdent(table)} LIMIT ? OFFSET ?`
+      const result = await api.sqlite.readOnlyQuery({
+        connectionId,
+        filePath: config.filePath,
+        request: { sql, params: [limit, offset] },
+      })
+      if (seq !== dataSeq.current) return
+      if (result.ok) {
+        setOriginalRows(columnsToRowMap(result.result.columns, result.result.rows))
+        setEdits(new Map())
+      } else {
+        setDataError(result.error)
+      }
+    } catch (err) {
+      if (seq !== dataSeq.current) return
+      setDataError(err instanceof Error ? err.message : String(err))
+    } finally {
+      if (seq === dataSeq.current) setLoading(false)
+    }
+  }, [connectionId, config.filePath, table, limit, offset])
+
+  useEffect(() => {
+    fetchSeq.current++
+    setOffset(0)
+    setMeta(null)
+    setMetaError(null)
+    setOriginalRows([])
+    setDataError(null)
+    setEdits(new Map())
+    setSaveError(null)
+    setFailedRowIndex(null)
+  }, [table])
+
+  useEffect(() => {
+    void fetchMeta()
+  }, [fetchMeta])
+
+  useEffect(() => {
+    void fetchData()
+  }, [fetchData])
+
+  useEffect(() => {
+    if (!refreshRef) return
+    refreshRef.current = () => {
+      void fetchMeta()
+      void fetchData()
+    }
+    return () => {
+      if (refreshRef) refreshRef.current = null
+    }
+  }, [refreshRef, fetchMeta, fetchData])
+
+  const pendingCount = useMemo(() => {
+    let count = 0
+    for (const cols of edits.values()) {
+      if (cols.size > 0) count += 1
+    }
+    return count
+  }, [edits])
+
+  useHotkey('Mod+S', {
+    label: 'Save changes',
+    group: 'Table view',
+    description: 'Save pending row edits',
+    allowInInputs: true,
+    handler: () => {
+      if (pendingCount === 0) {
+        toast({ message: 'No changes to save', variant: 'info' })
+        return
+      }
+      setConfirmSaveOpen(true)
+    },
+  })
+
+  useEffect(() => {
+    onPendingChangesChange?.(pendingCount)
+  }, [pendingCount, onPendingChangesChange])
+
+  const setCellEdit = useCallback((rowIdx: number, col: string, value: unknown) => {
+    const row = originalRows[rowIdx]
+    if (!row) return
+    const pk = meta?.primaryKey ?? null
+    const key = rowKey(row, pk)
+    setEdits((prev) => {
+      const next = new Map(prev)
+      const existing = next.get(key) ?? new Map<string, unknown>()
+      const original = row[col]
+      if (valuesEqual(value, original)) {
+        existing.delete(col)
+      } else {
+        existing.set(col, value)
+      }
+      if (existing.size === 0) {
+        next.delete(key)
+      } else {
+        next.set(key, new Map(existing))
+      }
+      return next
+    })
+  }, [originalRows, meta])
+
+  const discardChanges = useCallback(() => {
+    setEdits(new Map())
+    setSaveError(null)
+    setFailedRowIndex(null)
+  }, [])
+
+  const handleSave = useCallback(async () => {
+    if (!meta || meta.primaryKey === null) return
+    if (edits.size === 0) return
+    setSaving(true)
+    setSaveError(null)
+    setFailedRowIndex(null)
+    const updates = Array.from(edits.entries()).map(([key, cols]) => {
+      const original: Row = {}
+      const changes: Row = {}
+      for (const row of originalRows) {
+        if (rowKey(row, meta.primaryKey) === key) {
+          for (const c of meta.columns) original[c.name] = row[c.name]
+          break
+        }
+      }
+      for (const [col, value] of cols.entries()) changes[col] = value
+      return { original, changes }
+    })
+    try {
+      const res = await api.sqlite.saveChanges({
+        connectionId,
+        filePath: config.filePath,
+        request: {
+          table,
+          primaryKey: meta.primaryKey,
+          updates,
+        },
+      })
+      if (res.ok) {
+        setEdits(new Map())
+        await fetchData()
+      } else {
+        setSaveError(res.error)
+        setFailedRowIndex(res.failedRowIndex ?? null)
+      }
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSaving(false)
+    }
+  }, [meta, edits, originalRows, connectionId, config.filePath, table, fetchData])
+
+  const goPage = useCallback((nextOffset: number) => {
+    if (pendingCount > 0 && onConfirmNavigationRequest) {
+      onConfirmNavigationRequest(() => {
+        discardChanges()
+        setOffset(nextOffset)
+      })
+    } else {
+      setOffset(nextOffset)
+    }
+  }, [pendingCount, onConfirmNavigationRequest, discardChanges])
+
+  const changeLimit = useCallback((next: number) => {
+    if (pendingCount > 0 && onConfirmNavigationRequest) {
+      onConfirmNavigationRequest(() => {
+        discardChanges()
+        setLimit(next)
+        setOffset(0)
+      })
+    } else {
+      setLimit(next)
+      setOffset(0)
+    }
+  }, [pendingCount, onConfirmNavigationRequest, discardChanges])
+
+  const hasPrimaryKey = meta?.primaryKey != null
+  const showRangeStart = offset + 1
+  const showRangeEnd = offset + originalRows.length
+  const hasNextPage = originalRows.length === limit
+  const hasPrevPage = offset > 0
+
+  if (metaError) {
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <div className="flex max-w-md flex-col items-center gap-2 text-center">
+          <AlertCircle className="h-6 w-6 text-destructive" />
+          <h3 className="text-sm font-semibold">Failed to load table metadata</h3>
+          <p className="break-words text-xs text-muted-foreground">{metaError}</p>
+          <Button size="sm" variant="outline" className="mt-2" onClick={() => void fetchMeta()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!meta) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      {!hasPrimaryKey && (
+        <div className="flex items-start gap-2 border-b border-border bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            Table <span className="font-mono">{table}</span> has no primary key — inline editing is
+            disabled. Add a primary key to enable cell edits.
+          </span>
+        </div>
+      )}
+
+      {saveError && (
+        <div className="flex items-start gap-2 border-b border-destructive/30 bg-destructive/5 px-4 py-2 text-xs text-destructive">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div className="flex-1">
+            <div className="font-medium">Save failed — no changes were applied.</div>
+            <div className="mt-0.5 break-words">{saveError}</div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {meta.columns.map((col) => (
+                <TableHead
+                  key={col.name}
+                  className={cn(
+                    'whitespace-nowrap',
+                    col.isPrimaryKey && 'bg-primary/5',
+                  )}
+                >
+                  <div className="flex flex-col">
+                    <span className="font-mono text-xs">{col.name}</span>
+                    <span className="flex items-center gap-1 text-[10px] font-normal text-muted-foreground">
+                      <span>{col.dataType}</span>
+                      {!col.isNullable && <span>NOT NULL</span>}
+                      {col.isPrimaryKey && <span>· PK</span>}
+                    </span>
+                  </div>
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={meta.columns.length} className="h-32 text-center">
+                  <Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
+                </TableCell>
+              </TableRow>
+            ) : dataError ? (
+              <TableRow>
+                <TableCell colSpan={meta.columns.length} className="h-32 text-center">
+                  <div className="mx-auto flex max-w-md flex-col items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                    <p className="break-words text-xs text-destructive">{dataError}</p>
+                    <Button size="sm" variant="outline" onClick={() => void fetchData()}>
+                      Retry
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : originalRows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={meta.columns.length} className="h-32 text-center text-xs text-muted-foreground">
+                  No rows found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              originalRows.map((row, rowIdx) => {
+                const pk = meta.primaryKey
+                const key = rowKey(row, pk)
+                const rowEdits = edits.get(key)
+                const rowIsDirty = rowEdits !== undefined && rowEdits.size > 0
+                const isFailed = failedRowIndex !== null && failedRowIndex === rowIdx
+                return (
+                  <TableRow
+                    key={key}
+                    data-state={rowIsDirty ? 'selected' : undefined}
+                    className={cn(
+                      rowIsDirty && 'bg-amber-500/5 hover:bg-amber-500/10',
+                      isFailed && 'border border-destructive/50 bg-destructive/10',
+                    )}
+                  >
+                    {meta.columns.map((col) => {
+                      const edited = rowEdits?.get(col.name)
+                      const current = edited !== undefined ? edited : row[col.name]
+                      return (
+                        <TableCell
+                          key={col.name}
+                          className={cn(
+                            'align-top',
+                            col.isPrimaryKey && 'bg-primary/5',
+                          )}
+                        >
+                          <EditableCell
+                            value={current}
+                            original={row[col.name]}
+                            // Map Sqlite ColumnMeta to Postgres ColumnMeta shape for EditableCell
+                            column={{
+                              name: col.name,
+                              dataType: col.dataType,
+                              udtName: col.dataType, // Best guess
+                              isNullable: col.isNullable,
+                              isGenerated: false,
+                              isPrimaryKey: col.isPrimaryKey,
+                            } as unknown as PostgresColumnMeta}
+                            disabled={!hasPrimaryKey}
+                            onCommit={(next) => setCellEdit(rowIdx, col.name, next)}
+                            onCancel={() => {}}
+                          />
+                        </TableCell>
+                      )
+                    })}
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="flex h-11 shrink-0 items-center justify-between border-t border-border bg-muted/20 px-3 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">Rows</span>
+          <span className="font-mono">
+            {originalRows.length > 0 ? `${showRangeStart.toLocaleString()}–${showRangeEnd.toLocaleString()}` : '0'}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <span className="text-muted-foreground">Limit</span>
+          <Select value={String(limit)} onValueChange={(v) => changeLimit(Number(v))}>
+            <SelectTrigger className="h-7 w-[80px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LIMIT_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)} className="text-xs">
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => goPage(Math.max(0, offset - limit))}
+            disabled={!hasPrevPage || loading}
+            className="h-7"
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+            <span>Prev</span>
+          </Button>
+          <span className="px-2 font-mono text-muted-foreground">
+            {Math.floor(offset / limit) + 1}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => goPage(offset + limit)}
+            disabled={!hasNextPage || loading}
+            className="h-7"
+          >
+            <span>Next</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-1">
+          {pendingCount > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={discardChanges}
+              disabled={saving}
+              className="h-7"
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+              <span>Discard</span>
+            </Button>
+          )}
+          <Button
+            size="sm"
+            onClick={() => setConfirmSaveOpen(true)}
+            disabled={pendingCount === 0 || saving}
+            className="h-7"
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            <span>Save {pendingCount > 0 ? `${pendingCount} change${pendingCount === 1 ? '' : 's'}` : 'changes'}</span>
+          </Button>
+        </div>
+      </div>
+
+      <AlertDialog open={confirmSaveOpen} onOpenChange={setConfirmSaveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingCount === 1
+                ? `Apply 1 change to ${table}?`
+                : `Apply ${pendingCount} changes to ${table}?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleSave()}>Save</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
+
+function quoteIdent(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`
+}
