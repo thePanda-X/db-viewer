@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { PostgresTab } from './postgres/PostgresTab'
+import { SqliteTab } from './sqlite/SqliteTab'
 import { RedisTab } from './redis/RedisTab'
 
 interface ConnectionTabProps {
@@ -22,6 +23,10 @@ const STUB_SECTIONS = [
 export function ConnectionTab({ connection, tab }: ConnectionTabProps) {
   if (connection.type === 'postgres') {
     return <PostgresTab connection={connection} tab={tab} />
+  }
+
+  if (connection.type === 'sqlite') {
+    return <SqliteTab connection={connection} tab={tab} />
   }
 
   if (connection.type === 'redis') {
