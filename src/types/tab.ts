@@ -23,11 +23,15 @@ export type PostgresTabView =
       filterDisplay: string
     }
 
+export type TabViewState = PostgresTabView
+
 export interface Tab {
   id: TabId
   connectionId: string
   title: string
   type?: import('./connection').ConnectionType
-  /** When the tab belongs to a Postgres connection, this describes its current view. */
+  /** Per-driver persisted view state. */
+  viewState?: TabViewState
+  /** Legacy persisted state; migrated opportunistically by tabsStore. */
   postgresView?: PostgresTabView
 }

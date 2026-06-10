@@ -1,3 +1,14 @@
+import type {
+  EditableColumnKind as SharedEditableColumnKind,
+  SqlQueryRequest,
+  SqlQueryResponse,
+  SqlSaveChange,
+  SqlSaveChangesResponse,
+  SqlTableMeta,
+} from '../../shared/types/sql'
+
+export type EditableColumnKind = SharedEditableColumnKind
+
 export interface PostgresConfig {
   host: string
   port: number
@@ -7,22 +18,9 @@ export interface PostgresConfig {
   ssl: boolean
 }
 
-export interface QueryRequest {
-  sql: string
-  params?: unknown[]
-  maxRows?: number
-}
-
-export interface QueryResult {
-  columns: string[]
-  rows: unknown[][]
-  rowCount: number
-  affectedRows: number | null
-  durationMs: number
-  truncated: boolean
-}
-
-export type QueryResponse = { ok: true; result: QueryResult } | { ok: false; error: string }
+export type QueryRequest = SqlQueryRequest
+export type QueryResult = Extract<SqlQueryResponse, { ok: true }>['result']
+export type QueryResponse = SqlQueryResponse
 
 export interface DatabaseInfo {
   name: string
@@ -50,10 +48,7 @@ export interface ColumnMeta {
   enumValues?: string[]
 }
 
-export interface TableMeta {
-  columns: ColumnMeta[]
-  primaryKey: string[] | null
-}
+export type TableMeta = SqlTableMeta<ColumnMeta>
 
 export interface ForeignKey {
   /** Name of the constraint in the database (used to group composite FKs) */
@@ -77,10 +72,7 @@ export interface ForeignKey {
   constraintColumns: string[]
 }
 
-export interface SaveChange {
-  original: Record<string, unknown>
-  changes: Record<string, unknown>
-}
+export type SaveChange = SqlSaveChange
 
 export interface SaveChangesRequest {
   database: string
@@ -90,11 +82,7 @@ export interface SaveChangesRequest {
   updates: SaveChange[]
 }
 
-export type SaveChangesResponse =
-  | { ok: true; updated: number }
-  | { ok: false; error: string; failedRowIndex?: number }
-
-export type EditableColumnKind = 'text' | 'number' | 'boolean' | 'datetime' | 'json' | 'readonly'
+export type SaveChangesResponse = SqlSaveChangesResponse
 
 export function editableKindFor(udtName: string): EditableColumnKind {
   switch (udtName) {

@@ -153,6 +153,46 @@ function toErrorMessage(err: unknown): string {
   }
 }
 
+type IpcHandler<TArgs, TResult> = (args: TArgs) => Promise<TResult> | TResult
+
+function register<TArgs, TResult>(channel: string, handler: IpcHandler<TArgs, TResult>) {
+  ipcMain.handle(channel, async (_event, args: TArgs) => handler(args))
+}
+
+async function withErrorPayload<T>(fn: () => Promise<T> | T): Promise<T | { error: string }> {
+  try {
+    return await fn()
+  } catch (err) {
+    return toErrorPayload(err)
+  }
+}
+
+async function withOkPayload<TKey extends string, TValue>(
+  key: TKey,
+  fn: () => Promise<TValue> | TValue,
+): Promise<({ ok: true } & Record<TKey, TValue>) | { ok: false; error: string }> {
+  try {
+    return { ok: true, [key]: await fn() } as { ok: true } & Record<TKey, TValue>
+  } catch (err) {
+    return { ok: false, error: toErrorMessage(err) }
+  }
+}
+
+async function withResultPayload<T>(
+  fn: () => Promise<T> | T,
+): Promise<{ ok: true; result: T } | { ok: false; error: string }> {
+  return withOkPayload('result', fn)
+}
+
+async function withSuccess(fn: () => Promise<unknown> | unknown): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await fn()
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: toErrorMessage(err) }
+  }
+}
+
 app.whenReady().then(() => {
   const isMac = process.platform === 'darwin'
 
@@ -256,15 +296,11 @@ app.whenReady().then(() => {
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 
-  ipcMain.handle('connections:list', async () => {
-    return listConnections()
-  })
+  register('connections:list', () => listConnections())
 
-  ipcMain.handle('connections:save', async (_event, connections: unknown[]) => {
-    return setConnections(connections)
-  })
+  register('connections:save', (connections: unknown[]) => setConnections(connections))
 
-  ipcMain.handle('dialog:openFile', async (_event, options?: { filters?: Electron.FileFilter[] }) => {
+  register('dialog:openFile', async (options?: { filters?: Electron.FileFilter[] }) => {
     if (!win) return null
     const result = await dialog.showOpenDialog(win, {
       properties: ['openFile'],
@@ -298,13 +334,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle(
     'postgres:listDatabases',
-    async (_event, args: { connectionId: string; config: PostgresConfig }) => {
-      try {
-        return await listDatabases(args.connectionId, args.config)
-      } catch (err) {
-        return toErrorPayload(err)
-      }
-    },
+    async (_event, args: { connectionId: string; config: PostgresConfig }) =>
+      withErrorPayload(() => listDatabases(args.connectionId, args.config)),
   )
 
   ipcMain.handle(
@@ -710,14 +741,7 @@ app.whenReady().then(() => {
     'opensearch:ping',
     async (_event, args: OpenSearchInvokeArgs): Promise<
       { ok: true; result: OpenSearchClusterInfo } | { ok: false; error: string }
-    > => {
-      try {
-        const result = await opensearchPing(args.connectionId, args.config)
-        return { ok: true, result }
-      } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
-      }
-    },
+    > => withResultPayload(() => opensearchPing(args.connectionId, args.config)),
   )
 
   ipcMain.handle(
@@ -765,12 +789,7 @@ app.whenReady().then(() => {
   ipcMain.handle(
     'opensearch:updateDocument',
     async (_event, args: OpenSearchInvokeArgs & { index: string; id: string; source: unknown }) => {
-      try {
-        await opensearchUpdateDocument(args.connectionId, args.config, args.index, args.id, args.source)
-        return { ok: true as const }
-      } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
-      }
+      return withSuccess(() => opensearchUpdateDocument(args.connectionId, args.config, args.index, args.id, args.source))
     },
   )
 

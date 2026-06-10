@@ -1,19 +1,15 @@
-export interface QueryRequest {
-  sql: string
-  params?: unknown[]
-  maxRows?: number
-}
+import type {
+  EditableColumnKind as SharedEditableColumnKind,
+  SqlQueryRequest,
+  SqlQueryResponse,
+  SqlSaveChange,
+  SqlSaveChangesResponse,
+  SqlTableMeta,
+} from '../../shared/types/sql'
 
-export interface QueryResult {
-  columns: string[]
-  rows: unknown[][]
-  rowCount: number
-  affectedRows: number | null
-  durationMs: number
-  truncated: boolean
-}
-
-export type QueryResponse = { ok: true; result: QueryResult } | { ok: false; error: string }
+export type QueryRequest = SqlQueryRequest
+export type QueryResult = Extract<SqlQueryResponse, { ok: true }>['result']
+export type QueryResponse = SqlQueryResponse
 
 export interface TableInfo {
   name: string
@@ -28,10 +24,7 @@ export interface ColumnMeta {
   defaultValue: unknown
 }
 
-export interface TableMeta {
-  columns: ColumnMeta[]
-  primaryKey: string[] | null
-}
+export type TableMeta = SqlTableMeta<ColumnMeta>
 
 export interface ForeignKey {
   column: string
@@ -39,10 +32,7 @@ export interface ForeignKey {
   referencedColumn: string
 }
 
-export interface SaveChange {
-  original: Record<string, unknown>
-  changes: Record<string, unknown>
-}
+export type SaveChange = SqlSaveChange
 
 export interface SaveChangesRequest {
   table: string
@@ -50,11 +40,9 @@ export interface SaveChangesRequest {
   updates: SaveChange[]
 }
 
-export type SaveChangesResponse =
-  | { ok: true; updated: number }
-  | { ok: false; error: string; failedRowIndex?: number }
+export type SaveChangesResponse = SqlSaveChangesResponse
 
-export type EditableColumnKind = 'text' | 'number' | 'boolean' | 'datetime' | 'json' | 'readonly'
+export type EditableColumnKind = SharedEditableColumnKind
 
 export function editableKindFor(dataType: string): EditableColumnKind {
   const dt = dataType.toUpperCase()
