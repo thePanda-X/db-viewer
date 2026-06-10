@@ -1,4 +1,4 @@
-import type { Connection, PostgresConfig, RedisConfig } from '@/types/connection'
+import type { Connection, OpenSearchConfig, PostgresConfig, RedisConfig } from '@/types/connection'
 import type {
   QueryRequest,
   QueryResponse,
@@ -24,6 +24,15 @@ import type {
   RedisKeyType,
   RedisKeyValue,
 } from '@/types/redis'
+import type {
+  OpenSearchClusterInfo,
+  OpenSearchIndexInfo,
+  OpenSearchIndexMeta,
+  OpenSearchRawRequest,
+  OpenSearchRawResponse,
+  OpenSearchSearchRequest,
+  OpenSearchSearchResult,
+} from '@/types/opensearch'
 
 export interface OpenFileOptions {
   filters?: Array<{ name: string; extensions: string[] }>
@@ -231,5 +240,56 @@ export const api = {
       window.api.redis.executeCommand(args),
     disconnect: (args: { connectionId: string; db?: number }): Promise<{ ok: true }> =>
       window.api.redis.disconnect(args),
+  },
+  opensearch: {
+    ping: (args: { connectionId: string; config: OpenSearchConfig }) =>
+      window.api.opensearch.ping(args) as Promise<
+        { ok: true; result: OpenSearchClusterInfo } | { ok: false; error: string }
+      >,
+    listIndices: (args: {
+      connectionId: string
+      config: OpenSearchConfig
+      includeSystem: boolean
+    }) =>
+      window.api.opensearch.listIndices(args) as Promise<
+        { ok: true; result: OpenSearchIndexInfo[] } | { ok: false; error: string }
+      >,
+    getIndexMeta: (args: { connectionId: string; config: OpenSearchConfig; index: string }) =>
+      window.api.opensearch.getIndexMeta(args) as Promise<
+        { ok: true; result: OpenSearchIndexMeta } | { ok: false; error: string }
+      >,
+    searchDocuments: (args: {
+      connectionId: string
+      config: OpenSearchConfig
+      request: OpenSearchSearchRequest
+    }) =>
+      window.api.opensearch.searchDocuments(args) as Promise<
+        { ok: true; result: OpenSearchSearchResult } | { ok: false; error: string }
+      >,
+    updateDocument: (args: {
+      connectionId: string
+      config: OpenSearchConfig
+      index: string
+      id: string
+      source: unknown
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      window.api.opensearch.updateDocument(args),
+    deleteDocument: (args: {
+      connectionId: string
+      config: OpenSearchConfig
+      index: string
+      id: string
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      window.api.opensearch.deleteDocument(args),
+    executeRequest: (args: {
+      connectionId: string
+      config: OpenSearchConfig
+      request: OpenSearchRawRequest
+    }) =>
+      window.api.opensearch.executeRequest(args) as Promise<
+        { ok: true; result: OpenSearchRawResponse } | { ok: false; error: string }
+      >,
+    disconnect: (args: { connectionId: string }): Promise<{ ok: true }> =>
+      window.api.opensearch.disconnect(args),
   },
 }

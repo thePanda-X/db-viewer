@@ -41,6 +41,16 @@ import {
   setTtl as redisSetTtl,
   setZsetMember as redisSetZsetMember,
 } from './redis'
+import {
+  deleteDocument as opensearchDeleteDocument,
+  disconnect as opensearchDisconnect,
+  executeRequest as opensearchExecuteRequest,
+  getIndexMeta as opensearchGetIndexMeta,
+  listIndices as opensearchListIndices,
+  ping as opensearchPing,
+  searchDocuments as opensearchSearchDocuments,
+  updateDocument as opensearchUpdateDocument,
+} from './opensearch'
 import type {
   PostgresConfig,
   QueryRequest,
@@ -59,6 +69,16 @@ import type {
   ForeignKey as SqliteForeignKey,
 } from '../src/types/sqlite'
 import type { RedisCommandResult, RedisKeyMeta, RedisKeyValue, RedisKeyType } from '../src/types/redis'
+import type { OpenSearchConfig } from '../src/types/connection'
+import type {
+  OpenSearchClusterInfo,
+  OpenSearchIndexInfo,
+  OpenSearchIndexMeta,
+  OpenSearchRawRequest,
+  OpenSearchRawResponse,
+  OpenSearchSearchRequest,
+  OpenSearchSearchResult,
+} from '../src/types/opensearch'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -677,6 +697,113 @@ app.whenReady().then(() => {
     'redis:disconnect',
     async (_event, args: { connectionId: string; db?: number }) => {
       redisDisconnect(args.connectionId, args.db)
+      return { ok: true }
+    },
+  )
+
+  type OpenSearchInvokeArgs = {
+    connectionId: string
+    config: OpenSearchConfig
+  }
+
+  ipcMain.handle(
+    'opensearch:ping',
+    async (_event, args: OpenSearchInvokeArgs): Promise<
+      { ok: true; result: OpenSearchClusterInfo } | { ok: false; error: string }
+    > => {
+      try {
+        const result = await opensearchPing(args.connectionId, args.config)
+        return { ok: true, result }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'opensearch:listIndices',
+    async (_event, args: OpenSearchInvokeArgs & { includeSystem: boolean }): Promise<
+      { ok: true; result: OpenSearchIndexInfo[] } | { ok: false; error: string }
+    > => {
+      try {
+        const result = await opensearchListIndices(args.connectionId, args.config, args.includeSystem)
+        return { ok: true, result }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'opensearch:getIndexMeta',
+    async (_event, args: OpenSearchInvokeArgs & { index: string }): Promise<
+      { ok: true; result: OpenSearchIndexMeta } | { ok: false; error: string }
+    > => {
+      try {
+        const result = await opensearchGetIndexMeta(args.connectionId, args.config, args.index)
+        return { ok: true, result }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'opensearch:searchDocuments',
+    async (_event, args: OpenSearchInvokeArgs & { request: OpenSearchSearchRequest }): Promise<
+      { ok: true; result: OpenSearchSearchResult } | { ok: false; error: string }
+    > => {
+      try {
+        const result = await opensearchSearchDocuments(args.connectionId, args.config, args.request)
+        return { ok: true, result }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'opensearch:updateDocument',
+    async (_event, args: OpenSearchInvokeArgs & { index: string; id: string; source: unknown }) => {
+      try {
+        await opensearchUpdateDocument(args.connectionId, args.config, args.index, args.id, args.source)
+        return { ok: true as const }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'opensearch:deleteDocument',
+    async (_event, args: OpenSearchInvokeArgs & { index: string; id: string }) => {
+      try {
+        await opensearchDeleteDocument(args.connectionId, args.config, args.index, args.id)
+        return { ok: true as const }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'opensearch:executeRequest',
+    async (_event, args: OpenSearchInvokeArgs & { request: OpenSearchRawRequest }): Promise<
+      { ok: true; result: OpenSearchRawResponse } | { ok: false; error: string }
+    > => {
+      try {
+        const result = await opensearchExecuteRequest(args.connectionId, args.config, args.request)
+        return { ok: true, result }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'opensearch:disconnect',
+    async (_event, args: { connectionId: string }) => {
+      opensearchDisconnect(args.connectionId)
       return { ok: true }
     },
   )

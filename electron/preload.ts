@@ -17,13 +17,22 @@ import type {
   SaveChangesResponse as SqliteSaveChangesResponse,
   TableInfo as SqliteTableInfo,
 } from '../src/types/sqlite'
-import type { RedisConfig } from '../src/types/connection'
+import type { OpenSearchConfig, RedisConfig } from '../src/types/connection'
 import type {
   RedisCommandResult,
   RedisKeyMeta,
   RedisKeyType,
   RedisKeyValue,
 } from '../src/types/redis'
+import type {
+  OpenSearchClusterInfo,
+  OpenSearchIndexInfo,
+  OpenSearchIndexMeta,
+  OpenSearchRawRequest,
+  OpenSearchRawResponse,
+  OpenSearchSearchRequest,
+  OpenSearchSearchResult,
+} from '../src/types/opensearch'
 
 export interface OpenFileOptions {
   filters?: Array<{ name: string; extensions: string[] }>
@@ -300,6 +309,66 @@ const api = {
       db?: number
     }): Promise<{ ok: true }> =>
       ipcRenderer.invoke('redis:disconnect', args) as Promise<{ ok: true }>,
+  },
+  opensearch: {
+    ping: (args: { connectionId: string; config: OpenSearchConfig }): Promise<
+      { ok: true; result: OpenSearchClusterInfo } | { ok: false; error: string }
+    > => ipcRenderer.invoke('opensearch:ping', args) as Promise<
+      { ok: true; result: OpenSearchClusterInfo } | { ok: false; error: string }
+    >,
+    listIndices: (args: {
+      connectionId: string
+      config: OpenSearchConfig
+      includeSystem: boolean
+    }): Promise<{ ok: true; result: OpenSearchIndexInfo[] } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('opensearch:listIndices', args) as Promise<
+        { ok: true; result: OpenSearchIndexInfo[] } | { ok: false; error: string }
+      >,
+    getIndexMeta: (args: {
+      connectionId: string
+      config: OpenSearchConfig
+      index: string
+    }): Promise<{ ok: true; result: OpenSearchIndexMeta } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('opensearch:getIndexMeta', args) as Promise<
+        { ok: true; result: OpenSearchIndexMeta } | { ok: false; error: string }
+      >,
+    searchDocuments: (args: {
+      connectionId: string
+      config: OpenSearchConfig
+      request: OpenSearchSearchRequest
+    }): Promise<{ ok: true; result: OpenSearchSearchResult } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('opensearch:searchDocuments', args) as Promise<
+        { ok: true; result: OpenSearchSearchResult } | { ok: false; error: string }
+      >,
+    updateDocument: (args: {
+      connectionId: string
+      config: OpenSearchConfig
+      index: string
+      id: string
+      source: unknown
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('opensearch:updateDocument', args) as Promise<
+        { ok: true } | { ok: false; error: string }
+      >,
+    deleteDocument: (args: {
+      connectionId: string
+      config: OpenSearchConfig
+      index: string
+      id: string
+    }): Promise<{ ok: true } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('opensearch:deleteDocument', args) as Promise<
+        { ok: true } | { ok: false; error: string }
+      >,
+    executeRequest: (args: {
+      connectionId: string
+      config: OpenSearchConfig
+      request: OpenSearchRawRequest
+    }): Promise<{ ok: true; result: OpenSearchRawResponse } | { ok: false; error: string }> =>
+      ipcRenderer.invoke('opensearch:executeRequest', args) as Promise<
+        { ok: true; result: OpenSearchRawResponse } | { ok: false; error: string }
+      >,
+    disconnect: (args: { connectionId: string }): Promise<{ ok: true }> =>
+      ipcRenderer.invoke('opensearch:disconnect', args) as Promise<{ ok: true }>,
   },
 }
 

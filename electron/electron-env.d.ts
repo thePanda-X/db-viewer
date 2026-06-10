@@ -99,6 +99,30 @@ interface RedisExposedConfig {
   tls: boolean
 }
 
+type SqliteQueryRequest = import('../src/types/sqlite').QueryRequest
+type SqliteQueryResponse = import('../src/types/sqlite').QueryResponse
+type SqliteTableInfo = import('../src/types/sqlite').TableInfo
+type SqliteTableMeta = import('../src/types/sqlite').TableMeta
+type SqliteForeignKey = import('../src/types/sqlite').ForeignKey
+type SqliteSaveChangesRequest = import('../src/types/sqlite').SaveChangesRequest
+type SqliteSaveChangesResponse = import('../src/types/sqlite').SaveChangesResponse
+
+interface OpenSearchExposedConfig {
+  host: string
+  port: number
+  username: string
+  password: string
+  ssl: boolean
+}
+
+type OpenSearchClusterInfo = import('../src/types/opensearch').OpenSearchClusterInfo
+type OpenSearchIndexInfo = import('../src/types/opensearch').OpenSearchIndexInfo
+type OpenSearchIndexMeta = import('../src/types/opensearch').OpenSearchIndexMeta
+type OpenSearchRawRequest = import('../src/types/opensearch').OpenSearchRawRequest
+type OpenSearchRawResponse = import('../src/types/opensearch').OpenSearchRawResponse
+type OpenSearchSearchRequest = import('../src/types/opensearch').OpenSearchSearchRequest
+type OpenSearchSearchResult = import('../src/types/opensearch').OpenSearchSearchResult
+
 type RedisKeyType = 'string' | 'list' | 'set' | 'zset' | 'hash' | 'stream' | 'none'
 
 interface RedisKeyMeta {
@@ -176,6 +200,15 @@ interface ExposedApi {
       request: PostgresSaveChangesRequest
     }) => Promise<PostgresSaveChangesResponse>
     disconnect: (args: { connectionId: string; database?: string }) => Promise<{ ok: true }>
+  }
+  sqlite: {
+    query: (args: { connectionId: string; filePath: string; request: SqliteQueryRequest }) => Promise<SqliteQueryResponse>
+    readOnlyQuery: (args: { connectionId: string; filePath: string; request: SqliteQueryRequest }) => Promise<SqliteQueryResponse>
+    listTables: (args: { connectionId: string; filePath: string }) => Promise<SqliteTableInfo[] | { error: string }>
+    getTableMeta: (args: { connectionId: string; filePath: string; table: string }) => Promise<{ ok: true; meta: SqliteTableMeta } | { ok: false; error: string }>
+    getTableRelations: (args: { connectionId: string; filePath: string; table: string }) => Promise<{ ok: true; relations: SqliteForeignKey[] } | { ok: false; error: string }>
+    saveChanges: (args: { connectionId: string; filePath: string; request: SqliteSaveChangesRequest }) => Promise<SqliteSaveChangesResponse>
+    disconnect: (args: { connectionId: string }) => Promise<{ ok: true }>
   }
   redis: {
     ping: (args: { connectionId: string; config: RedisExposedConfig }) => Promise<
@@ -277,6 +310,16 @@ interface ExposedApi {
       command: string[]
     }) => Promise<{ ok: true; result: RedisCommandResult } | { ok: false; error: string }>
     disconnect: (args: { connectionId: string; db?: number }) => Promise<{ ok: true }>
+  }
+  opensearch: {
+    ping: (args: { connectionId: string; config: OpenSearchExposedConfig }) => Promise<{ ok: true; result: OpenSearchClusterInfo } | { ok: false; error: string }>
+    listIndices: (args: { connectionId: string; config: OpenSearchExposedConfig; includeSystem: boolean }) => Promise<{ ok: true; result: OpenSearchIndexInfo[] } | { ok: false; error: string }>
+    getIndexMeta: (args: { connectionId: string; config: OpenSearchExposedConfig; index: string }) => Promise<{ ok: true; result: OpenSearchIndexMeta } | { ok: false; error: string }>
+    searchDocuments: (args: { connectionId: string; config: OpenSearchExposedConfig; request: OpenSearchSearchRequest }) => Promise<{ ok: true; result: OpenSearchSearchResult } | { ok: false; error: string }>
+    updateDocument: (args: { connectionId: string; config: OpenSearchExposedConfig; index: string; id: string; source: unknown }) => Promise<{ ok: true } | { ok: false; error: string }>
+    deleteDocument: (args: { connectionId: string; config: OpenSearchExposedConfig; index: string; id: string }) => Promise<{ ok: true } | { ok: false; error: string }>
+    executeRequest: (args: { connectionId: string; config: OpenSearchExposedConfig; request: OpenSearchRawRequest }) => Promise<{ ok: true; result: OpenSearchRawResponse } | { ok: false; error: string }>
+    disconnect: (args: { connectionId: string }) => Promise<{ ok: true }>
   }
 }
 
