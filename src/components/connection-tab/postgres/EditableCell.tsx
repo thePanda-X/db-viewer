@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, valuesEqual } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -81,19 +81,6 @@ function formatValue(value: unknown, kind: EditableColumnKind): string {
   return String(value)
 }
 
-function valuesEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true
-  if (a == null || b == null) return false
-  if (typeof a === 'object' && typeof b === 'object') {
-    try {
-      return JSON.stringify(a) === JSON.stringify(b)
-    } catch {
-      return false
-    }
-  }
-  return false
-}
-
 export function EditableCell({
   value,
   original,
@@ -119,10 +106,18 @@ export function EditableCell({
   const taRef = useRef<HTMLTextAreaElement | null>(null)
   const enumPickedRef = useRef(false)
   const enumOpenRef = useRef(true)
+  const draftRef = useRef(draft)
+  const isNullDraftRef = useRef(isNullDraft)
+  draftRef.current = draft
+  isNullDraftRef.current = isNullDraft
 
   useEffect(() => {
-    setDraft(formatValue(value, kind))
-    setIsNullDraft(isNull)
+    const nextDraft = formatValue(value, kind)
+    const nextNull = isNull
+    setDraft(nextDraft)
+    setIsNullDraft(nextNull)
+    draftRef.current = nextDraft
+    isNullDraftRef.current = nextNull
     setError(null)
   }, [value, kind, isNull])
 
@@ -211,7 +206,9 @@ export function EditableCell({
   }
 
   const commit = () => {
-    if (isNullDraft) {
+    const currentDraft = draftRef.current
+    const currentIsNullDraft = isNullDraftRef.current
+    if (currentIsNullDraft) {
       if (!column.isNullable && !valuesEqual(value, null)) {
         setError('Column is NOT NULL')
         return
@@ -221,12 +218,10 @@ export function EditableCell({
       return
     }
     if (isEnum) {
-      // No separate draft to commit; the Select commits on value pick. Closing
-      // edit mode here is just a defensive no-op.
       setEditing(false)
       return
     }
-    const parsed = parseInput(kind, draft)
+    const parsed = parseInput(kind, currentDraft)
     if (!parsed.ok) {
       setError(parsed.error)
       return
@@ -236,8 +231,12 @@ export function EditableCell({
   }
 
   const cancel = () => {
-    setDraft(formatValue(value, kind))
-    setIsNullDraft(isNull)
+    const resetDraft = formatValue(value, kind)
+    const resetNull = isNull
+    setDraft(resetDraft)
+    setIsNullDraft(resetNull)
+    draftRef.current = resetDraft
+    isNullDraftRef.current = resetNull
     setError(null)
     setEditing(false)
     onCancel()
@@ -306,7 +305,14 @@ export function EditableCell({
           <textarea
             ref={taRef}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value)
+              draftRef.current = e.target.value
+              if (isNullDraftRef.current) {
+                setIsNullDraft(false)
+                isNullDraftRef.current = false
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault()
@@ -327,7 +333,14 @@ export function EditableCell({
             ref={inputRef}
             type={kind === 'number' ? 'number' : kind === 'datetime' ? 'datetime-local' : 'text'}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={(e) => {
+              setDraft(e.target.value)
+              draftRef.current = e.target.value
+              if (isNullDraftRef.current) {
+                setIsNullDraft(false)
+                isNullDraftRef.current = false
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault()
@@ -348,7 +361,11 @@ export function EditableCell({
             if (!column.isNullable || isNullDraft) {
               const nextNull = !isNullDraft
               setIsNullDraft(nextNull)
-              if (nextNull) setDraft('')
+              isNullDraftRef.current = nextNull
+              if (nextNull) {
+                setDraft('')
+                draftRef.current = ''
+              }
             }
           }}
           title={column.isNullable ? 'Toggle NULL' : 'Column is NOT NULL'}

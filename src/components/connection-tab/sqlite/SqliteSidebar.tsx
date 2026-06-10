@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { FileText, Loader2, RefreshCw, Table2, Eye, AlertCircle } from 'lucide-react'
+import { Copy, Code2, FileText, Info, Loader2, RefreshCw, Table2, Eye, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { toast } from '@/state/toastStore'
+import { ContextMenu, type ContextMenuItem } from '@/components/ui/context-menu'
 import type { TableInfo } from '@/types/sqlite'
 
 export interface RefreshRefHandle {
@@ -17,6 +19,7 @@ interface SqliteSidebarProps {
   selectedTable: string | null
   onSelectTable: (table: string) => void
   refreshRef?: RefreshRefHandle
+  onRefresh?: () => void
 }
 
 function isError(value: unknown): value is { error: string } {
@@ -29,6 +32,7 @@ export function SqliteSidebar({
   selectedTable,
   onSelectTable,
   refreshRef,
+  onRefresh,
 }: SqliteSidebarProps) {
   const [tables, setTables] = useState<TableInfo[] | null>(null)
   const [tablesError, setTablesError] = useState<string | null>(null)
@@ -68,7 +72,7 @@ export function SqliteSidebar({
   }, [refreshRef, fetchTables])
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-muted/20">
+    <aside className="flex h-full w-full flex-col border-r border-border bg-muted/20">
       <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
         <span className="text-xs font-semibold tracking-tight">Explorer</span>
         <Button
@@ -119,24 +123,68 @@ export function SqliteSidebar({
               <ul className="space-y-0.5">
                 {tables?.map((t) => {
                   const active = selectedTable === t.name
+                  const items: ContextMenuItem[] = [
+                    {
+                      label: 'Open',
+                      icon: <Table2 className="h-3.5 w-3.5" />,
+                      onClick: () => onSelectTable(t.name),
+                    },
+                    {
+                      label: 'Copy Name',
+                      icon: <Copy className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        void navigator.clipboard.writeText(t.name)
+                        toast({ message: 'Copied table name' })
+                      },
+                    },
+                    {
+                      label: 'Copy SELECT',
+                      icon: <Code2 className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        void navigator.clipboard.writeText(`SELECT * FROM "${t.name}"`)
+                        toast({ message: 'Copied SELECT query' })
+                      },
+                    },
+                    { separator: true },
+                    {
+                      label: 'Refresh',
+                      icon: <RefreshCw className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        void fetchTables()
+                        onRefresh?.()
+                      },
+                    },
+                    {
+                      label: 'Properties',
+                      icon: <Info className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        toast({
+                          message: t.name,
+                          detail: `Type: ${t.type}`,
+                        })
+                      },
+                    },
+                  ]
                   return (
                     <li key={t.name}>
-                      <button
-                        type="button"
-                        onClick={() => onSelectTable(t.name)}
-                        className={cn(
-                          'flex w-full items-center gap-1.5 rounded-sm px-1.5 py-1 text-left text-xs transition-colors',
-                          'hover:bg-muted',
-                          active && 'bg-primary/10 text-primary',
-                        )}
-                      >
-                        {t.type === 'view' ? (
-                          <Eye className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        ) : (
-                          <Table2 className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        )}
-                        <span className="truncate font-mono">{t.name}</span>
-                      </button>
+                      <ContextMenu items={items}>
+                        <button
+                          type="button"
+                          onClick={() => onSelectTable(t.name)}
+                          className={cn(
+                            'flex w-full items-center gap-1.5 rounded-sm px-1.5 py-1 text-left text-xs transition-colors',
+                            'hover:bg-muted',
+                            active && 'bg-primary/10 text-primary',
+                          )}
+                        >
+                          {t.type === 'view' ? (
+                            <Eye className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <Table2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="truncate font-mono">{t.name}</span>
+                        </button>
+                      </ContextMenu>
                     </li>
                   )
                 })}

@@ -3,6 +3,7 @@ import { KeyRound, Loader2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useActiveRefresh } from '@/lib/hotkeys'
 import { toast } from '@/state/toastStore'
 import {
@@ -18,7 +19,8 @@ import {
 import { cn } from '@/lib/utils'
 import type { Connection, RedisConfig } from '@/types/connection'
 import type { RedisKeyMeta, RedisKeyValue } from '@/types/redis'
-import { RedisSidebar, type RedisKeyTree } from './RedisSidebar'
+import { ResizableSidebar } from '@/components/ui/resizable-sidebar'
+import { RedisSidebar, type RedisFolder, type RedisKeyTree } from './RedisSidebar'
 import { KeyViewHeader } from './KeyViewHeader'
 import { KeyValueView } from './KeyValueView'
 import { CommandBar } from './CommandBar'
@@ -38,12 +40,14 @@ export function RedisTab({ connection }: RedisTabProps) {
   const [loadingKeys, setLoadingKeys] = useState(true)
   const [keysError, setKeysError] = useState<string | null>(null)
   const [scanSeq, setScanSeq] = useState(0)
-  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [activeKey, setActiveKey] = useState<string | null>(null)
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set())
+  const [selectionAnchorKey, setSelectionAnchorKey] = useState<string | null>(null)
   const [meta, setMeta] = useState<RedisKeyMeta | null>(null)
   const [value, setValue] = useState<RedisKeyValue | null>(null)
   const [valueLoading, setValueLoading] = useState(false)
   const [valueError, setValueError] = useState<string | null>(null)
-  const [pendingDeleteKey, setPendingDeleteKey] = useState<string | null>(null)
+  const [pendingDeleteKeys, setPendingDeleteKeys] = useState<string[] | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   const refresh = useCallback(() => {
@@ -51,14 +55,14 @@ export function RedisTab({ connection }: RedisTabProps) {
   }, [])
 
   const refreshValue = useCallback(async () => {
-    if (!selectedKey) return
+    if (!activeKey) return
     setValueLoading(true)
     setValueError(null)
     try {
       const metaRes = await api.redis.getMeta({
         connectionId: connection.id,
         config,
-        key: selectedKey,
+        key: activeKey,
       })
       if (!metaRes.ok) {
         setValueError(metaRes.error)
@@ -75,7 +79,7 @@ export function RedisTab({ connection }: RedisTabProps) {
       const vRes = await api.redis.getValue({
         connectionId: connection.id,
         config,
-        key: selectedKey,
+        key: activeKey,
         type: m.type,
       })
       if (!vRes.ok) {
@@ -89,16 +93,16 @@ export function RedisTab({ connection }: RedisTabProps) {
     } finally {
       setValueLoading(false)
     }
-  }, [connection.id, config, selectedKey])
+  }, [connection.id, config, activeKey])
 
   const refreshAll = useCallback(() => {
     refresh()
-    if (selectedKey) void refreshValue()
+    if (activeKey) void refreshValue()
     toast({
       message: `Refreshed ${connection.name}`,
-      detail: selectedKey ? `key ${selectedKey}` : 'keys',
+      detail: activeKey ? `key ${activeKey}` : 'keys',
     })
-  }, [refresh, refreshValue, selectedKey, connection.name])
+  }, [refresh, refreshValue, activeKey, connection.name])
 
   useActiveRefresh(refreshAll, connection.name)
 
@@ -135,6 +139,8 @@ export function RedisTab({ connection }: RedisTabProps) {
     [keys, separator],
   )
 
+  const visibleKeys = useMemo(() => getVisibleKeyOrder(tree), [tree])
+
   useEffect(() => {
     void refreshValue()
   }, [refreshValue])
@@ -145,16 +151,87 @@ export function RedisTab({ connection }: RedisTabProps) {
     }
   }, [connection.id, config.db])
 
-  const handleKeyDeleted = useCallback(
-    (key: string) => {
-      setKeys((prev) => prev.filter((k) => k !== key))
-      if (selectedKey === key) {
-        setSelectedKey(null)
+  const handleKeysDeleted = useCallback(
+    (deletedKeys: string[]) => {
+      const deleted = new Set(deletedKeys)
+      setKeys((prev) => prev.filter((k) => !deleted.has(k)))
+      setSelectedKeys((prev) => {
+        const next = new Set(prev)
+        for (const k of deletedKeys) next.delete(k)
+        return next
+      })
+      if (activeKey && deleted.has(activeKey)) {
+        setActiveKey(null)
         setMeta(null)
         setValue(null)
       }
     },
-    [selectedKey],
+    [activeKey],
+  )
+
+  const handleKeyDeleted = useCallback(
+    (key: string) => {
+      handleKeysDeleted([key])
+    },
+    [handleKeysDeleted],
+  )
+
+  const handleToggleSelectKey = useCallback(
+    (key: string, ctrl: boolean, shift: boolean) => {
+      if (shift && selectionAnchorKey) {
+        const anchorIdx = visibleKeys.indexOf(selectionAnchorKey)
+        const currentIdx = visibleKeys.indexOf(key)
+        if (anchorIdx !== -1 && currentIdx !== -1) {
+          const start = Math.min(anchorIdx, currentIdx)
+          const end = Math.max(anchorIdx, currentIdx)
+          const rangeKeys = visibleKeys.slice(start, end + 1)
+          setSelectedKeys(new Set(rangeKeys))
+          setActiveKey(key)
+          return
+        }
+      }
+
+      if (!ctrl) {
+        setSelectedKeys(new Set([key]))
+        setActiveKey(key)
+        setSelectionAnchorKey(key)
+        return
+      }
+
+      setSelectedKeys((prev) => {
+        const next = new Set(prev)
+        if (next.has(key)) {
+          next.delete(key)
+          if (next.size > 0) {
+            setActiveKey(next.values().next().value ?? null)
+          } else {
+            setActiveKey(null)
+          }
+        } else {
+          next.add(key)
+          setActiveKey(key)
+        }
+        return next
+      })
+      setSelectionAnchorKey(key)
+    },
+    [selectionAnchorKey, visibleKeys],
+  )
+
+  const handleCheckboxToggle = useCallback(
+    (key: string) => {
+      setSelectedKeys((prev) => {
+        const next = new Set(prev)
+        if (next.has(key)) {
+          next.delete(key)
+        } else {
+          next.add(key)
+        }
+        return next
+      })
+      setSelectionAnchorKey(key)
+    },
+    [],
   )
 
   const handleMetaChanged = useCallback(
@@ -169,44 +246,58 @@ export function RedisTab({ connection }: RedisTabProps) {
   }, [refreshValue])
 
   const handleConfirmDelete = useCallback(async () => {
-    if (!pendingDeleteKey) return
+    if (!pendingDeleteKeys || pendingDeleteKeys.length === 0) return
     setDeleting(true)
     try {
       const res = await api.redis.deleteKeys({
         connectionId: connection.id,
         config,
-        keys: [pendingDeleteKey],
+        keys: pendingDeleteKeys,
       })
       if (res.ok) {
-        handleKeyDeleted(pendingDeleteKey)
+        handleKeysDeleted(pendingDeleteKeys)
       }
     } finally {
       setDeleting(false)
-      setPendingDeleteKey(null)
+      setPendingDeleteKeys(null)
     }
-  }, [pendingDeleteKey, connection.id, config, handleKeyDeleted])
+  }, [pendingDeleteKeys, connection.id, config, handleKeysDeleted])
 
   const host = `${config.host}:${config.port}`
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex min-h-0 flex-1">
-        <RedisSidebar
-          connectionName={connection.name}
-          host={host}
-          db={config.db}
-          loading={loadingKeys}
-          error={keysError}
-          tree={tree}
-          selectedKey={selectedKey}
-          onSelectKey={setSelectedKey}
-          onRefresh={refresh}
-          separator={separator}
-          onSeparatorChange={setSeparator}
-          filter={filter}
-          onFilterChange={setFilter}
-          onRequestDeleteKey={setPendingDeleteKey}
-        />
+        <ResizableSidebar
+          defaultWidth={288}
+          minWidth={180}
+          maxWidth={600}
+          storageKey="redis-sidebar-width"
+        >
+          <RedisSidebar
+            connectionName={connection.name}
+            host={host}
+            db={config.db}
+            loading={loadingKeys}
+            error={keysError}
+            tree={tree}
+            activeKey={activeKey}
+            selectedKeys={selectedKeys}
+            onToggleSelectKey={handleToggleSelectKey}
+            onCheckboxToggle={handleCheckboxToggle}
+            onRefresh={refresh}
+            separator={separator}
+            onSeparatorChange={setSeparator}
+            filter={filter}
+            onFilterChange={setFilter}
+            onRequestDeleteKey={(key) => setPendingDeleteKeys([key])}
+            onRequestDeleteSelected={() => {
+              if (selectedKeys.size > 0) {
+                setPendingDeleteKeys(Array.from(selectedKeys))
+              }
+            }}
+          />
+        </ResizableSidebar>
 
         <div className="flex flex-1 flex-col overflow-hidden">
           <header className="flex h-9 shrink-0 items-center gap-3 border-b border-border bg-background px-3 text-xs">
@@ -227,13 +318,13 @@ export function RedisTab({ connection }: RedisTabProps) {
           <div
             className={cn(
               'relative min-h-0 flex-1',
-              !selectedKey && 'flex items-center justify-center',
+              !activeKey && 'flex items-center justify-center',
             )}
           >
-            {selectedKey ? (
+            {activeKey ? (
               <div className="flex h-full min-h-0 flex-col">
                 <KeyViewHeader
-                  keyName={selectedKey}
+                  keyName={activeKey}
                   meta={meta}
                   loading={valueLoading}
                   connectionId={connection.id}
@@ -243,7 +334,7 @@ export function RedisTab({ connection }: RedisTabProps) {
                 />
                 <div className="min-h-0 flex-1">
                   <KeyValueView
-                    keyName={selectedKey}
+                    keyName={activeKey}
                     meta={meta}
                     value={value}
                     loading={valueLoading}
@@ -265,22 +356,39 @@ export function RedisTab({ connection }: RedisTabProps) {
               connectionId={connection.id}
               config={config}
               onAfterCommand={refresh}
-              currentKey={selectedKey}
+              currentKey={activeKey}
             />
           </div>
         </div>
       </div>
 
       <AlertDialog
-        open={pendingDeleteKey !== null}
-        onOpenChange={(o) => !o && setPendingDeleteKey(null)}
+        open={pendingDeleteKeys !== null}
+        onOpenChange={(o) => !o && setPendingDeleteKeys(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete key?</AlertDialogTitle>
-            <AlertDialogDescription>
-              <span className="font-mono text-foreground">{pendingDeleteKey}</span> will be
-              permanently deleted. This cannot be undone.
+            <AlertDialogTitle>
+              Delete {pendingDeleteKeys && pendingDeleteKeys.length > 1 ? `${pendingDeleteKeys.length} keys` : 'key'}?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>This cannot be undone.</p>
+                {pendingDeleteKeys && pendingDeleteKeys.length > 1 && (
+                  <ScrollArea className="max-h-32 rounded border border-border">
+                    <div className="space-y-0.5 p-2">
+                      {pendingDeleteKeys.map((k) => (
+                        <div key={k} className="truncate font-mono text-[11px] text-foreground">
+                          {k}
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+                {pendingDeleteKeys && pendingDeleteKeys.length === 1 && (
+                  <p className="font-mono text-foreground">{pendingDeleteKeys[0]}</p>
+                )}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -402,4 +510,17 @@ function isDirectChildOf(key: string, node: TreeNode, sep: string): boolean {
   if (!key.startsWith(`${node.path}${sep}`)) return false
   const remainder = key.slice(node.path.length + sep.length)
   return !remainder.includes(sep)
+}
+
+function getVisibleKeyOrder(tree: RedisKeyTree): string[] {
+  const result: string[] = []
+  function dfs(folders: RedisFolder[]) {
+    for (const f of folders) {
+      dfs(f.folders)
+      result.push(...f.keys)
+    }
+  }
+  dfs(tree.folders)
+  result.push(...tree.rootKeys)
+  return result
 }

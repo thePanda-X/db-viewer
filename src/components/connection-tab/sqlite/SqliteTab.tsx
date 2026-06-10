@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { ResizableSidebar } from '@/components/ui/resizable-sidebar'
 import { SqliteSidebar, type RefreshRefHandle } from './SqliteSidebar'
 import { SqliteTableView } from './SqliteTableView'
 import { QueryBar } from '../postgres/QueryBar'
@@ -145,13 +146,20 @@ export function SqliteTab({ connection }: SqliteTabProps) {
 
   return (
     <div className="flex h-full overflow-hidden">
-      <SqliteSidebar
-        connectionId={connection.id}
-        filePath={config.filePath}
-        selectedTable={selectedTable}
-        onSelectTable={handleSelectTable}
-        refreshRef={sidebarRefreshRef.current}
-      />
+      <ResizableSidebar
+        defaultWidth={256}
+        minWidth={180}
+        maxWidth={600}
+        storageKey="sqlite-sidebar-width"
+      >
+        <SqliteSidebar
+          connectionId={connection.id}
+          filePath={config.filePath}
+          selectedTable={selectedTable}
+          onSelectTable={handleSelectTable}
+          refreshRef={sidebarRefreshRef.current}
+        />
+      </ResizableSidebar>
 
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-9 shrink-0 items-center gap-3 border-b border-border bg-background px-3 text-xs">

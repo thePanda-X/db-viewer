@@ -7,7 +7,7 @@ import {
   Save,
   Undo2,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, valuesEqual } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { useHotkey } from '@/lib/hotkeys'
@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { EditableCell } from '../postgres/EditableCell'
 import type { TableMeta } from '@/types/sqlite'
+import { editableKindFor as sqliteEditableKindFor } from '@/types/sqlite'
 import type { ColumnMeta as PostgresColumnMeta } from '@/types/postgres'
 import type { SqliteConfig } from '@/types/connection'
 import type { RefreshRefHandle } from './SqliteSidebar'
@@ -61,19 +62,6 @@ function rowKey(row: Row, pk: string[] | null): string {
     return pk.map((k) => String(row[k] ?? '')).join('::')
   }
   return JSON.stringify(row)
-}
-
-function valuesEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true
-  if (a == null || b == null) return false
-  if (typeof a === 'object' && typeof b === 'object') {
-    try {
-      return JSON.stringify(a) === JSON.stringify(b)
-    } catch {
-      return false
-    }
-  }
-  return false
 }
 
 function columnsToRowMap(columns: string[], rows: unknown[][]): Row[] {
@@ -224,7 +212,7 @@ export function SqliteTableView({
     const key = rowKey(row, pk)
     setEdits((prev) => {
       const next = new Map(prev)
-      const existing = next.get(key) ?? new Map<string, unknown>()
+      const existing = new Map(next.get(key) ?? new Map<string, unknown>())
       const original = row[col]
       if (valuesEqual(value, original)) {
         existing.delete(col)
@@ -234,7 +222,7 @@ export function SqliteTableView({
       if (existing.size === 0) {
         next.delete(key)
       } else {
-        next.set(key, new Map(existing))
+        next.set(key, existing)
       }
       return next
     })
@@ -446,7 +434,7 @@ export function SqliteTableView({
                             column={{
                               name: col.name,
                               dataType: col.dataType,
-                              udtName: col.dataType, // Best guess
+                              udtName: sqliteUdtNameFor(col.dataType),
                               isNullable: col.isNullable,
                               isGenerated: false,
                               isPrimaryKey: col.isPrimaryKey,
@@ -563,6 +551,17 @@ export function SqliteTableView({
       </AlertDialog>
     </div>
   )
+}
+
+function sqliteUdtNameFor(dataType: string): string {
+  const kind = sqliteEditableKindFor(dataType)
+  switch (kind) {
+    case 'number': return 'int4'
+    case 'boolean': return 'bool'
+    case 'datetime': return 'timestamptz'
+    case 'json': return 'jsonb'
+    default: return 'text'
+  }
 }
 
 function quoteIdent(name: string): string {
