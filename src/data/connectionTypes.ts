@@ -1,12 +1,19 @@
 import { z } from 'zod'
 import { Database, FileText, Search, KeyRound, type LucideIcon } from 'lucide-react'
+import type { ComponentType } from 'react'
 import type {
+  Connection,
   ConnectionType,
   PostgresConfig,
   SqliteConfig,
   OpenSearchConfig,
   RedisConfig,
 } from '@/types/connection'
+import type { Tab } from '@/types/tab'
+import { OpenSearchTab } from '@/components/connection-tab/opensearch/OpenSearchTab'
+import { PostgresTab } from '@/components/connection-tab/postgres/PostgresTab'
+import { RedisTab } from '@/components/connection-tab/redis/RedisTab'
+import { SqliteTab } from '@/components/connection-tab/sqlite/SqliteTab'
 
 export type FieldType = 'text' | 'password' | 'number' | 'switch' | 'file'
 
@@ -24,6 +31,11 @@ export interface FieldDefinition {
   colSpan?: 1 | 2
 }
 
+export interface FileDialogFilter {
+  name: string
+  extensions: string[]
+}
+
 export interface ConnectionTypeDefinition<CConfig> {
   id: ConnectionType
   label: string
@@ -38,6 +50,9 @@ export interface ConnectionTypeDefinition<CConfig> {
   fullSchema: z.ZodTypeAny
   /** A short subtitle for cards, given the config */
   subtitle: (config: CConfig) => string
+  /** Renderer for an open connection tab. */
+  TabComponent: ComponentType<{ connection: Connection; tab: Tab }>
+  fileDialogFilters?: FileDialogFilter[]
 }
 
 const postgresSchema = z.object({
@@ -116,6 +131,7 @@ const postgresDef: ConnectionTypeDefinition<PostgresConfig> = {
   schema: postgresSchema,
   fullSchema: z.object({ name: nameField, config: postgresSchema }),
   subtitle: (c) => `${c.host}:${c.port} / ${c.database || '—'}`,
+  TabComponent: PostgresTab as ComponentType<{ connection: Connection; tab: Tab }>,
 }
 
 const sqliteDef: ConnectionTypeDefinition<SqliteConfig> = {
@@ -149,6 +165,11 @@ const sqliteDef: ConnectionTypeDefinition<SqliteConfig> = {
   schema: sqliteSchema,
   fullSchema: z.object({ name: nameField, config: sqliteSchema }),
   subtitle: (c) => c.filePath || 'No file selected',
+  TabComponent: SqliteTab as ComponentType<{ connection: Connection; tab: Tab }>,
+  fileDialogFilters: [
+    { name: 'SQLite databases', extensions: ['db', 'sqlite', 'sqlite3'] },
+    { name: 'All files', extensions: ['*'] },
+  ],
 }
 
 const openSearchDef: ConnectionTypeDefinition<OpenSearchConfig> = {
@@ -188,6 +209,7 @@ const openSearchDef: ConnectionTypeDefinition<OpenSearchConfig> = {
   schema: openSearchSchema,
   fullSchema: z.object({ name: nameField, config: openSearchSchema }),
   subtitle: (c) => `${c.host}:${c.port}`,
+  TabComponent: OpenSearchTab as ComponentType<{ connection: Connection; tab: Tab }>,
 }
 
 const redisDef: ConnectionTypeDefinition<RedisConfig> = {
@@ -234,6 +256,7 @@ const redisDef: ConnectionTypeDefinition<RedisConfig> = {
   schema: redisSchema,
   fullSchema: z.object({ name: nameField, config: redisSchema }),
   subtitle: (c) => `${c.host}:${c.port}${c.db ? ` (db ${c.db})` : ''}`,
+  TabComponent: RedisTab as ComponentType<{ connection: Connection; tab: Tab }>,
 }
 
 export type AnyConnectionConfig = PostgresConfig | SqliteConfig | OpenSearchConfig | RedisConfig

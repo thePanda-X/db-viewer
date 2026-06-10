@@ -38,8 +38,8 @@ const DEFAULT_SCHEMA = 'public'
 export function PostgresTab({ connection, tab }: PostgresTabProps) {
   const config = connection.config as PostgresConfig
   const view: PostgresTabView = useMemo(
-    () => tab.postgresView ?? { kind: 'default' },
-    [tab.postgresView],
+    () => tab.viewState ?? tab.postgresView ?? { kind: 'default' },
+    [tab.postgresView, tab.viewState],
   )
   const isPinned = view.kind === 'relatedRow'
 
@@ -56,7 +56,7 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
   const hasPendingChanges = pendingChanges > 0
   const showCustomResults = customResult !== null || customError !== null || customRunning
   const currentConfig = useMemo(() => ({ ...config, database }), [config, database])
-  const setPostgresView = useTabsStore((s) => s.setPostgresView)
+  const setTabViewState = useTabsStore((s) => s.setTabViewState)
   const openRelatedRow = useTabsStore((s) => s.openRelatedRow)
 
   const sidebarRefreshRef = useRef<RefreshRefHandle>({ current: null })
@@ -85,14 +85,14 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
   useEffect(() => {
     if (isPinned) return
     if (selectedTable) {
-      setPostgresView(tab.id, {
+      setTabViewState(tab.id, {
         kind: 'table',
         database,
         schema,
         table: selectedTable.table,
       })
     } else {
-      setPostgresView(tab.id, { kind: 'default' })
+      setTabViewState(tab.id, { kind: 'default' })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPinned, database, schema, selectedTable?.schema, selectedTable?.table])
@@ -267,17 +267,17 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
 
   const handleClearFilter = useCallback(() => {
     if (view.kind !== 'relatedRow') return
-    setPostgresView(tab.id, {
+    setTabViewState(tab.id, {
       kind: 'table',
       database: view.database,
       schema: view.schema,
       table: view.table,
     })
-  }, [setPostgresView, tab.id, view])
+  }, [setTabViewState, tab.id, view])
 
   const handleBackToExplorer = useCallback(() => {
-    setPostgresView(tab.id, { kind: 'default' })
-  }, [setPostgresView, tab.id])
+    setTabViewState(tab.id, { kind: 'default' })
+  }, [setTabViewState, tab.id])
 
   const confirmPendingAction = () => {
     if (pendingAction) {

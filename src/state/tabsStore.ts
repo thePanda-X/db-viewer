@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Connection, ConnectionType } from '@/types/connection'
-import { HOME_TAB_ID, type PostgresTabView, type Tab, type TabId } from '@/types/tab'
+import { HOME_TAB_ID, type Tab, type TabId, type TabViewState } from '@/types/tab'
 
 interface OpenRelatedRowArgs {
   database: string
@@ -18,7 +18,7 @@ interface TabsState {
   openHome: () => void
   openConnection: (conn: Connection) => void
   openRelatedRow: (conn: Connection, args: OpenRelatedRowArgs) => void
-  setPostgresView: (tabId: TabId, view: PostgresTabView) => void
+  setTabViewState: (tabId: TabId, view: TabViewState) => void
   closeTab: (id: TabId) => void
   setActive: (id: TabId) => void
   /** Close any tab whose connectionId is in the given list */
@@ -71,8 +71,8 @@ export const useTabsStore = create<TabsState>()(
           id,
           connectionId: conn.id,
           title: args.table,
-          type: 'postgres',
-          postgresView: {
+          type: conn.type,
+          viewState: {
             kind: 'relatedRow',
             database: args.database,
             schema: args.schema,
@@ -85,10 +85,10 @@ export const useTabsStore = create<TabsState>()(
         set({ tabs: [...tabs, next], activeTabId: id })
       },
 
-      setPostgresView: (tabId, view) => {
+      setTabViewState: (tabId, view) => {
         const { tabs } = get()
         const next = tabs.map((t) =>
-          t.id === tabId ? { ...t, postgresView: view } : t,
+          t.id === tabId ? { ...t, viewState: view, postgresView: undefined } : t,
         )
         set({ tabs: next })
       },
@@ -139,6 +139,15 @@ export const useTabsStore = create<TabsState>()(
       name: 'db-vwr:tabs',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ tabs: state.tabs, activeTabId: state.activeTabId }),
+      merge: (persisted, current) => {
+        const next = { ...current, ...(persisted as Partial<TabsState>) }
+        next.tabs = next.tabs.map((tab) => ({
+          ...tab,
+          viewState: tab.viewState ?? tab.postgresView,
+          postgresView: undefined,
+        }))
+        return next
+      },
     },
   ),
 )
