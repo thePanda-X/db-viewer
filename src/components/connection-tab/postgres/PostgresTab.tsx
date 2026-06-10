@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { ResizableSidebar } from '@/components/ui/resizable-sidebar'
 import { PostgresSidebar, type RefreshRefHandle } from './PostgresSidebar'
 import { TableView, type TableViewFilter } from './TableView'
 import { QueryBar } from './QueryBar'
@@ -347,17 +348,24 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
   return (
     <div className="flex h-full overflow-hidden">
       {!isPinned && (
-        <PostgresSidebar
-          connectionId={connection.id}
-          config={config}
-          selectedDatabase={database}
-          onDatabaseChange={handleDatabaseChange}
-          selectedTable={selectedTable}
-          onSelectTable={handleSelectTable}
-          selectedSchema={schema}
-          onSchemaChange={handleSchemaChange}
-          refreshRef={sidebarRefreshRef.current}
-        />
+        <ResizableSidebar
+          defaultWidth={256}
+          minWidth={180}
+          maxWidth={600}
+          storageKey="postgres-sidebar-width"
+        >
+          <PostgresSidebar
+            connectionId={connection.id}
+            config={config}
+            selectedDatabase={database}
+            onDatabaseChange={handleDatabaseChange}
+            selectedTable={selectedTable}
+            onSelectTable={handleSelectTable}
+            selectedSchema={schema}
+            onSchemaChange={handleSchemaChange}
+            refreshRef={sidebarRefreshRef.current}
+          />
+        </ResizableSidebar>
       )}
 
       <div className="flex flex-1 flex-col overflow-hidden">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronRight, Database, Loader2, RefreshCw, Table2, Eye, AlertCircle } from 'lucide-react'
+import { ChevronRight, Copy, Code2, Database, Info, Loader2, RefreshCw, Table2, Eye, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { toast } from '@/state/toastStore'
+import { ContextMenu, type ContextMenuItem } from '@/components/ui/context-menu'
 import type { DatabaseInfo, TableInfo } from '@/types/postgres'
 
 export interface RefreshRefHandle {
@@ -28,6 +30,7 @@ interface PostgresSidebarProps {
   selectedSchema: string
   onSchemaChange: (schema: string) => void
   refreshRef?: RefreshRefHandle
+  onRefresh?: () => void
 }
 
 function isError(value: unknown): value is { error: string } {
@@ -44,6 +47,7 @@ export function PostgresSidebar({
   selectedSchema,
   onSchemaChange,
   refreshRef,
+  onRefresh,
 }: PostgresSidebarProps) {
   const [databases, setDatabases] = useState<DatabaseInfo[] | null>(null)
   const [databasesError, setDatabasesError] = useState<string | null>(null)
@@ -129,7 +133,7 @@ export function PostgresSidebar({
   }, [tables, selectedSchema])
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-muted/20">
+    <aside className="flex h-full w-full flex-col border-r border-border bg-muted/20">
       <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
         <span className="text-xs font-semibold tracking-tight">Explorer</span>
         <Button
@@ -224,24 +228,71 @@ export function PostgresSidebar({
                 {filteredTables.map((t) => {
                   const active =
                     selectedTable?.schema === t.schema && selectedTable?.table === t.name
+                  const tableRef = t
+                  const items: ContextMenuItem[] = [
+                    {
+                      label: 'Open',
+                      icon: <Table2 className="h-3.5 w-3.5" />,
+                      onClick: () => onSelectTable({ schema: tableRef.schema, table: tableRef.name }),
+                    },
+                    {
+                      label: 'Copy Name',
+                      icon: <Copy className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        void navigator.clipboard.writeText(`${tableRef.schema}.${tableRef.name}`)
+                        toast({ message: 'Copied table name' })
+                      },
+                    },
+                    {
+                      label: 'Copy SELECT',
+                      icon: <Code2 className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        void navigator.clipboard.writeText(
+                          `SELECT * FROM "${tableRef.schema}"."${tableRef.name}"`,
+                        )
+                        toast({ message: 'Copied SELECT query' })
+                      },
+                    },
+                    { separator: true },
+                    {
+                      label: 'Refresh',
+                      icon: <RefreshCw className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        if (selectedDatabase) void fetchTables(selectedDatabase)
+                        onRefresh?.()
+                      },
+                    },
+                    {
+                      label: 'Properties',
+                      icon: <Info className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        toast({
+                          message: `${tableRef.schema}.${tableRef.name}`,
+                          detail: `Type: ${tableRef.type}`,
+                        })
+                      },
+                    },
+                  ]
                   return (
                     <li key={`${t.schema}.${t.name}`}>
-                      <button
-                        type="button"
-                        onClick={() => onSelectTable({ schema: t.schema, table: t.name })}
-                        className={cn(
-                          'flex w-full items-center gap-1.5 rounded-sm px-1.5 py-1 text-left text-xs transition-colors',
-                          'hover:bg-muted',
-                          active && 'bg-primary/10 text-primary',
-                        )}
-                      >
-                        {t.type === 'view' ? (
-                          <Eye className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        ) : (
-                          <Table2 className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        )}
-                        <span className="truncate font-mono">{t.name}</span>
-                      </button>
+                      <ContextMenu items={items}>
+                        <button
+                          type="button"
+                          onClick={() => onSelectTable({ schema: t.schema, table: t.name })}
+                          className={cn(
+                            'flex w-full items-center gap-1.5 rounded-sm px-1.5 py-1 text-left text-xs transition-colors',
+                            'hover:bg-muted',
+                            active && 'bg-primary/10 text-primary',
+                          )}
+                        >
+                          {t.type === 'view' ? (
+                            <Eye className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <Table2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="truncate font-mono">{t.name}</span>
+                        </button>
+                      </ContextMenu>
                     </li>
                   )
                 })}

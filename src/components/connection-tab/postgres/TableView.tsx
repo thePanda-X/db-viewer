@@ -9,7 +9,7 @@ import {
   Undo2,
   X,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, valuesEqual } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { useHotkey } from '@/lib/hotkeys'
@@ -81,19 +81,6 @@ function rowKey(row: Row, pk: string[] | null): string {
     return pk.map((k) => String(row[k] ?? '')).join('::')
   }
   return JSON.stringify(row)
-}
-
-function valuesEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true
-  if (a == null || b == null) return false
-  if (typeof a === 'object' && typeof b === 'object') {
-    try {
-      return JSON.stringify(a) === JSON.stringify(b)
-    } catch {
-      return false
-    }
-  }
-  return false
 }
 
 function columnsToRowMap(columns: string[], rows: unknown[][]): Row[] {
@@ -368,7 +355,7 @@ export function TableView({
     const key = rowKey(row, pk)
     setEdits((prev) => {
       const next = new Map(prev)
-      const existing = next.get(key) ?? new Map<string, unknown>()
+      const existing = new Map(next.get(key) ?? new Map<string, unknown>())
       const original = row[col]
       if (valuesEqual(value, original)) {
         existing.delete(col)
@@ -378,7 +365,7 @@ export function TableView({
       if (existing.size === 0) {
         next.delete(key)
       } else {
-        next.set(key, new Map(existing))
+        next.set(key, existing)
       }
       return next
     })

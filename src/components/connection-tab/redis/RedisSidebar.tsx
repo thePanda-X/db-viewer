@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ContextMenu, type ContextMenuItem } from '@/components/ui/context-menu'
 import {
+  CheckSquare,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -8,6 +10,7 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  Square,
   Trash2,
   Type as TypeIcon,
   AlertCircle,
@@ -51,14 +54,17 @@ interface RedisSidebarProps {
   loading: boolean
   error: string | null
   tree: RedisKeyTree
-  selectedKey: string | null
-  onSelectKey: (key: string) => void
+  activeKey: string | null
+  selectedKeys: Set<string>
+  onToggleSelectKey: (key: string, ctrl: boolean, shift: boolean) => void
+  onCheckboxToggle: (key: string) => void
   onRefresh: () => void
   separator: string
   onSeparatorChange: (sep: string) => void
   filter: string
   onFilterChange: (filter: string) => void
   onRequestDeleteKey: (key: string) => void
+  onRequestDeleteSelected: () => void
 }
 
 export function RedisSidebar({
@@ -68,14 +74,17 @@ export function RedisSidebar({
   loading,
   error,
   tree,
-  selectedKey,
-  onSelectKey,
+  activeKey,
+  selectedKeys,
+  onToggleSelectKey,
+  onCheckboxToggle,
   onRefresh,
   separator,
   onSeparatorChange,
   filter,
   onFilterChange,
   onRequestDeleteKey,
+  onRequestDeleteSelected,
 }: RedisSidebarProps) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -114,17 +123,17 @@ export function RedisSidebar({
   })
 
   useHotkey('Delete', {
-    label: 'Delete key',
+    label: 'Delete key(s)',
     group: 'Redis',
-    description: 'Delete the selected key',
+    description: 'Delete the selected key(s)',
     handler: () => {
-      if (selectedKey) onRequestDeleteKey(selectedKey)
+      if (selectedKeys.size > 0) onRequestDeleteSelected()
     },
   })
 
   return (
     <TooltipProvider delayDuration={300}>
-      <aside className="flex h-full w-72 shrink-0 flex-col border-r border-border bg-muted/20">
+      <aside className="flex h-full w-full flex-col border-r border-border bg-muted/20">
         <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
           <div className="flex min-w-0 items-center gap-2">
             <span className="text-xs font-semibold tracking-tight">Keys</span>
@@ -186,44 +195,70 @@ export function RedisSidebar({
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="p-2">
-            {error ? (
-              <div className="flex items-start gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
-                <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-                <span className="break-words">{error}</span>
-              </div>
-            ) : loading && totalKeys === 0 ? (
-              <div className="flex items-center gap-2 p-2 text-xs text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span>Scanning…</span>
-              </div>
-            ) : totalKeys === 0 ? (
-              <div className="rounded-md border border-dashed border-border p-3 text-center text-[11px] text-muted-foreground">
-                No keys found.
-              </div>
-            ) : (
-              <div className="space-y-0.5">
-                {tree.folders.map((folder) => (
-                  <FolderNode
-                    key={folder.path}
-                    folder={folder}
-                    depth={0}
-                    expanded={expanded}
-                    onToggle={toggle}
-                    selectedKey={selectedKey}
-                    onSelectKey={onSelectKey}
-                    onRequestDelete={onRequestDeleteKey}
-                  />
-                ))}
-                {tree.rootKeys.map((key) => (
-                  <KeyLeaf
-                    key={key}
-                    keyName={key}
-                    selected={selectedKey === key}
-                    onSelect={onSelectKey}
-                    onRequestDelete={onRequestDeleteKey}
-                  />
-                ))}
+          <div className="flex h-full flex-col">
+            <div className="flex-1 p-2">
+              {error ? (
+                <div className="flex items-start gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+                  <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span className="break-words">{error}</span>
+                </div>
+              ) : loading && totalKeys === 0 ? (
+                <div className="flex items-center gap-2 p-2 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Scanning…</span>
+                </div>
+              ) : totalKeys === 0 ? (
+                <div className="rounded-md border border-dashed border-border p-3 text-center text-[11px] text-muted-foreground">
+                  No keys found.
+                </div>
+              ) : (
+                <div className="space-y-0.5">
+                  {tree.folders.map((folder) => (
+                    <FolderNode
+                      key={folder.path}
+                      folder={folder}
+                      depth={0}
+                      expanded={expanded}
+                      onToggle={toggle}
+                      activeKey={activeKey}
+                      selectedKeys={selectedKeys}
+                      onToggleSelectKey={onToggleSelectKey}
+                      onCheckboxToggle={onCheckboxToggle}
+                      onRequestDelete={onRequestDeleteKey}
+                      onRequestDeleteSelected={onRequestDeleteSelected}
+                    />
+                  ))}
+                  {tree.rootKeys.map((key) => (
+                    <KeyLeaf
+                      key={key}
+                      keyName={key}
+                      depth={0}
+                      activeKey={activeKey}
+                      selectedKeys={selectedKeys}
+                      onToggleSelectKey={onToggleSelectKey}
+                      onCheckboxToggle={onCheckboxToggle}
+                      onRequestDelete={onRequestDeleteKey}
+                      onRequestDeleteSelected={onRequestDeleteSelected}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            {selectedKeys.size > 1 && (
+              <div className="flex shrink-0 items-center gap-2 border-t border-border bg-muted/40 px-3 py-2">
+                <CheckSquare className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {selectedKeys.size} selected
+                </span>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="ml-auto h-7 gap-1 px-2 text-xs"
+                  onClick={onRequestDeleteSelected}
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Delete
+                </Button>
               </div>
             )}
           </div>
@@ -250,9 +285,12 @@ interface FolderNodeProps {
   depth: number
   expanded: Set<string>
   onToggle: (path: string) => void
-  selectedKey: string | null
-  onSelectKey: (key: string) => void
+  activeKey: string | null
+  selectedKeys: Set<string>
+  onToggleSelectKey: (key: string, ctrl: boolean, shift: boolean) => void
+  onCheckboxToggle: (key: string) => void
   onRequestDelete: (key: string) => void
+  onRequestDeleteSelected: () => void
 }
 
 function FolderNode({
@@ -260,42 +298,56 @@ function FolderNode({
   depth,
   expanded,
   onToggle,
-  selectedKey,
-  onSelectKey,
+  activeKey,
+  selectedKeys,
+  onToggleSelectKey,
+  onCheckboxToggle,
   onRequestDelete,
+  onRequestDeleteSelected,
 }: FolderNodeProps) {
   const isOpen = expanded.has(folder.path)
+
+  const items: ContextMenuItem[] = [
+    {
+      label: 'Copy Folder Path',
+      icon: <FolderIcon className="h-3.5 w-3.5 text-amber-500" />,
+      onClick: () => void navigator.clipboard.writeText(folder.path),
+    },
+  ]
+
   return (
     <>
-      <div
-        className={cn(
-          'group flex h-6 items-center gap-1 rounded-sm px-1 text-xs transition-colors',
-          'hover:bg-muted',
-        )}
-        style={{ paddingLeft: 4 + depth * 12 }}
-      >
-        <button
-          type="button"
-          onClick={() => onToggle(folder.path)}
-          className="flex flex-1 items-center gap-1 text-left"
-        >
-          {isOpen ? (
-            <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+      <ContextMenu items={items}>
+        <div
+          className={cn(
+            'group flex h-6 items-center gap-1 rounded-sm px-1 text-xs transition-colors',
+            'hover:bg-muted',
           )}
-          <FolderIcon
-            className={cn(
-              'h-3 w-3 shrink-0',
-              isOpen ? 'text-amber-500' : 'text-amber-500/70',
+          style={{ paddingLeft: 4 + depth * 12 }}
+        >
+          <button
+            type="button"
+            onClick={() => onToggle(folder.path)}
+            className="flex flex-1 items-center gap-1 text-left"
+          >
+            {isOpen ? (
+              <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+            ) : (
+              <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
             )}
-          />
-          <span className="truncate font-mono">{folder.name}</span>
-        </button>
-        <span className="rounded bg-muted px-1 font-mono text-[10px] tabular-nums text-muted-foreground">
-          {folder.count}
-        </span>
-      </div>
+            <FolderIcon
+              className={cn(
+                'h-3 w-3 shrink-0',
+                isOpen ? 'text-amber-500' : 'text-amber-500/70',
+              )}
+            />
+            <span className="truncate font-mono">{folder.name}</span>
+          </button>
+          <span className="rounded bg-muted px-1 font-mono text-[10px] tabular-nums text-muted-foreground">
+            {folder.count}
+          </span>
+        </div>
+      </ContextMenu>
       {isOpen && (
         <>
           {folder.folders.map((sub) => (
@@ -305,9 +357,12 @@ function FolderNode({
               depth={depth + 1}
               expanded={expanded}
               onToggle={onToggle}
-              selectedKey={selectedKey}
-              onSelectKey={onSelectKey}
+              activeKey={activeKey}
+              selectedKeys={selectedKeys}
+              onToggleSelectKey={onToggleSelectKey}
+              onCheckboxToggle={onCheckboxToggle}
               onRequestDelete={onRequestDelete}
+              onRequestDeleteSelected={onRequestDeleteSelected}
             />
           ))}
           {folder.keys.map((key) => (
@@ -315,9 +370,12 @@ function FolderNode({
               key={key}
               keyName={key}
               depth={depth + 1}
-              selected={selectedKey === key}
-              onSelect={onSelectKey}
+              activeKey={activeKey}
+              selectedKeys={selectedKeys}
+              onToggleSelectKey={onToggleSelectKey}
+              onCheckboxToggle={onCheckboxToggle}
               onRequestDelete={onRequestDelete}
+              onRequestDeleteSelected={onRequestDeleteSelected}
             />
           ))}
         </>
@@ -329,65 +387,141 @@ function FolderNode({
 interface KeyLeafProps {
   keyName: string
   depth?: number
-  selected: boolean
-  onSelect: (key: string) => void
+  activeKey: string | null
+  selectedKeys: Set<string>
+  onToggleSelectKey: (key: string, ctrl: boolean, shift: boolean) => void
+  onCheckboxToggle: (key: string) => void
   onRequestDelete: (key: string) => void
+  onRequestDeleteSelected: () => void
 }
 
-function KeyLeaf({ keyName, depth = 0, selected, onSelect, onRequestDelete }: KeyLeafProps) {
+function KeyLeaf({
+  keyName,
+  depth = 0,
+  activeKey,
+  selectedKeys,
+  onToggleSelectKey,
+  onCheckboxToggle,
+  onRequestDelete,
+  onRequestDeleteSelected,
+}: KeyLeafProps) {
+  const isActive = activeKey === keyName
+  const isSelected = selectedKeys.has(keyName)
+  const isMultiSelected = selectedKeys.size > 1 && selectedKeys.has(keyName)
+
+  const items: ContextMenuItem[] = [
+    {
+      label: 'View',
+      icon: <KeyRound className="h-3.5 w-3.5" />,
+      onClick: () => onToggleSelectKey(keyName, false, false),
+    },
+    isMultiSelected
+      ? {
+          label: `Copy Names (${selectedKeys.size})`,
+          icon: <Copy className="h-3.5 w-3.5" />,
+          onClick: () => void navigator.clipboard.writeText(Array.from(selectedKeys).join('\n')),
+        }
+      : {
+          label: 'Copy Name',
+          icon: <Copy className="h-3.5 w-3.5" />,
+          onClick: () => void navigator.clipboard.writeText(keyName),
+        },
+    { separator: true },
+    isMultiSelected
+      ? {
+          label: `Delete (${selectedKeys.size})`,
+          icon: <Trash2 className="h-3.5 w-3.5" />,
+          destructive: true,
+          onClick: () => onRequestDeleteSelected(),
+        }
+      : {
+          label: 'Delete',
+          icon: <Trash2 className="h-3.5 w-3.5" />,
+          destructive: true,
+          onClick: () => onRequestDelete(keyName),
+        },
+  ]
+
   return (
-    <div
-      className={cn(
-        'group flex h-6 items-center gap-1 rounded-sm px-1 text-xs transition-colors',
-        'hover:bg-muted',
-        selected && 'bg-primary/10 text-primary',
-      )}
-      style={{ paddingLeft: 4 + depth * 12 + 12 }}
-    >
-      <button
-        type="button"
-        onClick={() => onSelect(keyName)}
-        className="flex flex-1 items-center gap-1.5 text-left"
-        title={keyName}
+    <ContextMenu items={items}>
+      <div
+        className={cn(
+          'group flex h-6 items-center gap-1 rounded-sm px-1 text-xs transition-colors',
+          'hover:bg-muted',
+          isActive && !isSelected && 'bg-primary/10 text-primary',
+          isSelected && 'bg-primary/15 text-primary',
+          isSelected && !isActive && 'border-l-2 border-primary/40',
+        )}
+        style={{ paddingLeft: 4 + depth * 12 + 12 }}
       >
-        <KeyRound className="h-3 w-3 shrink-0 text-muted-foreground" />
-        <span className="truncate font-mono">{leafName(keyName)}</span>
-      </button>
-      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                void navigator.clipboard.writeText(keyName)
-              }}
-              className="rounded p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
-              aria-label="Copy key name"
-            >
-              <Copy className="h-3 w-3" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Copy key name</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                onRequestDelete(keyName)
-              }}
-              className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-              aria-label="Delete key"
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent>Delete key</TooltipContent>
-        </Tooltip>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onCheckboxToggle(keyName)
+          }}
+          className="flex items-center justify-center rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+          aria-label={isSelected ? 'Deselect key' : 'Select key'}
+        >
+          {isSelected ? (
+            <CheckSquare className="h-3.5 w-3.5 text-primary" />
+          ) : (
+            <Square className="h-3.5 w-3.5 opacity-40 hover:opacity-80" />
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            if (e.shiftKey) {
+              onToggleSelectKey(keyName, false, true)
+            } else if (e.ctrlKey || e.metaKey) {
+              onToggleSelectKey(keyName, true, false)
+            } else {
+              onToggleSelectKey(keyName, false, false)
+            }
+          }}
+          className="flex flex-1 items-center gap-1.5 text-left"
+          title={keyName}
+        >
+          <KeyRound className="h-3 w-3 shrink-0 text-muted-foreground" />
+          <span className="truncate font-mono">{leafName(keyName)}</span>
+        </button>
+        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  void navigator.clipboard.writeText(keyName)
+                }}
+                className="rounded p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
+                aria-label="Copy key name"
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Copy key name</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRequestDelete(keyName)
+                }}
+                className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                aria-label="Delete key"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Delete key</TooltipContent>
+          </Tooltip>
+        </div>
       </div>
-    </div>
+    </ContextMenu>
   )
 }
 
