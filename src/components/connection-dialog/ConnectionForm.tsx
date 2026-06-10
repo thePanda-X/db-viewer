@@ -70,10 +70,7 @@ export function ConnectionForm({
     setBrowsing(true)
     try {
       const path = await api.dialog.openFile({
-        filters: [
-          { name: 'SQLite databases', extensions: ['db', 'sqlite', 'sqlite3'] },
-          { name: 'All files', extensions: ['*'] },
-        ],
+        filters: def.fileDialogFilters,
       })
       if (path) {
         form.setValue(fieldName, path, { shouldDirty: true, shouldValidate: true })
