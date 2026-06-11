@@ -53,6 +53,9 @@ export type TableMeta = SqlTableMeta<ColumnMeta>
 export interface ForeignKey {
   /** Name of the constraint in the database (used to group composite FKs) */
   constraintName: string
+  /** Referencing table */
+  sourceSchema: string
+  sourceTable: string
   /** Referencing column on the local table */
   column: string
   /** Referenced schema, table, and column on the other side */

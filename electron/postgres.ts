@@ -13,6 +13,7 @@ import type {
   TableInfo,
   TableMeta,
 } from '../src/types/postgres'
+import type { SqlLookupRowsResponse } from '../shared/types/sql'
 
 const DEFAULT_STATEMENT_TIMEOUT_MS = 15_000
 const DEFAULT_MAX_ROWS = 10_000
@@ -397,25 +398,28 @@ export async function getTableRelations(
   const res = await runReadOnlyQuery(connectionId, { ...config, database }, {
     sql: `SELECT
             c.conname        AS constraint_name,
+            n1.nspname       AS source_schema,
+            c1.relname       AS source_table,
             a.attname        AS column_name,
             nr.nspname       AS ref_schema,
             cr.relname       AS ref_table,
             af.attname       AS ref_column,
             tf.typname       AS ref_udt_name,
-            ord.ord          AS ordinal
+            local_ord.ord    AS ordinal
           FROM pg_constraint c
           JOIN pg_class     c1  ON c1.oid = c.conrelid
           JOIN pg_namespace n1  ON n1.oid = c1.relnamespace
           JOIN pg_class     cr  ON cr.oid = c.confrelid
           JOIN pg_namespace nr  ON nr.oid = cr.relnamespace
-          JOIN unnest(c.conkey)   WITH ORDINALITY AS ord(attnum, ord) ON TRUE
-          JOIN pg_attribute a  ON a.attrelid = c1.oid   AND a.attnum  = ord.attnum
-          JOIN pg_attribute af ON af.attrelid = cr.oid  AND af.attnum = ord.attnum
+          JOIN unnest(c.conkey)  WITH ORDINALITY AS local_ord(attnum, ord) ON TRUE
+          JOIN unnest(c.confkey) WITH ORDINALITY AS ref_ord(attnum, ord) ON ref_ord.ord = local_ord.ord
+          JOIN pg_attribute a  ON a.attrelid = c1.oid  AND a.attnum  = local_ord.attnum
+          JOIN pg_attribute af ON af.attrelid = cr.oid  AND af.attnum = ref_ord.attnum
           JOIN pg_type      tf ON tf.oid = af.atttypid
           WHERE c.contype = 'f'
             AND n1.nspname = $1
             AND c1.relname = $2
-          ORDER BY c.conname, ord.ord::int`,
+          ORDER BY c.conname, local_ord.ord::int`,
     params: [schema, table],
   })
   if (!res.ok) throw new Error(res.error)
@@ -423,6 +427,8 @@ export async function getTableRelations(
 
   type Row = {
     constraintName: string
+    sourceSchema: string
+    sourceTable: string
     columnName: string
     refSchema: string
     refTable: string
@@ -437,19 +443,23 @@ export async function getTableRelations(
     if (!row) {
       row = {
         constraintName,
-        columnName: String(r[1]),
-        refSchema: String(r[2]),
-        refTable: String(r[3]),
-        refColumn: String(r[4]),
-        refUdtName: String(r[5]),
+        sourceSchema: String(r[1]),
+        sourceTable: String(r[2]),
+        columnName: String(r[3]),
+        refSchema: String(r[4]),
+        refTable: String(r[5]),
+        refColumn: String(r[6]),
+        refUdtName: String(r[7]),
         constraintColumns: [],
       }
       grouped.set(constraintName, row)
     }
-    row.constraintColumns.push(String(r[1]))
+    row.constraintColumns.push(String(r[3]))
   }
   return Array.from(grouped.values()).map((r) => ({
     constraintName: r.constraintName,
+    sourceSchema: r.sourceSchema,
+    sourceTable: r.sourceTable,
     column: r.columnName,
     referencedSchema: r.refSchema,
     referencedTable: r.refTable,
@@ -457,6 +467,112 @@ export async function getTableRelations(
     referencedUdtName: r.refUdtName,
     constraintColumns: r.constraintColumns,
   }))
+}
+
+export async function getIncomingTableRelations(
+  connectionId: string,
+  config: PostgresConfig,
+  database: string,
+  schema: string,
+  table: string,
+): Promise<ForeignKey[]> {
+  const res = await runReadOnlyQuery(connectionId, { ...config, database }, {
+    sql: `SELECT
+            c.conname        AS constraint_name,
+            n1.nspname       AS source_schema,
+            c1.relname       AS source_table,
+            a.attname        AS column_name,
+            nr.nspname       AS ref_schema,
+            cr.relname       AS ref_table,
+            af.attname       AS ref_column,
+            tf.typname       AS ref_udt_name,
+            local_ord.ord    AS ordinal
+          FROM pg_constraint c
+          JOIN pg_class     c1  ON c1.oid = c.conrelid
+          JOIN pg_namespace n1  ON n1.oid = c1.relnamespace
+          JOIN pg_class     cr  ON cr.oid = c.confrelid
+          JOIN pg_namespace nr  ON nr.oid = cr.relnamespace
+          JOIN unnest(c.conkey)  WITH ORDINALITY AS local_ord(attnum, ord) ON TRUE
+          JOIN unnest(c.confkey) WITH ORDINALITY AS ref_ord(attnum, ord) ON ref_ord.ord = local_ord.ord
+          JOIN pg_attribute a  ON a.attrelid = c1.oid  AND a.attnum  = local_ord.attnum
+          JOIN pg_attribute af ON af.attrelid = cr.oid  AND af.attnum = ref_ord.attnum
+          JOIN pg_type      tf ON tf.oid = af.atttypid
+          WHERE c.contype = 'f'
+            AND nr.nspname = $1
+            AND cr.relname = $2
+          ORDER BY c.conname, local_ord.ord::int`,
+    params: [schema, table],
+  })
+  if (!res.ok) throw new Error(res.error)
+  if (res.result.rows.length === 0) return []
+
+  type Row = {
+    constraintName: string
+    sourceSchema: string
+    sourceTable: string
+    columnName: string
+    refSchema: string
+    refTable: string
+    refColumn: string
+    refUdtName: string
+    constraintColumns: string[]
+  }
+  const grouped = new Map<string, Row>()
+  for (const r of res.result.rows) {
+    const constraintName = String(r[0])
+    let row = grouped.get(constraintName)
+    if (!row) {
+      row = {
+        constraintName,
+        sourceSchema: String(r[1]),
+        sourceTable: String(r[2]),
+        columnName: String(r[3]),
+        refSchema: String(r[4]),
+        refTable: String(r[5]),
+        refColumn: String(r[6]),
+        refUdtName: String(r[7]),
+        constraintColumns: [],
+      }
+      grouped.set(constraintName, row)
+    }
+    row.constraintColumns.push(String(r[3]))
+  }
+  return Array.from(grouped.values()).map((r) => ({
+    constraintName: r.constraintName,
+    sourceSchema: r.sourceSchema,
+    sourceTable: r.sourceTable,
+    column: r.columnName,
+    referencedSchema: r.refSchema,
+    referencedTable: r.refTable,
+    referencedColumn: r.refColumn,
+    referencedUdtName: r.refUdtName,
+    constraintColumns: r.constraintColumns,
+  }))
+}
+
+export async function lookupRows(
+  connectionId: string,
+  config: PostgresConfig,
+  database: string,
+  schema: string,
+  table: string,
+  columns: string[],
+  search?: { column: string; query: string },
+  limit?: number,
+): Promise<SqlLookupRowsResponse> {
+  const maxRows = limit ?? 50
+  const colList = columns.map((c) => ident(c)).join(', ')
+  let whereClause = ''
+  const params: unknown[] = []
+  if (search && search.query.trim()) {
+    params.push(`%${search.query}%`)
+    whereClause = ` WHERE ${ident(search.column)}::text ILIKE $1`
+  }
+  const sql = `SELECT ${colList} FROM ${ident(schema)}.${ident(table)}${whereClause} LIMIT $${params.length + 1}`
+  params.push(maxRows)
+  const res = await runReadOnlyQuery(connectionId, { ...config, database }, { sql, params })
+  if (!res.ok) throw new Error(res.error)
+  return { columns, rows: res.result.rows }
 }
 
 function literalize(value: unknown): string {

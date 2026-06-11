@@ -4,10 +4,12 @@ import path from 'node:path'
 import { listConnections, setConnections } from './connections'
 import {
   disconnect as pgDisconnect,
+  getIncomingTableRelations,
   getTableMeta,
   getTableRelations,
   listDatabases,
   listTables,
+  lookupRows,
   runQuery,
   runReadOnlyQuery,
   saveChanges,
@@ -17,6 +19,7 @@ import {
   getTableMeta as sqliteGetTableMeta,
   getTableRelations as sqliteGetTableRelations,
   listTables as sqliteListTables,
+  lookupRows as sqliteLookupRows,
   runQuery as sqliteRunQuery,
   runReadOnlyQuery as sqliteRunReadOnlyQuery,
   saveChanges as sqliteSaveChanges,
@@ -389,6 +392,60 @@ app.whenReady().then(() => {
   )
 
   ipcMain.handle(
+    'postgres:getIncomingTableRelations',
+    async (
+      _event,
+      args: TableMetaArgs,
+    ): Promise<{ ok: true; relations: ForeignKey[] } | { ok: false; error: string }> => {
+      try {
+        const relations = await getIncomingTableRelations(
+          args.connectionId,
+          args.config,
+          args.database ?? args.config.database,
+          args.schema,
+          args.table,
+        )
+        return { ok: true, relations }
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'postgres:lookupRows',
+    async (
+      _event,
+      args: {
+        connectionId: string
+        config: PostgresConfig
+        database: string
+        schema: string
+        table: string
+        columns: string[]
+        search?: { column: string; query: string }
+        limit?: number
+      },
+    ): Promise<{ ok: true; result: { columns: string[]; rows: unknown[][] } } | { ok: false; error: string }> => {
+      try {
+        const result = await lookupRows(
+          args.connectionId,
+          args.config,
+          args.database,
+          args.schema,
+          args.table,
+          args.columns,
+          args.search,
+          args.limit,
+        )
+        return { ok: true, result }
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
     'postgres:saveChanges',
     async (
       _event,
@@ -463,6 +520,35 @@ app.whenReady().then(() => {
         return { ok: true, relations }
       } catch (err) {
         return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'sqlite:lookupRows',
+    async (
+      _event,
+      args: {
+        connectionId: string
+        filePath: string
+        table: string
+        columns: string[]
+        search?: { column: string; query: string }
+        limit?: number
+      },
+    ): Promise<{ ok: true; result: { columns: string[]; rows: unknown[][] } } | { ok: false; error: string }> => {
+      try {
+        const result = await sqliteLookupRows(
+          args.connectionId,
+          args.filePath,
+          args.table,
+          args.columns,
+          args.search,
+          args.limit,
+        )
+        return { ok: true, result }
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) }
       }
     },
   )

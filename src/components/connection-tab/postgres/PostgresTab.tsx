@@ -243,6 +243,23 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
     [config, connection, database, guarded, openRelatedRow],
   )
 
+  const handleNavigateIncomingRelation = useCallback(
+    (fk: ForeignKey, value: unknown) => {
+      const display = value === null || value === undefined ? 'NULL' : String(value)
+      guarded(() => {
+        openRelatedRow(connection, {
+          database,
+          schema: fk.sourceSchema,
+          table: fk.sourceTable,
+          filterColumn: fk.column,
+          filterValue: value,
+          filterDisplay: `${fk.sourceTable}.${fk.column} = ${display}`,
+        })
+      })
+    },
+    [connection, database, guarded, openRelatedRow],
+  )
+
   const handleNavigateAdHoc = useCallback(
     (args: {
       referencedSchema: string
@@ -433,6 +450,7 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
                 {...(activeTableViewFilter ? { filter: activeTableViewFilter } : {})}
                 {...(activeTableViewFilter ? { onClearFilter: handleClearFilter } : {})}
                 onNavigateRelation={handleNavigateRelation}
+                onNavigateIncomingRelation={handleNavigateIncomingRelation}
                 onPendingChangesChange={handlePendingChangesChange}
                 onConfirmNavigationRequest={guarded}
                 refreshRef={tableRefreshRef.current}

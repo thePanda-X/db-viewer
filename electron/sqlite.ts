@@ -9,6 +9,7 @@ import type {
   TableInfo,
   TableMeta,
 } from '../src/types/sqlite'
+import type { SqlLookupRowsResponse } from '../shared/types/sql'
 
 const DEFAULT_MAX_ROWS = 10_000
 
@@ -193,6 +194,29 @@ export async function getTableRelations(
     referencedTable: r.table,
     referencedColumn: r.to
   }))
+}
+
+export async function lookupRows(
+  connectionId: string,
+  filePath: string,
+  table: string,
+  columns: string[],
+  search?: { column: string; query: string },
+  limit?: number,
+): Promise<SqlLookupRowsResponse> {
+  const maxRows = limit ?? 50
+  const colList = columns.map((c) => `"${c.replace(/"/g, '""')}"`).join(', ')
+  let whereClause = ''
+  const params: unknown[] = []
+  if (search && search.query.trim()) {
+    params.push(`%${search.query}%`)
+    whereClause = ` WHERE "${search.column.replace(/"/g, '""')}" LIKE ?`
+  }
+  const sql = `SELECT ${colList} FROM "${table.replace(/"/g, '""')}"${whereClause} LIMIT ?`
+  params.push(maxRows)
+  const res = await runReadOnlyQuery(connectionId, filePath, { sql, params })
+  if (!res.ok) throw new Error(res.error)
+  return { columns, rows: res.result.rows }
 }
 
 export async function saveChanges(
