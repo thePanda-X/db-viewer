@@ -38,3 +38,16 @@ export interface SqlTableMeta<TColumn extends SqlColumnMetaBase = SqlColumnMetaB
 
 export type SqlTableKind = 'table' | 'view'
 export type EditableColumnKind = 'text' | 'number' | 'boolean' | 'datetime' | 'json' | 'readonly'
+
+export interface SqlLookupRowsRequest {
+  schema?: string
+  table: string
+  columns: string[]
+  search?: { column: string; query: string }
+  limit?: number
+}
+
+export interface SqlLookupRowsResponse {
+  columns: string[]
+  rows: unknown[][]
+}

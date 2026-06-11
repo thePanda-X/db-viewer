@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { EditableCell } from './EditableCell'
+import { ForeignKeyPicker } from '../ForeignKeyPicker'
 import type { ForeignKey, TableMeta } from '@/types/postgres'
 import type { PostgresConfig } from '@/types/connection'
 import type { RefreshRefHandle } from './PostgresSidebar'
@@ -67,6 +68,7 @@ interface TableViewProps {
    * parent is responsible for opening the new tab. Defaults to no-op.
    */
   onNavigateRelation?: (fk: ForeignKey, value: unknown) => void
+  onNavigateIncomingRelation?: (fk: ForeignKey, value: unknown) => void
   onPendingChangesChange?: (count: number) => void
   onConfirmNavigationRequest?: (action: () => void) => void
   refreshRef?: RefreshRefHandle
@@ -102,6 +104,7 @@ export function TableView({
   filter,
   onClearFilter,
   onNavigateRelation,
+  onNavigateIncomingRelation,
   onPendingChangesChange,
   onConfirmNavigationRequest,
   refreshRef,
@@ -109,6 +112,7 @@ export function TableView({
   const [meta, setMeta] = useState<TableMeta | null>(null)
   const [metaError, setMetaError] = useState<string | null>(null)
   const [relations, setRelations] = useState<ForeignKey[]>([])
+  const [incomingRelations, setIncomingRelations] = useState<ForeignKey[]>([])
   const [originalRows, setOriginalRows] = useState<Row[]>([])
   const [edits, setEdits] = useState<Map<string, Map<string, unknown>>>(new Map())
   const [loading, setLoading] = useState(false)
@@ -121,6 +125,11 @@ export function TableView({
   const [saveError, setSaveError] = useState<string | null>(null)
   const [failedRowIndex, setFailedRowIndex] = useState<number | null>(null)
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false)
+  const [fkPickerState, setFkPickerState] = useState<{
+    rowIdx: number
+    col: string
+    fk: ForeignKey
+  } | null>(null)
   // Structural seq — bumped whenever the table or filter changes. Guards
   // fetchMeta/fetchRelations/fetchCount so an in-flight stale fetch can't
   // overwrite the new table's state with the old table's meta.
@@ -177,6 +186,28 @@ export function TableView({
     } catch {
       if (seq !== fetchSeq.current) return
       setRelations([])
+    }
+  }, [connectionId, config, database, schema, table])
+
+  const fetchIncomingRelations = useCallback(async () => {
+    const seq = fetchSeq.current
+    try {
+      const result = await api.postgres.getIncomingTableRelations({
+        connectionId,
+        config,
+        database,
+        schema,
+        table,
+      })
+      if (seq !== fetchSeq.current) return
+      if (result.ok) {
+        setIncomingRelations(result.relations)
+      } else {
+        setIncomingRelations([])
+      }
+    } catch {
+      if (seq !== fetchSeq.current) return
+      setIncomingRelations([])
     }
   }, [connectionId, config, database, schema, table])
 
@@ -261,6 +292,7 @@ export function TableView({
     setMeta(null)
     setMetaError(null)
     setRelations([])
+    setIncomingRelations([])
     setOriginalRows([])
     setDataError(null)
     setTotalCount(null)
@@ -292,6 +324,10 @@ export function TableView({
   }, [fetchRelations])
 
   useEffect(() => {
+    void fetchIncomingRelations()
+  }, [fetchIncomingRelations])
+
+  useEffect(() => {
     void fetchData()
   }, [fetchData])
 
@@ -304,13 +340,14 @@ export function TableView({
     refreshRef.current = () => {
       void fetchMeta()
       void fetchRelations()
+      void fetchIncomingRelations()
       void fetchData()
       void fetchCount()
     }
     return () => {
       if (refreshRef) refreshRef.current = null
     }
-  }, [refreshRef, fetchMeta, fetchRelations, fetchData, fetchCount])
+  }, [refreshRef, fetchMeta, fetchRelations, fetchIncomingRelations, fetchData, fetchCount])
 
   const pendingCount = useMemo(() => {
     let count = 0
@@ -329,6 +366,17 @@ export function TableView({
     }
     return map
   }, [relations])
+
+  const incomingRelationsByColumn = useMemo(() => {
+    const map = new Map<string, ForeignKey[]>()
+    for (const r of incomingRelations) {
+      if (r.constraintColumns.length !== 1) continue
+      const existing = map.get(r.referencedColumn) ?? []
+      existing.push(r)
+      map.set(r.referencedColumn, existing)
+    }
+    return map
+  }, [incomingRelations])
 
   useHotkey('Mod+S', {
     label: 'Save changes',
@@ -444,6 +492,43 @@ export function TableView({
       setOffset(0)
     }
   }, [pendingCount, onConfirmNavigationRequest, discardChanges])
+
+  const handleOpenFkPicker = useCallback((rowIdx: number, col: string, fk: ForeignKey) => {
+    setFkPickerState({ rowIdx, col, fk })
+  }, [])
+
+  const handleCloseFkPicker = useCallback(() => {
+    setFkPickerState(null)
+  }, [])
+
+  const fetchFkRows = useCallback(
+    async (search?: string) => {
+      if (!fkPickerState) return { columns: [], rows: [] }
+      const { fk } = fkPickerState
+      const columns = [fk.referencedColumn]
+      const result = await api.postgres.lookupRows({
+        connectionId,
+        config,
+        database,
+        schema: fk.referencedSchema,
+        table: fk.referencedTable,
+        columns,
+        ...(search ? { search: { column: fk.referencedColumn, query: search } } : {}),
+        limit: 50,
+      })
+      if (!result.ok) throw new Error(result.error)
+      return result.result
+    },
+    [connectionId, config, database, fkPickerState],
+  )
+
+  const handleFkSelect = useCallback(
+    (value: unknown) => {
+      if (!fkPickerState) return
+      setCellEdit(fkPickerState.rowIdx, fkPickerState.col, value)
+    },
+    [fkPickerState, setCellEdit],
+  )
 
   const hasPrimaryKey = meta?.primaryKey != null
   const showRangeStart = totalCount === 0 ? 0 : offset + 1
@@ -585,6 +670,7 @@ export function TableView({
                       const edited = rowEdits?.get(col.name)
                       const current = edited !== undefined ? edited : row[col.name]
                       const fk = relationsByColumn.get(col.name)
+                      const incoming = incomingRelationsByColumn.get(col.name) ?? []
                       return (
                         <TableCell
                           key={col.name}
@@ -608,6 +694,11 @@ export function TableView({
                                   },
                                 }
                               : {})}
+                            incomingNavigateTo={incoming.map((incomingFk) => ({
+                              table: `${incomingFk.sourceSchema}.${incomingFk.sourceTable}`,
+                              onClick: () => onNavigateIncomingRelation?.(incomingFk, current),
+                            }))}
+                            onFkBrowse={fk ? () => handleOpenFkPicker(rowIdx, col.name, fk) : undefined}
                           />
                         </TableCell>
                       )
@@ -748,6 +839,19 @@ export function TableView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {fkPickerState && (
+        <ForeignKeyPicker
+          open
+          onOpenChange={(open) => {
+            if (!open) handleCloseFkPicker()
+          }}
+          referencedTable={`${fkPickerState.fk.referencedSchema}.${fkPickerState.fk.referencedTable}`}
+          referencedColumn={fkPickerState.fk.referencedColumn}
+          fetchRows={fetchFkRows}
+          onSelect={handleFkSelect}
+        />
+      )}
     </div>
   )
 }

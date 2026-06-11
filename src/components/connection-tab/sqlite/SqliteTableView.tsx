@@ -38,7 +38,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { EditableCell } from '../postgres/EditableCell'
-import type { TableMeta } from '@/types/sqlite'
+import { ForeignKeyPicker } from '../ForeignKeyPicker'
+import type { TableMeta, ForeignKey } from '@/types/sqlite'
 import { editableKindFor as sqliteEditableKindFor } from '@/types/sqlite'
 import type { ColumnMeta as PostgresColumnMeta } from '@/types/postgres'
 import type { SqliteConfig } from '@/types/connection'
@@ -94,7 +95,13 @@ export function SqliteTableView({
   const [saveError, setSaveError] = useState<string | null>(null)
   const [failedRowIndex, setFailedRowIndex] = useState<number | null>(null)
   const [confirmSaveOpen, setConfirmSaveOpen] = useState(false)
-  
+  const [relations, setRelations] = useState<ForeignKey[]>([])
+  const [fkPickerState, setFkPickerState] = useState<{
+    rowIdx: number
+    col: string
+    fk: ForeignKey
+  } | null>(null)
+
   const fetchSeq = useRef(0)
   const dataSeq = useRef(0)
 
@@ -117,6 +124,26 @@ export function SqliteTableView({
     } catch (err) {
       if (seq !== fetchSeq.current) return
       setMetaError(err instanceof Error ? err.message : String(err))
+    }
+  }, [connectionId, config.filePath, table])
+
+  const fetchRelations = useCallback(async () => {
+    const seq = fetchSeq.current
+    try {
+      const result = await api.sqlite.getTableRelations({
+        connectionId,
+        filePath: config.filePath,
+        table,
+      })
+      if (seq !== fetchSeq.current) return
+      if (result.ok) {
+        setRelations(result.relations)
+      } else {
+        setRelations([])
+      }
+    } catch {
+      if (seq !== fetchSeq.current) return
+      setRelations([])
     }
   }, [connectionId, config.filePath, table])
 
@@ -165,6 +192,10 @@ export function SqliteTableView({
   }, [fetchMeta])
 
   useEffect(() => {
+    void fetchRelations()
+  }, [fetchRelations])
+
+  useEffect(() => {
     void fetchData()
   }, [fetchData])
 
@@ -172,12 +203,13 @@ export function SqliteTableView({
     if (!refreshRef) return
     refreshRef.current = () => {
       void fetchMeta()
+      void fetchRelations()
       void fetchData()
     }
     return () => {
       if (refreshRef) refreshRef.current = null
     }
-  }, [refreshRef, fetchMeta, fetchData])
+  }, [refreshRef, fetchMeta, fetchRelations, fetchData])
 
   const pendingCount = useMemo(() => {
     let count = 0
@@ -300,6 +332,49 @@ export function SqliteTableView({
     }
   }, [pendingCount, onConfirmNavigationRequest, discardChanges])
 
+  const relationsByColumn = useMemo(() => {
+    const map = new Map<string, ForeignKey>()
+    for (const r of relations) {
+      map.set(r.column, r)
+    }
+    return map
+  }, [relations])
+
+  const handleOpenFkPicker = useCallback((rowIdx: number, col: string, fk: ForeignKey) => {
+    setFkPickerState({ rowIdx, col, fk })
+  }, [])
+
+  const handleCloseFkPicker = useCallback(() => {
+    setFkPickerState(null)
+  }, [])
+
+  const fetchFkRows = useCallback(
+    async (search?: string) => {
+      if (!fkPickerState) return { columns: [], rows: [] }
+      const { fk } = fkPickerState
+      const columns = [fk.referencedColumn]
+      const result = await api.sqlite.lookupRows({
+        connectionId,
+        filePath: config.filePath,
+        table: fk.referencedTable,
+        columns,
+        ...(search ? { search: { column: fk.referencedColumn, query: search } } : {}),
+        limit: 50,
+      })
+      if (!result.ok) throw new Error(result.error)
+      return result.result
+    },
+    [connectionId, config.filePath, fkPickerState],
+  )
+
+  const handleFkSelect = useCallback(
+    (value: unknown) => {
+      if (!fkPickerState) return
+      setCellEdit(fkPickerState.rowIdx, fkPickerState.col, value)
+    },
+    [fkPickerState, setCellEdit],
+  )
+
   const hasPrimaryKey = meta?.primaryKey != null
   const showRangeStart = offset + 1
   const showRangeEnd = offset + originalRows.length
@@ -419,6 +494,7 @@ export function SqliteTableView({
                     {meta.columns.map((col) => {
                       const edited = rowEdits?.get(col.name)
                       const current = edited !== undefined ? edited : row[col.name]
+                      const fk = relationsByColumn.get(col.name)
                       return (
                         <TableCell
                           key={col.name}
@@ -442,6 +518,12 @@ export function SqliteTableView({
                             disabled={!hasPrimaryKey}
                             onCommit={(next) => setCellEdit(rowIdx, col.name, next)}
                             onCancel={() => {}}
+                            navigateTo={fk && current !== null && current !== undefined ? {
+                              table: fk.referencedTable,
+                              referencedColumn: fk.referencedColumn,
+                              onClick: () => {},
+                            } : undefined}
+                            onFkBrowse={fk ? () => handleOpenFkPicker(rowIdx, col.name, fk) : undefined}
                           />
                         </TableCell>
                       )
@@ -549,6 +631,19 @@ export function SqliteTableView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {fkPickerState && (
+        <ForeignKeyPicker
+          open
+          onOpenChange={(open) => {
+            if (!open) handleCloseFkPicker()
+          }}
+          referencedTable={fkPickerState.fk.referencedTable}
+          referencedColumn={fkPickerState.fk.referencedColumn}
+          fetchRows={fetchFkRows}
+          onSelect={handleFkSelect}
+        />
+      )}
     </div>
   )
 }

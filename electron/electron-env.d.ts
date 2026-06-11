@@ -66,6 +66,8 @@ interface PostgresTableMeta {
 
 interface PostgresForeignKey {
   constraintName: string
+  sourceSchema: string
+  sourceTable: string
   column: string
   referencedSchema: string
   referencedTable: string
@@ -194,6 +196,23 @@ interface ExposedApi {
       schema: string
       table: string
     }) => Promise<{ ok: true; relations: PostgresForeignKey[] } | { ok: false; error: string }>
+    getIncomingTableRelations: (args: {
+      connectionId: string
+      config: PostgresExposedConfig
+      database: string
+      schema: string
+      table: string
+    }) => Promise<{ ok: true; relations: PostgresForeignKey[] } | { ok: false; error: string }>
+    lookupRows: (args: {
+      connectionId: string
+      config: PostgresExposedConfig
+      database: string
+      schema: string
+      table: string
+      columns: string[]
+      search?: { column: string; query: string }
+      limit?: number
+    }) => Promise<{ ok: true; result: { columns: string[]; rows: unknown[][] } } | { ok: false; error: string }>
     saveChanges: (args: {
       connectionId: string
       config: PostgresExposedConfig
@@ -207,6 +226,14 @@ interface ExposedApi {
     listTables: (args: { connectionId: string; filePath: string }) => Promise<SqliteTableInfo[] | { error: string }>
     getTableMeta: (args: { connectionId: string; filePath: string; table: string }) => Promise<{ ok: true; meta: SqliteTableMeta } | { ok: false; error: string }>
     getTableRelations: (args: { connectionId: string; filePath: string; table: string }) => Promise<{ ok: true; relations: SqliteForeignKey[] } | { ok: false; error: string }>
+    lookupRows: (args: {
+      connectionId: string
+      filePath: string
+      table: string
+      columns: string[]
+      search?: { column: string; query: string }
+      limit?: number
+    }) => Promise<{ ok: true; result: { columns: string[]; rows: unknown[][] } } | { ok: false; error: string }>
     saveChanges: (args: { connectionId: string; filePath: string; request: SqliteSaveChangesRequest }) => Promise<SqliteSaveChangesResponse>
     disconnect: (args: { connectionId: string }) => Promise<{ ok: true }>
   }

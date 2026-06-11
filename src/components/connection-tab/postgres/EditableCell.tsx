@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'lucide-react'
+import { Link, Pencil } from 'lucide-react'
 import { cn, valuesEqual } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -19,6 +19,11 @@ export interface CellNavigationTarget {
   table: string
   /** Called when the user clicks the link icon. */
   onClick: () => void
+  /**
+   * Label for the referenced column used in the FK picker.
+   * Only needed for SQLite where we don't have schema info.
+   */
+  referencedColumn?: string
 }
 
 interface EditableCellProps {
@@ -33,6 +38,12 @@ interface EditableCellProps {
    * normal edit affordance). Only used when the cell is non-null/read-only.
    */
   navigateTo?: CellNavigationTarget
+  incomingNavigateTo?: CellNavigationTarget[]
+  /**
+   * When set, the cell shows a "Browse" button in edit mode that opens a FK
+   * picker dialog. The parent is responsible for managing the dialog.
+   */
+  onFkBrowse?: () => void
 }
 
 function parseInput(kind: EditableColumnKind, raw: string): { ok: true; value: unknown } | { ok: false; error: string } {
@@ -89,15 +100,18 @@ export function EditableCell({
   onCommit,
   onCancel,
   navigateTo,
+  incomingNavigateTo = [],
+  onFkBrowse,
 }: EditableCellProps) {
   const kind = editableKindFor(column.udtName)
-  const isEditable = !disabled && !column.isGenerated && kind !== 'readonly' && column.udtName !== 'uuid'
+  const isEditable = !disabled && !column.isGenerated && kind !== 'readonly' && (column.udtName !== 'uuid' || onFkBrowse)
   const enumValues = column.enumValues
   const isEnum = enumValues !== undefined && enumValues.length > 0
   const isNull = value === null || value === undefined
   const isEmptyString = !isNull && value === ''
   const isDirty = !valuesEqual(value, original)
   const canNavigate = !isNull && navigateTo !== undefined
+  const incomingTargets = isNull ? [] : incomingNavigateTo
 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<string>(formatValue(value, kind))
@@ -141,14 +155,37 @@ export function EditableCell({
   }, [editing, kind, isEnum])
 
   if (!isEditable) {
-    if (canNavigate && navigateTo) {
+    if ((canNavigate && navigateTo) || incomingTargets.length > 0 || onFkBrowse) {
       return (
-        <NavigationLink
-          value={formatValue(value, kind)}
-          title={String(value)}
-          table={navigateTo.table}
-          onClick={navigateTo.onClick}
-        />
+        <div className="group/cell flex w-full min-w-0 items-center gap-1">
+          {canNavigate && navigateTo ? (
+            <NavigationLink
+              value={formatValue(value, kind)}
+              title={String(value)}
+              table={navigateTo.table}
+              onClick={navigateTo.onClick}
+            />
+          ) : (
+            <span
+              className={cn(
+                'block min-w-0 flex-1 truncate px-1.5 py-0.5 font-mono text-xs',
+                (isNull || isEmptyString) && 'italic text-muted-foreground',
+              )}
+              title={isNull ? 'NULL' : isEmptyString ? '(empty string)' : String(value)}
+            >
+              {isNull ? 'NULL' : isEmptyString ? '(empty)' : formatValue(value, kind)}
+            </span>
+          )}
+          {onFkBrowse && <FkBrowseIcon onClick={onFkBrowse} />}
+          {incomingTargets.map((target) => (
+            <NavigationLinkIcon
+              key={target.table}
+              table={target.table}
+              onClick={target.onClick}
+              label="Open referencing rows in"
+            />
+          ))}
+        </div>
       )
     }
     return (
@@ -201,6 +238,15 @@ export function EditableCell({
         {canNavigate && navigateTo && (
           <NavigationLinkIcon table={navigateTo.table} onClick={navigateTo.onClick} />
         )}
+        {incomingTargets.map((target) => (
+          <NavigationLinkIcon
+            key={target.table}
+            table={target.table}
+            onClick={target.onClick}
+            label="Open referencing rows in"
+          />
+        ))}
+        {onFkBrowse && <FkBrowseIcon onClick={onFkBrowse} />}
         {isDirty && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-label="Modified" />}
       </div>
     )
@@ -329,6 +375,44 @@ export function EditableCell({
             )}
             rows={3}
           />
+        ) : onFkBrowse ? (
+          <div className="flex items-center gap-1">
+            <Input
+              ref={inputRef}
+              type={kind === 'number' ? 'number' : kind === 'datetime' ? 'datetime-local' : 'text'}
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value)
+                draftRef.current = e.target.value
+                if (isNullDraftRef.current) {
+                  setIsNullDraft(false)
+                  isNullDraftRef.current = false
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  commit()
+                } else if (e.key === 'Escape') {
+                  e.preventDefault()
+                  cancel()
+                }
+              }}
+              onBlur={() => commit()}
+              className="h-7 min-w-0 flex-1 px-1.5 py-0 font-mono text-xs"
+            />
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault()
+                onFkBrowse()
+              }}
+              className="flex h-7 shrink-0 items-center gap-1 rounded-sm border border-border px-2 text-[11px] font-medium text-muted-foreground hover:bg-muted"
+              title="Browse referenced table"
+            >
+              Browse…
+            </button>
+          </div>
         ) : (
           <Input
             ref={inputRef}
@@ -427,9 +511,11 @@ function NavigationLink({
 function NavigationLinkIcon({
   table,
   onClick,
+  label = 'Open related row in',
 }: {
   table: string
   onClick: () => void
+  label?: string
 }) {
   return (
     <TooltipProvider delayDuration={200}>
@@ -447,13 +533,43 @@ function NavigationLinkIcon({
               'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
               'opacity-0 group-hover/cell:opacity-100 focus-visible:opacity-100',
             )}
-            aria-label={`Open related row in ${table}`}
+            aria-label={`${label} ${table}`}
           >
             <Link className="h-3 w-3" />
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" sideOffset={4}>
-          Open related row in <span className="font-mono">{table}</span>
+          {label} <span className="font-mono">{table}</span>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+function FkBrowseIcon({ onClick }: { onClick: () => void }) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onClick()
+            }}
+            className={cn(
+              'flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground',
+              'hover:bg-amber-500/15 hover:text-amber-600',
+              'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+              'opacity-0 group-hover/cell:opacity-100 focus-visible:opacity-100',
+            )}
+            aria-label="Change foreign key value"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={4}>
+          Change referenced row
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
