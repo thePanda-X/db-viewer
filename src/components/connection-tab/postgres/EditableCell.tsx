@@ -95,6 +95,7 @@ export function EditableCell({
   const enumValues = column.enumValues
   const isEnum = enumValues !== undefined && enumValues.length > 0
   const isNull = value === null || value === undefined
+  const isEmptyString = !isNull && value === ''
   const isDirty = !valuesEqual(value, original)
   const canNavigate = !isNull && navigateTo !== undefined
 
@@ -154,11 +155,11 @@ export function EditableCell({
       <span
         className={cn(
           'block truncate font-mono text-xs',
-          isNull && 'italic text-muted-foreground',
+          (isNull || isEmptyString) && 'italic text-muted-foreground',
         )}
-        title={isNull ? 'NULL' : String(value)}
+        title={isNull ? 'NULL' : isEmptyString ? '(empty string)' : String(value)}
       >
-        {isNull ? 'NULL' : formatValue(value, kind)}
+        {isNull ? 'NULL' : isEmptyString ? '(empty)' : formatValue(value, kind)}
       </span>
     )
   }
@@ -181,9 +182,9 @@ export function EditableCell({
       <div
         className={cn(
           'group/cell relative flex w-full items-center gap-1 rounded-sm text-left font-mono text-xs',
-          isNull && 'italic text-muted-foreground',
+          (isNull || isEmptyString) && 'italic text-muted-foreground',
         )}
-        title={isNull ? 'NULL' : String(value)}
+        title={isNull ? 'NULL' : isEmptyString ? '(empty string)' : String(value)}
       >
         <button
           type="button"
@@ -195,7 +196,7 @@ export function EditableCell({
             'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
         >
-          {isNull ? 'NULL' : formatValue(value, kind)}
+          {isNull ? 'NULL' : isEmptyString ? '(empty)' : formatValue(value, kind)}
         </button>
         {canNavigate && navigateTo && (
           <NavigationLinkIcon table={navigateTo.table} onClick={navigateTo.onClick} />

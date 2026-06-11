@@ -212,6 +212,7 @@ export function QueryResultView({
                       const colName = result.columns[j]
                       const nav = navigationByColumn.get(colName)
                       const isNull = cell === null || cell === undefined
+                      const isEmptyString = !isNull && cell === ''
                       if (nav && !isNull && onNavigateRelation) {
                         return (
                           <TableCell
@@ -255,11 +256,11 @@ export function QueryResultView({
                           key={j}
                           className={cn(
                             'max-w-[360px] truncate align-top font-mono text-xs',
-                            isNull && 'italic text-muted-foreground',
+                            (isNull || isEmptyString) && 'italic text-muted-foreground',
                           )}
-                          title={formatCell(cell)}
+                          title={isNull ? 'NULL' : isEmptyString ? '(empty string)' : formatCell(cell)}
                         >
-                          {formatCell(cell)}
+                          {isNull ? 'NULL' : isEmptyString ? '(empty)' : formatCell(cell)}
                         </TableCell>
                       )
                     })}
