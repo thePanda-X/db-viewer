@@ -505,14 +505,36 @@ export function TableView({
     async (search?: string) => {
       if (!fkPickerState) return { columns: [], rows: [] }
       const { fk } = fkPickerState
-      const columns = [fk.referencedColumn]
+
+      // fetch referenced table meta to pick display columns
+      let displayCols: string[] = [fk.referencedColumn]
+      try {
+        const metaResult = await api.postgres.getTableMeta({
+          connectionId,
+          config,
+          database,
+          schema: fk.referencedSchema,
+          table: fk.referencedTable,
+        })
+        if (metaResult.ok) {
+          const meta = metaResult.meta
+          const allCols = meta.columns.map((c) => c.name)
+          displayCols = [
+            fk.referencedColumn,
+            ...allCols.filter((c) => c !== fk.referencedColumn),
+          ]
+        }
+      } catch {
+        // fall back to just the referenced column
+      }
+
       const result = await api.postgres.lookupRows({
         connectionId,
         config,
         database,
         schema: fk.referencedSchema,
         table: fk.referencedTable,
-        columns,
+        columns: displayCols,
         ...(search ? { search: { column: fk.referencedColumn, query: search } } : {}),
         limit: 50,
       })

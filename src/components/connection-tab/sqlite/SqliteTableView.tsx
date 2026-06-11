@@ -352,12 +352,31 @@ export function SqliteTableView({
     async (search?: string) => {
       if (!fkPickerState) return { columns: [], rows: [] }
       const { fk } = fkPickerState
-      const columns = [fk.referencedColumn]
+
+      let displayCols: string[] = [fk.referencedColumn]
+      try {
+        const metaResult = await api.sqlite.getTableMeta({
+          connectionId,
+          filePath: config.filePath,
+          table: fk.referencedTable,
+        })
+        if (metaResult.ok) {
+          const meta = metaResult.meta
+          const allCols = meta.columns.map((c) => c.name)
+          displayCols = [
+            fk.referencedColumn,
+            ...allCols.filter((c) => c !== fk.referencedColumn),
+          ]
+        }
+      } catch {
+        // fall back to just the referenced column
+      }
+
       const result = await api.sqlite.lookupRows({
         connectionId,
         filePath: config.filePath,
         table: fk.referencedTable,
-        columns,
+        columns: displayCols,
         ...(search ? { search: { column: fk.referencedColumn, query: search } } : {}),
         limit: 50,
       })
