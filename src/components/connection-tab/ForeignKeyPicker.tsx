@@ -27,7 +27,6 @@ interface ForeignKeyPickerProps {
   onSelect: (value: unknown) => void
 }
 
-const DISPLAY_COLUMNS_MAX = 3
 const SEARCH_DEBOUNCE_MS = 300
 
 export function ForeignKeyPicker({
@@ -76,7 +75,6 @@ export function ForeignKeyPicker({
     }, SEARCH_DEBOUNCE_MS)
   }
 
-  const displayColumns = columns.slice(0, DISPLAY_COLUMNS_MAX)
   const refColIdx = columns.indexOf(referencedColumn)
 
   return (
@@ -124,7 +122,7 @@ export function ForeignKeyPicker({
             <Table>
               <TableHeader>
                 <TableRow>
-                  {displayColumns.map((col) => (
+                  {columns.map((col) => (
                     <TableHead
                       key={col}
                       className={cn(
@@ -148,7 +146,7 @@ export function ForeignKeyPicker({
                       onOpenChange(false)
                     }}
                   >
-                    {displayColumns.map((col) => {
+                    {columns.map((col) => {
                       const val = row[columns.indexOf(col)]
                       return (
                         <TableCell
