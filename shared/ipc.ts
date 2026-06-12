@@ -62,6 +62,17 @@ export const IPC_CHANNELS = {
     'consumeMessages',
     'disconnect',
   ],
+  rabbitmq: [
+    'ping',
+    'listExchanges',
+    'listQueues',
+    'listBindings',
+    'getQueueMessages',
+    'purgeQueue',
+    'deleteQueue',
+    'publishMessage',
+    'disconnect',
+  ],
 } as const
 
 export type IpcNamespace = keyof typeof IPC_CHANNELS

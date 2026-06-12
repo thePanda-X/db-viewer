@@ -1,4 +1,4 @@
-export type ConnectionType = 'postgres' | 'sqlite' | 'opensearch' | 'redis' | 'kafka'
+export type ConnectionType = 'postgres' | 'sqlite' | 'opensearch' | 'redis' | 'kafka' | 'rabbitmq'
 
 export interface BaseConnection {
   id: string
@@ -45,12 +45,23 @@ export interface KafkaConfig {
   tls: boolean
 }
 
+export interface RabbitMQConfig {
+  host: string
+  port: number
+  managementPort: number
+  vhost: string
+  username: string
+  password: string
+  tls: boolean
+}
+
 export type Connection =
   | (BaseConnection & { type: 'postgres'; config: PostgresConfig })
   | (BaseConnection & { type: 'sqlite'; config: SqliteConfig })
   | (BaseConnection & { type: 'opensearch'; config: OpenSearchConfig })
   | (BaseConnection & { type: 'redis'; config: RedisConfig })
   | (BaseConnection & { type: 'kafka'; config: KafkaConfig })
+  | (BaseConnection & { type: 'rabbitmq'; config: RabbitMQConfig })
 
 export type ConnectionConfig<C extends ConnectionType> = Extract<
   Connection,
