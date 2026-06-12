@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seed:opensearch": "npx tsx scripts/seed-opensearch.ts",
+    "seed:kafka": "npx tsx scripts/seed-kafka.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -26,6 +28,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "ioredis": "^5.11.1",
+    "kafkajs": "^2.2.4",
     "lucide-react": "^0.451.0",
     "pg": "^8.21.0",
     "react": "^18.2.0",
