@@ -54,6 +54,15 @@ import {
   searchDocuments as opensearchSearchDocuments,
   updateDocument as opensearchUpdateDocument,
 } from './opensearch'
+import {
+  ping as kafkaPing,
+  listTopics as kafkaListTopics,
+  getTopicMeta as kafkaGetTopicMeta,
+  listConsumerGroups as kafkaListConsumerGroups,
+  getConsumerGroupDetail as kafkaGetConsumerGroupDetail,
+  consumeMessages as kafkaConsumeMessages,
+  disconnect as kafkaDisconnect,
+} from './kafka'
 import type {
   PostgresConfig,
   QueryRequest,
@@ -73,6 +82,7 @@ import type {
 } from '../src/types/sqlite'
 import type { RedisCommandResult, RedisKeyMeta, RedisKeyValue, RedisKeyType } from '../src/types/redis'
 import type { OpenSearchConfig } from '../src/types/connection'
+import type { KafkaConfig } from '../src/types/connection'
 import type {
   OpenSearchClusterInfo,
   OpenSearchIndexInfo,
@@ -82,6 +92,14 @@ import type {
   OpenSearchSearchRequest,
   OpenSearchSearchResult,
 } from '../src/types/opensearch'
+import type {
+  KafkaClusterInfo,
+  KafkaTopicInfo,
+  KafkaTopicMeta,
+  KafkaConsumerGroupInfo,
+  KafkaConsumerGroupDetail,
+  KafkaConsumeResult,
+} from '../src/types/kafka'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -909,6 +927,61 @@ app.whenReady().then(() => {
     'opensearch:disconnect',
     async (_event, args: { connectionId: string }) => {
       opensearchDisconnect(args.connectionId)
+      return { ok: true }
+    },
+  )
+
+  type KafkaInvokeArgs = {
+    connectionId: string
+    config: KafkaConfig
+  }
+
+  ipcMain.handle(
+    'kafka:ping',
+    async (_event, args: KafkaInvokeArgs): Promise<
+      { ok: true; result: KafkaClusterInfo } | { ok: false; error: string }
+    > => withResultPayload(() => kafkaPing(args.connectionId, args.config)),
+  )
+
+  ipcMain.handle(
+    'kafka:listTopics',
+    async (_event, args: KafkaInvokeArgs): Promise<
+      { ok: true; result: KafkaTopicInfo[] } | { ok: false; error: string }
+    > => withResultPayload(() => kafkaListTopics(args.connectionId, args.config)),
+  )
+
+  ipcMain.handle(
+    'kafka:getTopicMeta',
+    async (_event, args: KafkaInvokeArgs & { topic: string }): Promise<
+      { ok: true; result: KafkaTopicMeta } | { ok: false; error: string }
+    > => withResultPayload(() => kafkaGetTopicMeta(args.connectionId, args.config, args.topic)),
+  )
+
+  ipcMain.handle(
+    'kafka:listConsumerGroups',
+    async (_event, args: KafkaInvokeArgs): Promise<
+      { ok: true; result: KafkaConsumerGroupInfo[] } | { ok: false; error: string }
+    > => withResultPayload(() => kafkaListConsumerGroups(args.connectionId, args.config)),
+  )
+
+  ipcMain.handle(
+    'kafka:getConsumerGroupDetail',
+    async (_event, args: KafkaInvokeArgs & { groupId: string }): Promise<
+      { ok: true; result: KafkaConsumerGroupDetail } | { ok: false; error: string }
+    > => withResultPayload(() => kafkaGetConsumerGroupDetail(args.connectionId, args.config, args.groupId)),
+  )
+
+  ipcMain.handle(
+    'kafka:consumeMessages',
+    async (_event, args: KafkaInvokeArgs & { topic: string; partition: number; offset: string; limit: number }): Promise<
+      { ok: true; result: KafkaConsumeResult } | { ok: false; error: string }
+    > => withResultPayload(() => kafkaConsumeMessages(args.connectionId, args.config, args.topic, args.partition, args.offset, args.limit)),
+  )
+
+  ipcMain.handle(
+    'kafka:disconnect',
+    async (_event, args: { connectionId: string }) => {
+      kafkaDisconnect(args.connectionId)
       return { ok: true }
     },
   )
