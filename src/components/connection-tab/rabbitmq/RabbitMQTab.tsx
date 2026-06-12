@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { GitCompare, Loader2 } from 'lucide-react'
+import { GitCompare, Loader2, Trash2, XCircle } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { api } from '@/lib/api'
@@ -29,10 +39,52 @@ export function RabbitMQTab({ connection }: RabbitMQTabProps) {
   const [activeQueue, setActiveQueue] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
   const [loadSeq, setLoadSeq] = useState(0)
+  const [pendingPurgeQueue, setPendingPurgeQueue] = useState<string | null>(null)
+  const [pendingDeleteQueue, setPendingDeleteQueue] = useState<string | null>(null)
+  const [operating, setOperating] = useState(false)
 
   const refresh = useCallback(() => {
     setLoadSeq((s) => s + 1)
   }, [])
+
+  const handleConfirmPurge = useCallback(async () => {
+    if (!pendingPurgeQueue) return
+    setOperating(true)
+    try {
+      const res = await api.rabbitmq.purgeQueue({ connectionId: connection.id, config, queue: pendingPurgeQueue })
+      if (!res.ok) {
+        toast({ message: 'Purge failed', detail: res.error, variant: 'error' })
+        return
+      }
+      toast({ message: 'Queue purged', detail: pendingPurgeQueue })
+      setPendingPurgeQueue(null)
+      refresh()
+    } catch (err) {
+      toast({ message: 'Purge failed', detail: err instanceof Error ? err.message : String(err), variant: 'error' })
+    } finally {
+      setOperating(false)
+    }
+  }, [pendingPurgeQueue, connection.id, config, refresh])
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!pendingDeleteQueue) return
+    setOperating(true)
+    try {
+      const res = await api.rabbitmq.deleteQueue({ connectionId: connection.id, config, queue: pendingDeleteQueue })
+      if (!res.ok) {
+        toast({ message: 'Delete failed', detail: res.error, variant: 'error' })
+        return
+      }
+      toast({ message: 'Queue deleted', detail: pendingDeleteQueue })
+      setPendingDeleteQueue(null)
+      if (activeQueue === pendingDeleteQueue) setActiveQueue(null)
+      refresh()
+    } catch (err) {
+      toast({ message: 'Delete failed', detail: err instanceof Error ? err.message : String(err), variant: 'error' })
+    } finally {
+      setOperating(false)
+    }
+  }, [pendingDeleteQueue, activeQueue, connection.id, config, refresh])
 
   const refreshAll = useCallback(() => {
     refresh()
@@ -134,6 +186,8 @@ export function RabbitMQTab({ connection }: RabbitMQTabProps) {
             onSelectExchange={setActiveExchange}
             onSelectQueue={setActiveQueue}
             onRefresh={refresh}
+            onRequestPurgeQueue={setPendingPurgeQueue}
+            onRequestDeleteQueue={setPendingDeleteQueue}
             filter={filter}
             onFilterChange={setFilter}
           />
@@ -177,6 +231,53 @@ export function RabbitMQTab({ connection }: RabbitMQTabProps) {
           </div>
         </div>
       </div>
+
+      <AlertDialog open={pendingPurgeQueue !== null} onOpenChange={(o) => { if (!o) setPendingPurgeQueue(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Purge queue?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove all messages from{' '}
+              <span className="font-mono font-medium">{pendingPurgeQueue}</span>. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={operating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={operating}
+              className="bg-amber-600 text-white hover:bg-amber-700"
+              onClick={(e) => { e.preventDefault(); void handleConfirmPurge() }}
+            >
+              {operating ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <XCircle className="mr-1 h-3 w-3" />}
+              Purge
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={pendingDeleteQueue !== null} onOpenChange={(o) => { if (!o) setPendingDeleteQueue(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete queue?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete{' '}
+              <span className="font-mono font-medium">{pendingDeleteQueue}</span> and all its messages.
+              This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={operating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={operating}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => { e.preventDefault(); void handleConfirmDelete() }}
+            >
+              {operating ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Trash2 className="mr-1 h-3 w-3" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
