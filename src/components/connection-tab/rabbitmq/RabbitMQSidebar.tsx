@@ -1,8 +1,10 @@
-import { GitCompare, Loader2, MessageSquare, RefreshCw, Search } from 'lucide-react'
+import { Copy, Eye, GitCompare, Loader2, MessageSquare, RefreshCw, Search, Trash2, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ContextMenu, type ContextMenuItem } from '@/components/ui/context-menu'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
+import { toast } from '@/state/toastStore'
 import type { RabbitMQExchangeInfo, RabbitMQQueueInfo } from '@/types/rabbitmq'
 
 export type SidebarTab = 'exchanges' | 'queues'
@@ -21,6 +23,8 @@ interface RabbitMQSidebarProps {
   onSelectExchange: (name: string) => void
   onSelectQueue: (name: string) => void
   onRefresh: () => void
+  onRequestPurgeQueue: (name: string) => void
+  onRequestDeleteQueue: (name: string) => void
   filter: string
   onFilterChange: (filter: string) => void
 }
@@ -39,6 +43,8 @@ export function RabbitMQSidebar({
   onSelectExchange,
   onSelectQueue,
   onRefresh,
+  onRequestPurgeQueue,
+  onRequestDeleteQueue,
   filter,
   onFilterChange,
 }: RabbitMQSidebarProps) {
@@ -144,25 +150,49 @@ export function RabbitMQSidebar({
               </div>
             ) : (
               <div className="space-y-0.5">
-                {filteredExchanges.map((ex) => (
-                  <button
-                    key={ex.name}
-                    type="button"
-                    onClick={() => onSelectExchange(ex.name)}
-                    className={cn(
-                      'flex h-7 w-full items-center gap-2 rounded-sm px-2 text-xs transition-colors hover:bg-muted',
-                      activeExchange === ex.name && 'bg-primary/10 text-primary',
-                    )}
-                  >
-                    <GitCompare className="h-3 w-3 shrink-0 text-orange-500" />
-                    <span className="flex-1 truncate text-left font-mono">
-                      {ex.name || '(AMQP default)'}
-                    </span>
-                    <span className="rounded bg-muted px-1 font-mono text-[10px] tabular-nums text-muted-foreground">
-                      {ex.type}
-                    </span>
-                  </button>
-                ))}
+                {filteredExchanges.map((ex) => {
+                  const exchangeItems: ContextMenuItem[] = [
+                    {
+                      label: 'Open',
+                      icon: <Eye className="h-3.5 w-3.5" />,
+                      onClick: () => onSelectExchange(ex.name),
+                    },
+                    {
+                      label: 'Copy Name',
+                      icon: <Copy className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        void navigator.clipboard.writeText(ex.name || '(AMQP default)')
+                        toast({ message: 'Copied exchange name' })
+                      },
+                    },
+                    { separator: true },
+                    {
+                      label: 'Refresh',
+                      icon: <RefreshCw className="h-3.5 w-3.5" />,
+                      onClick: () => onRefresh(),
+                    },
+                  ]
+                  return (
+                    <ContextMenu key={ex.name} items={exchangeItems}>
+                      <button
+                        type="button"
+                        onClick={() => onSelectExchange(ex.name)}
+                        className={cn(
+                          'flex h-7 w-full items-center gap-2 rounded-sm px-2 text-xs transition-colors hover:bg-muted',
+                          activeExchange === ex.name && 'bg-primary/10 text-primary',
+                        )}
+                      >
+                        <GitCompare className="h-3 w-3 shrink-0 text-orange-500" />
+                        <span className="flex-1 truncate text-left font-mono">
+                          {ex.name || '(AMQP default)'}
+                        </span>
+                        <span className="rounded bg-muted px-1 font-mono text-[10px] tabular-nums text-muted-foreground">
+                          {ex.type}
+                        </span>
+                      </button>
+                    </ContextMenu>
+                  )
+                })}
               </div>
             )
           ) : (
@@ -172,23 +202,53 @@ export function RabbitMQSidebar({
               </div>
             ) : (
               <div className="space-y-0.5">
-                {filteredQueues.map((q) => (
-                  <button
-                    key={q.name}
-                    type="button"
-                    onClick={() => onSelectQueue(q.name)}
-                    className={cn(
-                      'flex h-7 w-full items-center gap-2 rounded-sm px-2 text-xs transition-colors hover:bg-muted',
-                      activeQueue === q.name && 'bg-primary/10 text-primary',
-                    )}
-                  >
-                    <MessageSquare className="h-3 w-3 shrink-0 text-orange-500" />
-                    <span className="flex-1 truncate text-left font-mono">{q.name}</span>
-                    <span className="rounded bg-muted px-1 font-mono text-[10px] tabular-nums text-muted-foreground">
-                      {q.messages}
-                    </span>
-                  </button>
-                ))}
+                {filteredQueues.map((q) => {
+                  const queueItems: ContextMenuItem[] = [
+                    {
+                      label: 'Open',
+                      icon: <Eye className="h-3.5 w-3.5" />,
+                      onClick: () => onSelectQueue(q.name),
+                    },
+                    {
+                      label: 'Copy Name',
+                      icon: <Copy className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        void navigator.clipboard.writeText(q.name)
+                        toast({ message: 'Copied queue name' })
+                      },
+                    },
+                    { separator: true },
+                    {
+                      label: 'Purge Queue',
+                      icon: <XCircle className="h-3.5 w-3.5" />,
+                      onClick: () => onRequestPurgeQueue(q.name),
+                    },
+                    {
+                      label: 'Delete Queue',
+                      icon: <Trash2 className="h-3.5 w-3.5" />,
+                      destructive: true,
+                      onClick: () => onRequestDeleteQueue(q.name),
+                    },
+                  ]
+                  return (
+                    <ContextMenu key={q.name} items={queueItems}>
+                      <button
+                        type="button"
+                        onClick={() => onSelectQueue(q.name)}
+                        className={cn(
+                          'flex h-7 w-full items-center gap-2 rounded-sm px-2 text-xs transition-colors hover:bg-muted',
+                          activeQueue === q.name && 'bg-primary/10 text-primary',
+                        )}
+                      >
+                        <MessageSquare className="h-3 w-3 shrink-0 text-orange-500" />
+                        <span className="flex-1 truncate text-left font-mono">{q.name}</span>
+                        <span className="rounded bg-muted px-1 font-mono text-[10px] tabular-nums text-muted-foreground">
+                          {q.messages}
+                        </span>
+                      </button>
+                    </ContextMenu>
+                  )
+                })}
               </div>
             )
           )}
