@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import type {
   ColumnMeta,
+  DeleteRowsRequest,
   ForeignKey,
   QueryRequest,
   QueryResponse,
@@ -9,7 +10,7 @@ import type {
   TableInfo,
   TableMeta,
 } from '../src/types/sqlite'
-import type { SqlLookupRowsResponse } from '../shared/types/sql'
+import type { SqlDeleteRowsResponse, SqlLookupRowsResponse } from '../shared/types/sql'
 
 const DEFAULT_MAX_ROWS = 10_000
 
@@ -260,6 +261,36 @@ export async function saveChanges(
 
     runUpdates(req.updates)
     return { ok: true, updated }
+  } catch (err) {
+    return { ok: false, error: toErrorMessage(err) }
+  }
+}
+
+export async function deleteRows(
+  connectionId: string,
+  filePath: string,
+  req: DeleteRowsRequest,
+): Promise<SqlDeleteRowsResponse> {
+  if (req.rows.length === 0) return { ok: true, deleted: 0 }
+  const db = getDatabase(connectionId, filePath)
+  let deleted = 0
+  try {
+    const runDeletes = db.transaction((rows: Record<string, unknown>[]) => {
+      for (const row of rows) {
+        const whereSql = req.primaryKey
+          .map((pk) => `${ident(pk)} = ?`)
+          .join(' AND ')
+        const sql = `DELETE FROM ${ident(req.table)} WHERE ${whereSql}`
+        const params = req.primaryKey.map((pk) => row[pk])
+        const info = db.prepare(sql).run(...params)
+        if (info.changes === 0) {
+          throw new Error('Some rows could not be found (they may have been deleted already).')
+        }
+        deleted += info.changes
+      }
+    })
+    runDeletes(req.rows)
+    return { ok: true, deleted }
   } catch (err) {
     return { ok: false, error: toErrorMessage(err) }
   }

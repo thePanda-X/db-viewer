@@ -75,6 +75,16 @@ export interface ForeignKey {
   constraintColumns: string[]
 }
 
+export interface DeleteRowsRequest {
+  database: string
+  schema: string
+  table: string
+  primaryKey: string[]
+  rows: Record<string, unknown>[]
+}
+
+export type DeleteRowsResponse = import('../../shared/types/sql').SqlDeleteRowsResponse
+
 export type SaveChange = SqlSaveChange
 
 export interface SaveChangesRequest {

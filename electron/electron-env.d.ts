@@ -93,6 +93,18 @@ type PostgresSaveChangesResponse =
   | { ok: true; updated: number }
   | { ok: false; error: string; failedRowIndex?: number }
 
+interface PostgresDeleteRowsRequest {
+  database: string
+  schema: string
+  table: string
+  primaryKey: string[]
+  rows: Record<string, unknown>[]
+}
+
+type PostgresDeleteRowsResponse =
+  | { ok: true; deleted: number }
+  | { ok: false; error: string }
+
 interface RedisExposedConfig {
   host: string
   port: number
@@ -108,6 +120,8 @@ type SqliteTableMeta = import('../src/types/sqlite').TableMeta
 type SqliteForeignKey = import('../src/types/sqlite').ForeignKey
 type SqliteSaveChangesRequest = import('../src/types/sqlite').SaveChangesRequest
 type SqliteSaveChangesResponse = import('../src/types/sqlite').SaveChangesResponse
+type SqliteDeleteRowsRequest = import('../src/types/sqlite').DeleteRowsRequest
+type SqliteDeleteRowsResponse = import('../src/types/sqlite').DeleteRowsResponse
 
 interface OpenSearchExposedConfig {
   host: string
@@ -234,6 +248,11 @@ interface ExposedApi {
       config: PostgresExposedConfig
       request: PostgresSaveChangesRequest
     }) => Promise<PostgresSaveChangesResponse>
+    deleteRows: (args: {
+      connectionId: string
+      config: PostgresExposedConfig
+      request: PostgresDeleteRowsRequest
+    }) => Promise<PostgresDeleteRowsResponse>
     disconnect: (args: { connectionId: string; database?: string }) => Promise<{ ok: true }>
   }
   sqlite: {
@@ -251,6 +270,7 @@ interface ExposedApi {
       limit?: number
     }) => Promise<{ ok: true; result: { columns: string[]; rows: unknown[][] } } | { ok: false; error: string }>
     saveChanges: (args: { connectionId: string; filePath: string; request: SqliteSaveChangesRequest }) => Promise<SqliteSaveChangesResponse>
+    deleteRows: (args: { connectionId: string; filePath: string; request: SqliteDeleteRowsRequest }) => Promise<SqliteDeleteRowsResponse>
     disconnect: (args: { connectionId: string }) => Promise<{ ok: true }>
   }
   redis: {

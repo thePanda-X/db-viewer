@@ -3,15 +3,18 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  ClipboardCopy,
   Filter,
   Loader2,
   Save,
+  Trash2,
   Undo2,
   X,
 } from 'lucide-react'
 import { cn, valuesEqual } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useHotkey } from '@/lib/hotkeys'
 import { toast } from '@/state/toastStore'
 import {
@@ -40,6 +43,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuPortal,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { EditableCell } from './EditableCell'
 import { ForeignKeyPicker } from '../ForeignKeyPicker'
 import type { ForeignKey, TableMeta } from '@/types/postgres'
@@ -129,6 +140,15 @@ export function TableView({
     rowIdx: number
     col: string
     fk: ForeignKey
+  } | null>(null)
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
+  const selectionAnchorRef = useRef<number | null>(null)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [contextMenuState, setContextMenuState] = useState<{
+    x: number
+    y: number
+    rowIdx: number
   } | null>(null)
   // Structural seq — bumped whenever the table or filter changes. Guards
   // fetchMeta/fetchRelations/fetchCount so an in-flight stale fetch can't
@@ -245,6 +265,8 @@ export function TableView({
       if (result.ok) {
         setOriginalRows(columnsToRowMap(result.result.columns, result.result.rows))
         setEdits(new Map())
+        setSelectedRows(new Set())
+        setContextMenuState(null)
       } else {
         setDataError(result.error)
       }
@@ -299,6 +321,8 @@ export function TableView({
     setEdits(new Map())
     setSaveError(null)
     setFailedRowIndex(null)
+    setSelectedRows(new Set())
+    setContextMenuState(null)
   }, [schema, table])
 
   useEffect(() => {
@@ -313,6 +337,8 @@ export function TableView({
     setEdits(new Map())
     setSaveError(null)
     setFailedRowIndex(null)
+    setSelectedRows(new Set())
+    setContextMenuState(null)
   }, [filter?.column, filter?.value])
 
   useEffect(() => {
@@ -419,6 +445,82 @@ export function TableView({
     })
   }, [originalRows, meta])
 
+  const pkColumns = meta?.primaryKey ?? null
+
+  const toggleRowSelection = useCallback(
+    (rowIdx: number) => {
+      const key = rowKey(originalRows[rowIdx], pkColumns)
+      setSelectedRows((prev) => {
+        const next = new Set(prev)
+        if (next.has(key)) next.delete(key)
+        else next.add(key)
+        return next
+      })
+      selectionAnchorRef.current = rowIdx
+    },
+    [originalRows, pkColumns],
+  )
+
+  const handleRowClick = useCallback(
+    (rowIdx: number, e: React.MouseEvent) => {
+      const key = rowKey(originalRows[rowIdx], pkColumns)
+      if (e.shiftKey && selectionAnchorRef.current !== null) {
+        const start = Math.min(selectionAnchorRef.current, rowIdx)
+        const end = Math.max(selectionAnchorRef.current, rowIdx)
+        setSelectedRows((prev) => {
+          const next = new Set(prev)
+          for (let i = start; i <= end; i++) {
+            next.add(rowKey(originalRows[i], pkColumns))
+          }
+          return next
+        })
+      } else if (e.ctrlKey || e.metaKey) {
+        toggleRowSelection(rowIdx)
+      } else {
+        setSelectedRows((prev) => {
+          if (prev.size === 1 && prev.has(key)) {
+            return new Set()
+          }
+          return new Set([key])
+        })
+        selectionAnchorRef.current = rowIdx
+      }
+    },
+    [originalRows, pkColumns, toggleRowSelection],
+  )
+
+  const handleSelectAll = useCallback(() => {
+    const pk = meta?.primaryKey ?? null
+    if (selectedRows.size === originalRows.length && originalRows.length > 0) {
+      setSelectedRows(new Set())
+    } else {
+      const all = new Set(originalRows.map((r) => rowKey(r, pk)))
+      setSelectedRows(all)
+    }
+  }, [originalRows, meta?.primaryKey, selectedRows.size])
+
+  const handleRowContextMenu = useCallback(
+    (rowIdx: number, e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const key = rowKey(originalRows[rowIdx], pkColumns)
+      setSelectedRows((prev) => {
+        if (!prev.has(key)) return new Set([key])
+        return prev
+      })
+      setContextMenuState({ x: e.clientX, y: e.clientY, rowIdx })
+    },
+    [originalRows, pkColumns],
+  )
+
+  const handleCopyRowJson = useCallback(() => {
+    if (!contextMenuState) return
+    const row = originalRows[contextMenuState.rowIdx]
+    if (!row) return
+    void navigator.clipboard.writeText(JSON.stringify(row, null, 2))
+    setContextMenuState(null)
+  }, [contextMenuState, originalRows])
+
   const discardChanges = useCallback(() => {
     setEdits(new Map())
     setSaveError(null)
@@ -468,6 +570,38 @@ export function TableView({
       setSaving(false)
     }
   }, [meta, edits, originalRows, connectionId, config, database, schema, table, fetchData, fetchCount])
+
+  const handleDelete = useCallback(async () => {
+    if (!meta || !meta.primaryKey) return
+    setDeleting(true)
+    try {
+      const rowsToDelete = originalRows.filter((r) =>
+        selectedRows.has(rowKey(r, meta.primaryKey)),
+      )
+      const res = await api.postgres.deleteRows({
+        connectionId,
+        config,
+        request: {
+          database,
+          schema,
+          table,
+          primaryKey: meta.primaryKey,
+          rows: rowsToDelete,
+        },
+      })
+      if (res.ok) {
+        setSelectedRows(new Set())
+        setConfirmDeleteOpen(false)
+        await Promise.all([fetchData(), fetchCount()])
+      } else {
+        toast({ message: `Delete failed: ${res.error}`, variant: 'error' })
+      }
+    } catch (err) {
+      toast({ message: err instanceof Error ? err.message : String(err), variant: 'error' })
+    } finally {
+      setDeleting(false)
+    }
+  }, [meta, selectedRows, originalRows, connectionId, config, database, schema, table, fetchData, fetchCount])
 
   const goPage = useCallback((nextOffset: number) => {
     if (pendingCount > 0 && onConfirmNavigationRequest) {
@@ -607,6 +741,19 @@ export function TableView({
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={
+                    originalRows.length > 0 && selectedRows.size === originalRows.length
+                      ? true
+                      : selectedRows.size > 0
+                        ? 'indeterminate'
+                        : false
+                  }
+                  onCheckedChange={handleSelectAll}
+                  aria-label="Select all rows"
+                />
+              </TableHead>
               {meta.columns.map((col) => (
                 <TableHead
                   key={col.name}
@@ -634,13 +781,13 @@ export function TableView({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={meta.columns.length} className="h-32 text-center">
+                <TableCell colSpan={meta.columns.length + 1} className="h-32 text-center">
                   <Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : dataError ? (
               <TableRow>
-                <TableCell colSpan={meta.columns.length} className="h-32 text-center">
+                <TableCell colSpan={meta.columns.length + 1} className="h-32 text-center">
                   <div className="mx-auto flex max-w-md flex-col items-center gap-2">
                     <AlertCircle className="h-4 w-4 text-destructive" />
                     <p className="break-words text-xs text-destructive">{dataError}</p>
@@ -657,7 +804,7 @@ export function TableView({
               </TableRow>
             ) : originalRows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={meta.columns.length} className="h-32 text-center text-xs text-muted-foreground">
+                <TableCell colSpan={meta.columns.length + 1} className="h-32 text-center text-xs text-muted-foreground">
                   {filter ? (
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-1.5">
                       <span>No rows match the current filter.</span>
@@ -679,15 +826,28 @@ export function TableView({
                 const rowEdits = edits.get(key)
                 const rowIsDirty = rowEdits !== undefined && rowEdits.size > 0
                 const isFailed = failedRowIndex !== null && failedRowIndex === rowIdx
+                const isSelected = selectedRows.has(key)
                 return (
                   <TableRow
                     key={key}
                     data-state={rowIsDirty ? 'selected' : undefined}
+                    data-selected={isSelected ? 'true' : undefined}
+                    onClick={(e) => handleRowClick(rowIdx, e)}
+                    onContextMenu={(e) => handleRowContextMenu(rowIdx, e)}
                     className={cn(
+                      'cursor-pointer',
                       rowIsDirty && 'bg-amber-500/5 hover:bg-amber-500/10',
+                      isSelected && 'bg-primary/5',
                       isFailed && 'border border-destructive/50 bg-destructive/10',
                     )}
                   >
+                    <TableCell className="w-10 align-top" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleRowSelection(rowIdx)}
+                        aria-label={`Select row ${rowIdx + 1}`}
+                      />
+                    </TableCell>
                     {meta.columns.map((col) => {
                       const edited = rowEdits?.get(col.name)
                       const current = edited !== undefined ? edited : row[col.name]
@@ -816,6 +976,11 @@ export function TableView({
         </div>
 
         <div className="flex items-center gap-1">
+          {selectedRows.size > 0 && (
+            <span className="mr-1 text-muted-foreground">
+              {selectedRows.size} selected
+            </span>
+          )}
           {pendingCount > 0 && (
             <Button
               size="sm"
@@ -826,6 +991,22 @@ export function TableView({
             >
               <Undo2 className="h-3.5 w-3.5" />
               <span>Discard</span>
+            </Button>
+          )}
+          {selectedRows.size > 0 && hasPrimaryKey && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setConfirmDeleteOpen(true)}
+              disabled={deleting}
+              className="h-7"
+            >
+              {deleting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
+              <span>Delete {selectedRows.size > 0 ? `${selectedRows.size} row${selectedRows.size === 1 ? '' : 's'}` : ''}</span>
             </Button>
           )}
           <Button
@@ -843,6 +1024,29 @@ export function TableView({
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete rows?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedRows.size === 1
+                ? `Delete 1 row from ${qualified}?`
+                : `Delete ${selectedRows.size} rows from ${qualified}?`}
+              {' '}This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleDelete()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={confirmSaveOpen} onOpenChange={setConfirmSaveOpen}>
         <AlertDialogContent>
@@ -873,6 +1077,64 @@ export function TableView({
           fetchRows={fetchFkRows}
           onSelect={handleFkSelect}
         />
+      )}
+
+      {contextMenuState && (
+        <DropdownMenu
+          open={!!contextMenuState}
+          onOpenChange={(open) => {
+            if (!open) setContextMenuState(null)
+          }}
+        >
+          <DropdownMenuTrigger asChild>
+            <span
+              style={{
+                position: 'fixed',
+                left: contextMenuState.x,
+                top: contextMenuState.y,
+                width: 0,
+                height: 0,
+                pointerEvents: 'none',
+              }}
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuContent
+              side="bottom"
+              align="start"
+              sideOffset={0}
+              className="min-w-[160px]"
+              onCloseAutoFocus={(e) => e.preventDefault()}
+            >
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  handleCopyRowJson()
+                }}
+              >
+                <ClipboardCopy className="mr-2 h-3.5 w-3.5" />
+                Copy row (JSON)
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={!hasPrimaryKey}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setContextMenuState(null)
+                  setConfirmDeleteOpen(true)
+                }}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                {selectedRows.size > 1
+                  ? `Delete ${selectedRows.size} rows`
+                  : 'Delete row'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenuPortal>
+        </DropdownMenu>
       )}
     </div>
   )

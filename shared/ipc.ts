@@ -11,6 +11,7 @@ export const IPC_CHANNELS = {
     'getIncomingTableRelations',
     'lookupRows',
     'saveChanges',
+    'deleteRows',
     'disconnect',
   ],
   sqlite: [
@@ -21,6 +22,7 @@ export const IPC_CHANNELS = {
     'getTableRelations',
     'lookupRows',
     'saveChanges',
+    'deleteRows',
     'disconnect',
   ],
   redis: [
