@@ -53,6 +53,15 @@ export const IPC_CHANNELS = {
     'executeRequest',
     'disconnect',
   ],
+  kafka: [
+    'ping',
+    'listTopics',
+    'getTopicMeta',
+    'listConsumerGroups',
+    'getConsumerGroupDetail',
+    'consumeMessages',
+    'disconnect',
+  ],
 } as const
 
 export type IpcNamespace = keyof typeof IPC_CHANNELS
