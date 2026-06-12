@@ -3,6 +3,7 @@ import type pg from 'pg'
 import type {
   ColumnMeta,
   DatabaseInfo,
+  DeleteRowsRequest,
   ForeignKey,
   PostgresConfig,
   QueryRequest,
@@ -13,7 +14,7 @@ import type {
   TableInfo,
   TableMeta,
 } from '../src/types/postgres'
-import type { SqlLookupRowsResponse } from '../shared/types/sql'
+import type { SqlDeleteRowsResponse, SqlLookupRowsResponse } from '../shared/types/sql'
 
 const DEFAULT_STATEMENT_TIMEOUT_MS = 15_000
 const DEFAULT_MAX_ROWS = 10_000
@@ -624,6 +625,53 @@ export async function saveChanges(
 
     await client.query('COMMIT')
     return { ok: true, updated }
+  } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK')
+      } catch (rollbackErr) {
+        console.error('[postgres] rollback failed:', rollbackErr)
+      }
+    }
+    return { ok: false, error: toErrorMessage(err) }
+  } finally {
+    if (client) client.release()
+  }
+}
+
+export async function deleteRows(
+  connectionId: string,
+  config: PostgresConfig,
+  req: DeleteRowsRequest,
+): Promise<SqlDeleteRowsResponse> {
+  if (req.rows.length === 0) return { ok: true, deleted: 0 }
+  const database = req.database
+  const pool = getPool(connectionId, { ...config, database }, database)
+  let client: pg.PoolClient | null = null
+  let deleted = 0
+  try {
+    client = await pool.connect()
+    await client.query('BEGIN')
+    const tableIdent = `${ident(req.schema)}.${ident(req.table)}`
+
+    for (const row of req.rows) {
+      const whereSql = req.primaryKey
+        .map((pk) => `${ident(pk)} = ${literalize(row[pk])}`)
+        .join(' AND ')
+      const sql = `DELETE FROM ${tableIdent} WHERE ${whereSql} RETURNING 1`
+      const result = await client.query(sql)
+      if (result.rowCount === 0) {
+        await client.query('ROLLBACK')
+        return {
+          ok: false,
+          error: 'Some rows could not be found (they may have been deleted already).',
+        }
+      }
+      deleted += result.rowCount ?? 0
+    }
+
+    await client.query('COMMIT')
+    return { ok: true, deleted }
   } catch (err) {
     if (client) {
       try {

@@ -32,6 +32,14 @@ export interface ForeignKey {
   referencedColumn: string
 }
 
+export interface DeleteRowsRequest {
+  table: string
+  primaryKey: string[]
+  rows: Record<string, unknown>[]
+}
+
+export type DeleteRowsResponse = import('../../shared/types/sql').SqlDeleteRowsResponse
+
 export type SaveChange = SqlSaveChange
 
 export interface SaveChangesRequest {

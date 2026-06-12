@@ -39,6 +39,15 @@ export interface SqlTableMeta<TColumn extends SqlColumnMetaBase = SqlColumnMetaB
 export type SqlTableKind = 'table' | 'view'
 export type EditableColumnKind = 'text' | 'number' | 'boolean' | 'datetime' | 'json' | 'readonly'
 
+export interface SqlDeleteRowsRequest {
+  primaryKey: string[]
+  rows: Record<string, unknown>[]
+}
+
+export type SqlDeleteRowsResponse =
+  | { ok: true; deleted: number }
+  | { ok: false; error: string }
+
 export interface SqlLookupRowsRequest {
   schema?: string
   table: string

@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { listConnections, setConnections } from './connections'
 import {
+  deleteRows as pgDeleteRows,
   disconnect as pgDisconnect,
   getIncomingTableRelations,
   getTableMeta,
@@ -15,6 +16,7 @@ import {
   saveChanges,
 } from './postgres'
 import {
+  deleteRows as sqliteDeleteRows,
   disconnect as sqliteDisconnect,
   getTableMeta as sqliteGetTableMeta,
   getTableRelations as sqliteGetTableRelations,
@@ -65,6 +67,7 @@ import {
   disconnect as kafkaDisconnect,
 } from './kafka'
 import type {
+  DeleteRowsRequest,
   PostgresConfig,
   QueryRequest,
   QueryResponse,
@@ -73,7 +76,9 @@ import type {
   TableMeta,
   ForeignKey,
 } from '../src/types/postgres'
+import type { SqlDeleteRowsResponse } from '../shared/types/sql'
 import type {
+  DeleteRowsRequest as SqliteDeleteRowsRequest,
   QueryRequest as SqliteQueryRequest,
   QueryResponse as SqliteQueryResponse,
   SaveChangesRequest as SqliteSaveChangesRequest,
@@ -498,6 +503,20 @@ app.whenReady().then(() => {
   )
 
   ipcMain.handle(
+    'postgres:deleteRows',
+    async (
+      _event,
+      args: { connectionId: string; config: PostgresConfig; request: DeleteRowsRequest },
+    ): Promise<SqlDeleteRowsResponse> => {
+      try {
+        return await pgDeleteRows(args.connectionId, args.config, args.request)
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
     'postgres:disconnect',
     async (_event, args: { connectionId: string; database?: string }) => {
       pgDisconnect(args.connectionId, args.database)
@@ -598,6 +617,20 @@ app.whenReady().then(() => {
         return await sqliteSaveChanges(args.connectionId, args.filePath, args.request)
       } catch (err) {
         return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'sqlite:deleteRows',
+    async (
+      _event,
+      args: { connectionId: string; filePath: string; request: SqliteDeleteRowsRequest },
+    ): Promise<SqlDeleteRowsResponse> => {
+      try {
+        return await sqliteDeleteRows(args.connectionId, args.filePath, args.request)
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) }
       }
     },
   )
