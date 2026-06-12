@@ -50,6 +50,7 @@ export const IPC_CHANNELS = {
     'searchDocuments',
     'updateDocument',
     'deleteDocument',
+    'deleteIndex',
     'executeRequest',
     'disconnect',
   ],

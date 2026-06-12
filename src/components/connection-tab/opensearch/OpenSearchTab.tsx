@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { FileJson, Loader2, RefreshCw, Search, Server, Trash2 } from 'lucide-react'
+import { Copy, Eye, FileJson, Info, Loader2, RefreshCw, Search, Server, Settings, Trash2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,7 @@ import type {
   OpenSearchSearchResult,
 } from '@/types/opensearch'
 import { cn } from '@/lib/utils'
+import { ContextMenu, type ContextMenuItem } from '@/components/ui/context-menu'
 
 interface OpenSearchTabProps {
   connection: Connection
@@ -69,6 +70,8 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<OpenSearchDocumentHit | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [deleteIndexTarget, setDeleteIndexTarget] = useState<string | null>(null)
+  const [deletingIndex, setDeletingIndex] = useState(false)
 
   const refreshIndices = useCallback(async () => {
     setLoadingIndices(true)
@@ -228,6 +231,25 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
     void refreshDocuments()
   }
 
+  const confirmDeleteIndex = async () => {
+    if (!deleteIndexTarget) return
+    setDeletingIndex(true)
+    const res = await api.opensearch.deleteIndex({
+      connectionId: connection.id,
+      config,
+      index: deleteIndexTarget,
+    })
+    setDeletingIndex(false)
+    if (!res.ok) {
+      toast({ message: 'Delete index failed', detail: res.error, variant: 'error' })
+      return
+    }
+    toast({ message: 'Index deleted', detail: deleteIndexTarget, variant: 'success' })
+    if (activeIndex === deleteIndexTarget) setActiveIndex(null)
+    setDeleteIndexTarget(null)
+    void refreshIndices()
+  }
+
   return (
     <div className="flex h-full min-h-0 bg-background">
       <ResizableSidebar
@@ -267,20 +289,76 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
               {indicesError ? <div className="rounded-md border border-destructive/40 p-3 text-xs text-destructive">{indicesError}</div> : null}
               {!indicesError && loadingIndices ? <div className="p-3 text-xs text-muted-foreground">Loading indices...</div> : null}
               {!loadingIndices && indices.length === 0 ? <div className="p-3 text-xs text-muted-foreground">No indices found.</div> : null}
-              {indices.map((index) => (
-                <button
-                  key={index.name}
-                  className={cn(
-                    'mb-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent',
-                    activeIndex === index.name && 'bg-accent text-accent-foreground',
-                  )}
-                  onClick={() => setActiveIndex(index.name)}
-                >
-                  <span className={cn('h-2 w-2 rounded-full', healthColor(index.health))} />
-                  <span className="min-w-0 flex-1 truncate">{index.name}</span>
-                  <span className="text-[10px] text-muted-foreground">{index.docsCount ?? '0'}</span>
-                </button>
-              ))}
+              {indices.map((index) => {
+                const menuItems: ContextMenuItem[] = [
+                  {
+                    label: 'Open',
+                    icon: <Search className="h-3.5 w-3.5" />,
+                    onClick: () => setActiveIndex(index.name),
+                  },
+                  {
+                    label: 'Copy Index Name',
+                    icon: <Copy className="h-3.5 w-3.5" />,
+                    onClick: () => {
+                      void navigator.clipboard.writeText(index.name)
+                      toast({ message: 'Copied index name' })
+                    },
+                  },
+                  { separator: true },
+                  {
+                    label: 'View Mappings',
+                    icon: <Eye className="h-3.5 w-3.5" />,
+                    onClick: () => {
+                      setActiveIndex(index.name)
+                      setView('mappings')
+                    },
+                  },
+                  {
+                    label: 'View Settings',
+                    icon: <Settings className="h-3.5 w-3.5" />,
+                    onClick: () => {
+                      setActiveIndex(index.name)
+                      setView('settings')
+                    },
+                  },
+                  { separator: true },
+                  {
+                    label: 'Refresh',
+                    icon: <RefreshCw className="h-3.5 w-3.5" />,
+                    onClick: () => void refreshIndices(),
+                  },
+                  {
+                    label: 'Properties',
+                    icon: <Info className="h-3.5 w-3.5" />,
+                    onClick: () => toast({
+                      message: index.name,
+                      detail: `${index.docsCount ?? 0} docs | ${index.storeSize ?? '0b'} | Health: ${index.health}`,
+                    }),
+                  },
+                  { separator: true },
+                  {
+                    label: 'Delete Index',
+                    icon: <Trash2 className="h-3.5 w-3.5" />,
+                    destructive: true,
+                    onClick: () => setDeleteIndexTarget(index.name),
+                  },
+                ]
+                return (
+                  <ContextMenu key={index.name} items={menuItems}>
+                    <button
+                      className={cn(
+                        'mb-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent',
+                        activeIndex === index.name && 'bg-accent text-accent-foreground',
+                      )}
+                      onClick={() => setActiveIndex(index.name)}
+                    >
+                      <span className={cn('h-2 w-2 rounded-full', healthColor(index.health))} />
+                      <span className="min-w-0 flex-1 truncate">{index.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{index.docsCount ?? '0'}</span>
+                    </button>
+                  </ContextMenu>
+                )
+              })}
             </div>
           </ScrollArea>
         </div>
@@ -312,8 +390,10 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
           {view === 'documents' ? (
             <DocumentsView
               activeIndex={activeIndex}
+              deleteIndexTarget={deleteIndexTarget}
               deleteTarget={deleteTarget}
               deleting={deleting}
+              deletingIndex={deletingIndex}
               editing={editing}
               editError={editError}
               editText={editText}
@@ -327,8 +407,10 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
               totalPages={totalPages}
               onBeginEdit={beginEdit}
               onCancelDelete={() => setDeleteTarget(null)}
+              onCancelDeleteIndex={() => setDeleteIndexTarget(null)}
               onCancelEdit={() => setEditing(null)}
               onConfirmDelete={confirmDelete}
+              onConfirmDeleteIndex={confirmDeleteIndex}
               onDelete={setDeleteTarget}
               onEditText={setEditText}
               onPage={setPage}
@@ -358,8 +440,10 @@ function healthColor(health: string): string {
 
 function DocumentsView(props: {
   activeIndex: string | null
+  deleteIndexTarget: string | null
   deleteTarget: OpenSearchDocumentHit | null
   deleting: boolean
+  deletingIndex: boolean
   editing: OpenSearchDocumentHit | null
   editError: string | null
   editText: string
@@ -373,8 +457,10 @@ function DocumentsView(props: {
   totalPages: number
   onBeginEdit: (hit: OpenSearchDocumentHit) => void
   onCancelDelete: () => void
+  onCancelDeleteIndex: () => void
   onCancelEdit: () => void
   onConfirmDelete: () => void
+  onConfirmDeleteIndex: () => void
   onDelete: (hit: OpenSearchDocumentHit) => void
   onEditText: (text: string) => void
   onPage: (page: number) => void
@@ -458,6 +544,18 @@ function DocumentsView(props: {
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="outline" onClick={props.onCancelDelete} disabled={props.deleting}>Cancel</Button>
             <Button variant="destructive" onClick={props.onConfirmDelete} disabled={props.deleting}>{props.deleting ? 'Deleting...' : 'Delete'}</Button>
+          </div>
+        </Card>
+      ) : null}
+
+      {props.deleteIndexTarget ? (
+        <Card className="fixed left-1/2 top-1/2 z-50 w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 p-5 shadow-2xl">
+          <h2 className="text-base font-semibold">Delete index?</h2>
+          <p className="mt-2 break-all text-sm text-muted-foreground">{props.deleteIndexTarget}</p>
+          <p className="mt-1 text-xs text-destructive">All documents in this index will be permanently removed.</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="outline" onClick={props.onCancelDeleteIndex} disabled={props.deletingIndex}>Cancel</Button>
+            <Button variant="destructive" onClick={props.onConfirmDeleteIndex} disabled={props.deletingIndex}>{props.deletingIndex ? 'Deleting...' : 'Delete'}</Button>
           </div>
         </Card>
       ) : null}
