@@ -27,6 +27,8 @@ export default defineConfig({
                 'pg-protocol',
                 'pg-connection-string',
                 'pgpass',
+                'amqplib',
+                'kafkajs',
               ],
             },
           },

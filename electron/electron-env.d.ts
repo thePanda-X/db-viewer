@@ -125,6 +125,22 @@ type OpenSearchRawResponse = import('../src/types/opensearch').OpenSearchRawResp
 type OpenSearchSearchRequest = import('../src/types/opensearch').OpenSearchSearchRequest
 type OpenSearchSearchResult = import('../src/types/opensearch').OpenSearchSearchResult
 
+interface RabbitMQExposedConfig {
+  host: string
+  port: number
+  managementPort: number
+  vhost: string
+  username: string
+  password: string
+  tls: boolean
+}
+
+type RabbitMQExchangeInfo = import('../src/types/rabbitmq').RabbitMQExchangeInfo
+type RabbitMQQueueInfo = import('../src/types/rabbitmq').RabbitMQQueueInfo
+type RabbitMQBindingInfo = import('../src/types/rabbitmq').RabbitMQBindingInfo
+type RabbitMQMessageInfo = import('../src/types/rabbitmq').RabbitMQMessageInfo
+type RabbitMQPublishRequest = import('../src/types/rabbitmq').RabbitMQPublishRequest
+
 type RedisKeyType = 'string' | 'list' | 'set' | 'zset' | 'hash' | 'stream' | 'none'
 
 interface RedisKeyMeta {
@@ -348,9 +364,60 @@ interface ExposedApi {
     executeRequest: (args: { connectionId: string; config: OpenSearchExposedConfig; request: OpenSearchRawRequest }) => Promise<{ ok: true; result: OpenSearchRawResponse } | { ok: false; error: string }>
     disconnect: (args: { connectionId: string }) => Promise<{ ok: true }>
   }
+  kafka: {
+    ping: (args: { connectionId: string; config: KafkaExposedConfig }) => Promise<{ ok: true; result: KafkaClusterInfo } | { ok: false; error: string }>
+    listTopics: (args: { connectionId: string; config: KafkaExposedConfig }) => Promise<{ ok: true; result: KafkaTopicInfo[] } | { ok: false; error: string }>
+    getTopicMeta: (args: { connectionId: string; config: KafkaExposedConfig; topic: string }) => Promise<{ ok: true; result: KafkaTopicMeta } | { ok: false; error: string }>
+    listConsumerGroups: (args: { connectionId: string; config: KafkaExposedConfig }) => Promise<{ ok: true; result: KafkaConsumerGroupInfo[] } | { ok: false; error: string }>
+    getConsumerGroupDetail: (args: { connectionId: string; config: KafkaExposedConfig; groupId: string }) => Promise<{ ok: true; result: KafkaConsumerGroupDetail } | { ok: false; error: string }>
+    consumeMessages: (args: { connectionId: string; config: KafkaExposedConfig; topic: string; partition: number; offset: string; limit: number }) => Promise<{ ok: true; result: KafkaConsumeResult } | { ok: false; error: string }>
+    disconnect: (args: { connectionId: string }) => Promise<{ ok: true }>
+  }
+  rabbitmq: {
+    ping: (args: { connectionId: string; config: RabbitMQExposedConfig }) => Promise<
+      { ok: true; result: { rabbitmqVersion: string; erlangVersion: string; clusterName: string; node: string } } | { ok: false; error: string }
+    >
+    listExchanges: (args: { connectionId: string; config: RabbitMQExposedConfig }) => Promise<
+      { ok: true; result: RabbitMQExchangeInfo[] } | { ok: false; error: string }
+    >
+    listQueues: (args: { connectionId: string; config: RabbitMQExposedConfig }) => Promise<
+      { ok: true; result: RabbitMQQueueInfo[] } | { ok: false; error: string }
+    >
+    listBindings: (args: { connectionId: string; config: RabbitMQExposedConfig; exchange: string; queue?: string }) => Promise<
+      { ok: true; result: RabbitMQBindingInfo[] } | { ok: false; error: string }
+    >
+    getQueueMessages: (args: { connectionId: string; config: RabbitMQExposedConfig; queue: string; count: number }) => Promise<
+      { ok: true; result: RabbitMQMessageInfo[] } | { ok: false; error: string }
+    >
+    purgeQueue: (args: { connectionId: string; config: RabbitMQExposedConfig; queue: string }) => Promise<
+      { ok: true } | { ok: false; error: string }
+    >
+    deleteQueue: (args: { connectionId: string; config: RabbitMQExposedConfig; queue: string }) => Promise<
+      { ok: true } | { ok: false; error: string }
+    >
+    publishMessage: (args: { connectionId: string; config: RabbitMQExposedConfig; request: RabbitMQPublishRequest }) => Promise<
+      { ok: true } | { ok: false; error: string }
+    >
+    disconnect: (args: { connectionId: string }) => Promise<{ ok: true }>
+  }
 }
 
 interface Window {
   ipcRenderer: import('electron').IpcRenderer
   api: ExposedApi
 }
+
+interface KafkaExposedConfig {
+  host: string
+  port: number
+  username: string
+  password: string
+  tls: boolean
+}
+
+type KafkaClusterInfo = import('../src/types/kafka').KafkaClusterInfo
+type KafkaTopicInfo = import('../src/types/kafka').KafkaTopicInfo
+type KafkaTopicMeta = import('../src/types/kafka').KafkaTopicMeta
+type KafkaConsumerGroupInfo = import('../src/types/kafka').KafkaConsumerGroupInfo
+type KafkaConsumerGroupDetail = import('../src/types/kafka').KafkaConsumerGroupDetail
+type KafkaConsumeResult = import('../src/types/kafka').KafkaConsumeResult
