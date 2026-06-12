@@ -348,9 +348,33 @@ interface ExposedApi {
     executeRequest: (args: { connectionId: string; config: OpenSearchExposedConfig; request: OpenSearchRawRequest }) => Promise<{ ok: true; result: OpenSearchRawResponse } | { ok: false; error: string }>
     disconnect: (args: { connectionId: string }) => Promise<{ ok: true }>
   }
+  kafka: {
+    ping: (args: { connectionId: string; config: KafkaExposedConfig }) => Promise<{ ok: true; result: KafkaClusterInfo } | { ok: false; error: string }>
+    listTopics: (args: { connectionId: string; config: KafkaExposedConfig }) => Promise<{ ok: true; result: KafkaTopicInfo[] } | { ok: false; error: string }>
+    getTopicMeta: (args: { connectionId: string; config: KafkaExposedConfig; topic: string }) => Promise<{ ok: true; result: KafkaTopicMeta } | { ok: false; error: string }>
+    listConsumerGroups: (args: { connectionId: string; config: KafkaExposedConfig }) => Promise<{ ok: true; result: KafkaConsumerGroupInfo[] } | { ok: false; error: string }>
+    getConsumerGroupDetail: (args: { connectionId: string; config: KafkaExposedConfig; groupId: string }) => Promise<{ ok: true; result: KafkaConsumerGroupDetail } | { ok: false; error: string }>
+    consumeMessages: (args: { connectionId: string; config: KafkaExposedConfig; topic: string; partition: number; offset: string; limit: number }) => Promise<{ ok: true; result: KafkaConsumeResult } | { ok: false; error: string }>
+    disconnect: (args: { connectionId: string }) => Promise<{ ok: true }>
+  }
 }
 
 interface Window {
   ipcRenderer: import('electron').IpcRenderer
   api: ExposedApi
 }
+
+interface KafkaExposedConfig {
+  host: string
+  port: number
+  username: string
+  password: string
+  tls: boolean
+}
+
+type KafkaClusterInfo = import('../src/types/kafka').KafkaClusterInfo
+type KafkaTopicInfo = import('../src/types/kafka').KafkaTopicInfo
+type KafkaTopicMeta = import('../src/types/kafka').KafkaTopicMeta
+type KafkaConsumerGroupInfo = import('../src/types/kafka').KafkaConsumerGroupInfo
+type KafkaConsumerGroupDetail = import('../src/types/kafka').KafkaConsumerGroupDetail
+type KafkaConsumeResult = import('../src/types/kafka').KafkaConsumeResult
