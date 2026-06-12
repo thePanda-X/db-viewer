@@ -46,6 +46,7 @@ import {
 } from './redis'
 import {
   deleteDocument as opensearchDeleteDocument,
+  deleteIndex as opensearchDeleteIndex,
   disconnect as opensearchDisconnect,
   executeRequest as opensearchExecuteRequest,
   getIndexMeta as opensearchGetIndexMeta,
@@ -938,6 +939,18 @@ app.whenReady().then(() => {
         return { ok: true, result }
       } catch (err) {
         return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'opensearch:deleteIndex',
+    async (_event, args: OpenSearchInvokeArgs & { index: string }) => {
+      try {
+        await opensearchDeleteIndex(args.connectionId, args.config, args.index)
+        return { ok: true as const }
+      } catch (err) {
+        return { ok: false as const, error: toErrorMessage(err) }
       }
     },
   )

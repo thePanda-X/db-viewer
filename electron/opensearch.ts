@@ -168,6 +168,15 @@ export async function deleteDocument(
   await client.delete({ index, id, refresh: 'wait_for' })
 }
 
+export async function deleteIndex(
+  connectionId: string,
+  config: OpenSearchConfig,
+  index: string,
+): Promise<void> {
+  const client = getClient(connectionId, config)
+  await client.indices.delete({ index })
+}
+
 export async function executeRequest(
   connectionId: string,
   config: OpenSearchConfig,

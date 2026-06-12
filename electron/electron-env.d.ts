@@ -361,6 +361,7 @@ interface ExposedApi {
     searchDocuments: (args: { connectionId: string; config: OpenSearchExposedConfig; request: OpenSearchSearchRequest }) => Promise<{ ok: true; result: OpenSearchSearchResult } | { ok: false; error: string }>
     updateDocument: (args: { connectionId: string; config: OpenSearchExposedConfig; index: string; id: string; source: unknown }) => Promise<{ ok: true } | { ok: false; error: string }>
     deleteDocument: (args: { connectionId: string; config: OpenSearchExposedConfig; index: string; id: string }) => Promise<{ ok: true } | { ok: false; error: string }>
+    deleteIndex: (args: { connectionId: string; config: OpenSearchExposedConfig; index: string }) => Promise<{ ok: true } | { ok: false; error: string }>
     executeRequest: (args: { connectionId: string; config: OpenSearchExposedConfig; request: OpenSearchRawRequest }) => Promise<{ ok: true; result: OpenSearchRawResponse } | { ok: false; error: string }>
     disconnect: (args: { connectionId: string }) => Promise<{ ok: true }>
   }
