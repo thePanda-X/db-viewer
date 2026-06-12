@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle,
   Columns3,
+  Copy,
   Loader2,
+  Maximize2,
   MessageSquare,
   RefreshCw,
   Trash2,
@@ -10,6 +12,7 @@ import {
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -41,6 +44,7 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
   const [purgeDialogOpen, setPurgeDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [operating, setOperating] = useState(false)
+  const [inspectMsg, setInspectMsg] = useState<RabbitMQMessageInfo | null>(null)
 
   const loadMessages = useCallback(async () => {
     setLoading(true)
@@ -220,12 +224,22 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
                         </span>
                       )}
                     </div>
-                    <div className="mt-1 max-h-20 overflow-auto rounded border border-border/50 bg-muted/30 p-1.5">
-                      <pre className="whitespace-pre-wrap break-all font-mono text-[10px]">
-                        {typeof msg.bodyDecoded === 'string'
-                          ? msg.bodyDecoded
-                          : JSON.stringify(msg.bodyDecoded, null, 2)}
-                      </pre>
+                    <div className="group relative mt-1">
+                      <div className="max-h-20 overflow-auto rounded border border-border/50 bg-muted/30 p-1.5">
+                        <pre className="whitespace-pre-wrap break-all font-mono text-[10px]">
+                          {typeof msg.bodyDecoded === 'string'
+                            ? msg.bodyDecoded
+                            : JSON.stringify(msg.bodyDecoded, null, 2)}
+                        </pre>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setInspectMsg(msg)}
+                        className="absolute right-1 top-0.5 flex h-5 w-5 items-center justify-center rounded border border-border/40 bg-background/80 text-muted-foreground/50 opacity-0 transition-all hover:border-border hover:text-foreground group-hover:opacity-100"
+                        title="Inspect full message"
+                      >
+                        <Maximize2 className="h-3 w-3" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -234,6 +248,21 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
           </div>
         </div>
       </ScrollArea>
+
+      <Dialog open={inspectMsg !== null} onOpenChange={(o) => { if (!o) setInspectMsg(null) }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm">
+              <MessageSquare className="h-4 w-4 text-orange-500" />
+              Message
+              <span className="font-mono text-xs text-muted-foreground">
+                tag: {inspectMsg?.deliveryTag}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          <MessageInspectBody message={inspectMsg} />
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={purgeDialogOpen} onOpenChange={setPurgeDialogOpen}>
         <AlertDialogContent>
@@ -281,6 +310,108 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  )
+}
+
+function MessageInspectBody({ message }: { message: RabbitMQMessageInfo | null }) {
+  const [copied, setCopied] = useState(false)
+
+  const formatted = useMemo(() => {
+    if (!message) return ''
+    if (typeof message.bodyDecoded === 'string') return message.bodyDecoded
+    try {
+      return JSON.stringify(message.bodyDecoded, null, 2)
+    } catch {
+      return String(message.bodyDecoded)
+    }
+  }, [message])
+
+  const handleCopy = useCallback(() => {
+    if (!message) return
+    const raw = typeof message.bodyDecoded === 'string'
+      ? message.bodyDecoded
+      : JSON.stringify(message.bodyDecoded, null, 2)
+    navigator.clipboard.writeText(raw).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }, [message])
+
+  if (!message) return null
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-md border border-border bg-muted/20 p-3 text-xs">
+        <Row label="Exchange" value={message.exchange || '(none)'} />
+        <Row label="Routing Key" value={message.routingKey || '(none)'} />
+        <Row label="Content Type" value={message.properties.contentType || '—'} />
+        <Row label="Delivery Mode" value={
+          message.properties.deliveryMode === 2 ? 'Persistent' :
+          message.properties.deliveryMode === 1 ? 'Non-persistent' : '—'
+        } />
+        <Row label="Priority" value={message.properties.priority != null ? String(message.properties.priority) : '—'} />
+        <Row label="Size" value={`${message.bodySize} bytes`} />
+        {message.properties.correlationId && (
+          <Row label="Correlation ID" value={message.properties.correlationId} />
+        )}
+        {message.properties.replyTo && (
+          <Row label="Reply To" value={message.properties.replyTo} />
+        )}
+        {message.properties.messageId && (
+          <Row label="Message ID" value={message.properties.messageId} />
+        )}
+        {message.properties.timestamp && (
+          <Row label="Timestamp" value={String(message.properties.timestamp)} />
+        )}
+        {message.properties.type && (
+          <Row label="Type" value={message.properties.type} />
+        )}
+      </div>
+
+      {message.properties.headers && Object.keys(message.properties.headers).length > 0 && (
+        <div className="rounded-md border border-border p-3">
+          <div className="mb-1.5 text-xs font-semibold text-muted-foreground">Headers</div>
+          <div className="space-y-0.5">
+            {Object.entries(message.properties.headers).map(([k, v]) => (
+              <div key={k} className="flex gap-2 font-mono text-[11px]">
+                <span className="shrink-0 text-muted-foreground">{k}:</span>
+                <span className="break-all text-foreground">
+                  {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-md border border-border">
+        <div className="flex items-center justify-between border-b border-border px-3 py-2">
+          <span className="text-xs font-semibold text-muted-foreground">Body</span>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Copy className="h-3 w-3" />
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+        <ScrollArea className="max-h-[50vh]">
+          <pre className="whitespace-pre-wrap break-all p-3 font-mono text-xs leading-relaxed">
+            {formatted}
+          </pre>
+        </ScrollArea>
+      </div>
+    </div>
+  )
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className="shrink-0 text-muted-foreground">{label}:</span>
+      <span className="truncate font-mono text-foreground">{value}</span>
     </div>
   )
 }
