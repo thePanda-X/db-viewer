@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Copy, Code2, FileText, Info, Loader2, RefreshCw, Table2, Eye, AlertCircle } from 'lucide-react'
+import { Copy, Code2, FileText, Info, Loader2, RefreshCw, Table2, Eye, AlertCircle, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/state/toastStore'
@@ -37,6 +38,7 @@ export function SqliteSidebar({
   const [tables, setTables] = useState<TableInfo[] | null>(null)
   const [tablesError, setTablesError] = useState<string | null>(null)
   const [loadingTables, setLoadingTables] = useState(false)
+  const [tableFilter, setTableFilter] = useState('')
 
   const fetchTables = useCallback(async () => {
     setLoadingTables(true)
@@ -110,18 +112,36 @@ export function SqliteSidebar({
               {loadingTables && <Loader2 className="h-3 w-3 animate-spin" />}
             </div>
 
+            {tables && tables.length > 0 && (
+              <div className="relative mb-2">
+                <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="h-8 pl-7 text-xs"
+                  placeholder="Filter tables..."
+                  value={tableFilter}
+                  onChange={(e) => setTableFilter(e.target.value)}
+                />
+              </div>
+            )}
+
             {tablesError ? (
               <div className="flex items-start gap-1.5 rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
                 <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
                 <span className="break-words">{tablesError}</span>
               </div>
-            ) : tables?.length === 0 && !loadingTables ? (
+            ) : !tableFilter && tables?.length === 0 && !loadingTables ? (
               <div className="rounded-md border border-dashed border-border p-2 text-center text-[11px] text-muted-foreground">
                 No tables or views found
               </div>
+            ) : tableFilter && tables?.filter((t) => t.name.toLowerCase().includes(tableFilter.toLowerCase())).length === 0 && !loadingTables ? (
+              <div className="rounded-md border border-dashed border-border p-2 text-center text-[11px] text-muted-foreground">
+                No matches
+              </div>
             ) : (
               <ul className="space-y-0.5">
-                {tables?.map((t) => {
+                {tables
+                  ?.filter((t) => !tableFilter || t.name.toLowerCase().includes(tableFilter.toLowerCase()))
+                  .map((t) => {
                   const active = selectedTable === t.name
                   const items: ContextMenuItem[] = [
                     {
