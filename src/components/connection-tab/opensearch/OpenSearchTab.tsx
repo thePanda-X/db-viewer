@@ -521,7 +521,7 @@ function DocumentsView(props: {
       ) : null}
 
       {props.editing ? (
-        <Card className="fixed inset-x-8 bottom-8 z-40 max-h-[70vh] overflow-auto p-4 shadow-2xl">
+        <Card className="fixed left-1/2 top-1/2 z-40 w-[min(800px,calc(100vw-2rem))] max-h-[70vh] -translate-x-1/2 -translate-y-1/2 overflow-auto p-4 shadow-2xl">
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="min-w-0">
               <h2 className="font-semibold">Edit document</h2>
