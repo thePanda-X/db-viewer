@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useConnectionsStore } from '@/state/connectionsStore'
 import { useTabsStore } from '@/state/tabsStore'
 import { AppShell } from '@/components/layout/AppShell'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export default function App() {
   const load = useConnectionsStore((s) => s.load)
@@ -37,5 +38,9 @@ export default function App() {
     return unsub
   }, [syncConnection])
 
-  return <AppShell />
+  return (
+    <ErrorBoundary>
+      <AppShell />
+    </ErrorBoundary>
+  )
 }

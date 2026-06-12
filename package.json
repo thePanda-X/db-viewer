@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seed:opensearch": "npx tsx scripts/seed-opensearch.ts",
+    "seed:kafka": "npx tsx scripts/seed-kafka.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -22,10 +24,12 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "amqplib": "^2.0.1",
     "better-sqlite3": "^12.10.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "ioredis": "^5.11.1",
+    "kafkajs": "^2.2.4",
     "lucide-react": "^0.451.0",
     "pg": "^8.21.0",
     "react": "^18.2.0",
@@ -37,6 +41,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@types/amqplib": "^0.10.8",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.7.5",
     "@types/pg": "^8.20.0",

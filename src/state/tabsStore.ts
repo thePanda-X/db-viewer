@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Connection, ConnectionType } from '@/types/connection'
 import { HOME_TAB_ID, type Tab, type TabId, type TabViewState } from '@/types/tab'
+import { CONNECTION_TYPES } from '@/data/connectionTypes'
 
 interface OpenRelatedRowArgs {
   database: string
@@ -141,11 +142,17 @@ export const useTabsStore = create<TabsState>()(
       partialize: (state) => ({ tabs: state.tabs, activeTabId: state.activeTabId }),
       merge: (persisted, current) => {
         const next = { ...current, ...(persisted as Partial<TabsState>) }
-        next.tabs = next.tabs.map((tab) => ({
-          ...tab,
-          viewState: tab.viewState ?? tab.postgresView,
-          postgresView: undefined,
-        }))
+        const validTypes = new Set(CONNECTION_TYPES.map((d) => d.id))
+        next.tabs = next.tabs
+          .filter((tab) => tab.id === HOME_TAB_ID || (tab.type && validTypes.has(tab.type)))
+          .map((tab) => ({
+            ...tab,
+            viewState: tab.viewState ?? tab.postgresView,
+            postgresView: undefined,
+          }))
+        if (next.activeTabId !== HOME_TAB_ID && !next.tabs.some((t) => t.id === next.activeTabId)) {
+          next.activeTabId = HOME_TAB_ID
+        }
         return next
       },
     },

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { Database, FileText, Search, KeyRound, type LucideIcon } from 'lucide-react'
+import { Database, FileText, Search, KeyRound, Layers, GitCompare, type LucideIcon } from 'lucide-react'
 import type { ComponentType } from 'react'
 import type {
   Connection,
@@ -8,12 +8,16 @@ import type {
   SqliteConfig,
   OpenSearchConfig,
   RedisConfig,
+  KafkaConfig,
+  RabbitMQConfig,
 } from '@/types/connection'
 import type { Tab } from '@/types/tab'
 import { OpenSearchTab } from '@/components/connection-tab/opensearch/OpenSearchTab'
 import { PostgresTab } from '@/components/connection-tab/postgres/PostgresTab'
 import { RedisTab } from '@/components/connection-tab/redis/RedisTab'
 import { SqliteTab } from '@/components/connection-tab/sqlite/SqliteTab'
+import { KafkaTab } from '@/components/connection-tab/kafka/KafkaTab'
+import { RabbitMQTab } from '@/components/connection-tab/rabbitmq/RabbitMQTab'
 
 export type FieldType = 'text' | 'password' | 'number' | 'switch' | 'file'
 
@@ -81,6 +85,14 @@ const redisSchema = z.object({
   port: z.coerce.number().int().min(1).max(65535),
   password: z.string(),
   db: z.coerce.number().int().min(0).max(15),
+  tls: z.boolean(),
+})
+
+const kafkaSchema = z.object({
+  host: z.string().min(1, 'Host is required'),
+  port: z.coerce.number().int().min(1).max(65535),
+  username: z.string(),
+  password: z.string(),
   tls: z.boolean(),
 })
 
@@ -212,6 +224,74 @@ const openSearchDef: ConnectionTypeDefinition<OpenSearchConfig> = {
   TabComponent: OpenSearchTab as ComponentType<{ connection: Connection; tab: Tab }>,
 }
 
+const rabbitmqSchema = z.object({
+  host: z.string().min(1, 'Host is required'),
+  port: z.coerce.number().int().min(1).max(65535),
+  managementPort: z.coerce.number().int().min(1).max(65535),
+  vhost: z.string().min(1, 'Virtual host is required'),
+  username: z.string(),
+  password: z.string(),
+  tls: z.boolean(),
+})
+
+const rabbitmqDef: ConnectionTypeDefinition<RabbitMQConfig> = {
+  id: 'rabbitmq',
+  label: 'RabbitMQ',
+  description: 'Connect to a RabbitMQ server',
+  icon: GitCompare,
+  brandColor: 'text-orange-500',
+  defaultConfig: {
+    host: 'localhost',
+    port: 5672,
+    managementPort: 15672,
+    vhost: '/',
+    username: 'guest',
+    password: 'guest',
+    tls: false,
+  },
+  fields: [
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'text',
+      placeholder: 'Local RabbitMQ',
+      required: true,
+      colSpan: 2,
+    },
+    { name: 'host', label: 'Host', type: 'text', placeholder: 'localhost', required: true },
+    {
+      name: 'port',
+      label: 'AMQP Port',
+      type: 'number',
+      defaultValue: 5672,
+      required: true,
+    },
+    {
+      name: 'managementPort',
+      label: 'HTTP API Port',
+      type: 'number',
+      defaultValue: 15672,
+      required: true,
+      description: 'Port for the management plugin HTTP API',
+    },
+    {
+      name: 'vhost',
+      label: 'Virtual Host',
+      type: 'text',
+      placeholder: '/',
+      defaultValue: '/',
+      required: true,
+    },
+    { name: 'username', label: 'Username', type: 'text', placeholder: 'guest' },
+    { name: 'password', label: 'Password', type: 'password' },
+    { name: 'tls', label: 'Use TLS', type: 'switch', defaultValue: false, colSpan: 2 },
+  ],
+  schema: rabbitmqSchema,
+  fullSchema: z.object({ name: nameField, config: rabbitmqSchema }),
+  subtitle: (c) => `${c.host}:${c.port}${c.vhost !== '/' ? ` (vhost: ${c.vhost})` : ''}`,
+  TabComponent: RabbitMQTab as ComponentType<{ connection: Connection; tab: Tab }>,
+}
+
 const redisDef: ConnectionTypeDefinition<RedisConfig> = {
   id: 'redis',
   label: 'Redis',
@@ -259,19 +339,63 @@ const redisDef: ConnectionTypeDefinition<RedisConfig> = {
   TabComponent: RedisTab as ComponentType<{ connection: Connection; tab: Tab }>,
 }
 
-export type AnyConnectionConfig = PostgresConfig | SqliteConfig | OpenSearchConfig | RedisConfig
+const kafkaDef: ConnectionTypeDefinition<KafkaConfig> = {
+  id: 'kafka',
+  label: 'Kafka',
+  description: 'Connect to an Apache Kafka cluster',
+  icon: Layers,
+  brandColor: 'text-orange-500',
+  defaultConfig: {
+    host: 'localhost',
+    port: 9092,
+    username: '',
+    password: '',
+    tls: false,
+  },
+  fields: [
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'text',
+      placeholder: 'Local Kafka',
+      required: true,
+      colSpan: 2,
+    },
+    { name: 'host', label: 'Host', type: 'text', placeholder: 'localhost', required: true },
+    {
+      name: 'port',
+      label: 'Port',
+      type: 'number',
+      defaultValue: 9092,
+      required: true,
+    },
+    { name: 'username', label: 'Username', type: 'text' },
+    { name: 'password', label: 'Password', type: 'password' },
+    { name: 'tls', label: 'Use TLS', type: 'switch', defaultValue: false, colSpan: 2 },
+  ],
+  schema: kafkaSchema,
+  fullSchema: z.object({ name: nameField, config: kafkaSchema }),
+  subtitle: (c) => `${c.host}:${c.port}`,
+  TabComponent: KafkaTab as ComponentType<{ connection: Connection; tab: Tab }>,
+}
+
+export type AnyConnectionConfig = PostgresConfig | SqliteConfig | OpenSearchConfig | RedisConfig | KafkaConfig | RabbitMQConfig
 
 export type AnyConnectionTypeDefinition =
   | ConnectionTypeDefinition<PostgresConfig>
   | ConnectionTypeDefinition<SqliteConfig>
   | ConnectionTypeDefinition<OpenSearchConfig>
   | ConnectionTypeDefinition<RedisConfig>
+  | ConnectionTypeDefinition<KafkaConfig>
+  | ConnectionTypeDefinition<RabbitMQConfig>
 
 export const CONNECTION_TYPES: ReadonlyArray<AnyConnectionTypeDefinition> = [
   postgresDef,
   sqliteDef,
   openSearchDef,
   redisDef,
+  kafkaDef,
+  rabbitmqDef,
 ]
 
 export function getConnectionTypeDef(id: ConnectionType): AnyConnectionTypeDefinition {
