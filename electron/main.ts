@@ -100,6 +100,25 @@ import type {
   KafkaConsumerGroupDetail,
   KafkaConsumeResult,
 } from '../src/types/kafka'
+import type { RabbitMQConfig } from '../src/types/connection'
+import type {
+  RabbitMQBindingInfo,
+  RabbitMQExchangeInfo,
+  RabbitMQMessageInfo,
+  RabbitMQPublishRequest,
+  RabbitMQQueueInfo,
+} from '../src/types/rabbitmq'
+import {
+  disconnect as rmqDisconnect,
+  getQueueMessages as rmqGetQueueMessages,
+  listBindings as rmqListBindings,
+  listExchanges as rmqListExchanges,
+  listQueues as rmqListQueues,
+  ping as rmqPing,
+  publishMessage as rmqPublishMessage,
+  purgeQueue as rmqPurgeQueue,
+  deleteQueueFn as rmqDeleteQueue,
+} from './rabbitmq'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -982,6 +1001,131 @@ app.whenReady().then(() => {
     'kafka:disconnect',
     async (_event, args: { connectionId: string }) => {
       kafkaDisconnect(args.connectionId)
+      return { ok: true }
+    },
+  )
+
+  type RabbitMQInvokeArgs = {
+    connectionId: string
+    config: RabbitMQConfig
+  }
+
+  ipcMain.handle(
+    'rabbitmq:ping',
+    async (_event, args: RabbitMQInvokeArgs): Promise<
+      { ok: true; result: { rabbitmqVersion: string; erlangVersion: string; clusterName: string; node: string } } | { ok: false; error: string }
+    > => {
+      try {
+        const result = await rmqPing(args.connectionId, args.config)
+        return { ok: true, result }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'rabbitmq:listExchanges',
+    async (_event, args: RabbitMQInvokeArgs): Promise<
+      { ok: true; result: RabbitMQExchangeInfo[] } | { ok: false; error: string }
+    > => {
+      try {
+        const result = await rmqListExchanges(args.connectionId, args.config)
+        return { ok: true, result }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'rabbitmq:listQueues',
+    async (_event, args: RabbitMQInvokeArgs): Promise<
+      { ok: true; result: RabbitMQQueueInfo[] } | { ok: false; error: string }
+    > => {
+      try {
+        const result = await rmqListQueues(args.connectionId, args.config)
+        return { ok: true, result }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'rabbitmq:listBindings',
+    async (_event, args: RabbitMQInvokeArgs & { exchange: string; queue?: string }): Promise<
+      { ok: true; result: RabbitMQBindingInfo[] } | { ok: false; error: string }
+    > => {
+      try {
+        const result = await rmqListBindings(args.connectionId, args.config, args.exchange, args.queue)
+        return { ok: true, result }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'rabbitmq:getQueueMessages',
+    async (_event, args: RabbitMQInvokeArgs & { queue: string; count: number }): Promise<
+      { ok: true; result: RabbitMQMessageInfo[] } | { ok: false; error: string }
+    > => {
+      try {
+        const result = await rmqGetQueueMessages(args.connectionId, args.config, args.queue, args.count)
+        return { ok: true, result }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'rabbitmq:purgeQueue',
+    async (_event, args: RabbitMQInvokeArgs & { queue: string }): Promise<
+      { ok: true } | { ok: false; error: string }
+    > => {
+      try {
+        await rmqPurgeQueue(args.connectionId, args.config, args.queue)
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'rabbitmq:deleteQueue',
+    async (_event, args: RabbitMQInvokeArgs & { queue: string }): Promise<
+      { ok: true } | { ok: false; error: string }
+    > => {
+      try {
+        await rmqDeleteQueue(args.connectionId, args.config, args.queue)
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'rabbitmq:publishMessage',
+    async (_event, args: RabbitMQInvokeArgs & { request: RabbitMQPublishRequest }): Promise<
+      { ok: true } | { ok: false; error: string }
+    > => {
+      try {
+        await rmqPublishMessage(args.connectionId, args.config, args.request)
+        return { ok: true }
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'rabbitmq:disconnect',
+    async (_event, args: { connectionId: string }) => {
+      rmqDisconnect(args.connectionId)
       return { ok: true }
     },
   )

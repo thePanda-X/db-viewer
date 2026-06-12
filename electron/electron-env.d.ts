@@ -125,6 +125,22 @@ type OpenSearchRawResponse = import('../src/types/opensearch').OpenSearchRawResp
 type OpenSearchSearchRequest = import('../src/types/opensearch').OpenSearchSearchRequest
 type OpenSearchSearchResult = import('../src/types/opensearch').OpenSearchSearchResult
 
+interface RabbitMQExposedConfig {
+  host: string
+  port: number
+  managementPort: number
+  vhost: string
+  username: string
+  password: string
+  tls: boolean
+}
+
+type RabbitMQExchangeInfo = import('../src/types/rabbitmq').RabbitMQExchangeInfo
+type RabbitMQQueueInfo = import('../src/types/rabbitmq').RabbitMQQueueInfo
+type RabbitMQBindingInfo = import('../src/types/rabbitmq').RabbitMQBindingInfo
+type RabbitMQMessageInfo = import('../src/types/rabbitmq').RabbitMQMessageInfo
+type RabbitMQPublishRequest = import('../src/types/rabbitmq').RabbitMQPublishRequest
+
 type RedisKeyType = 'string' | 'list' | 'set' | 'zset' | 'hash' | 'stream' | 'none'
 
 interface RedisKeyMeta {
@@ -355,6 +371,33 @@ interface ExposedApi {
     listConsumerGroups: (args: { connectionId: string; config: KafkaExposedConfig }) => Promise<{ ok: true; result: KafkaConsumerGroupInfo[] } | { ok: false; error: string }>
     getConsumerGroupDetail: (args: { connectionId: string; config: KafkaExposedConfig; groupId: string }) => Promise<{ ok: true; result: KafkaConsumerGroupDetail } | { ok: false; error: string }>
     consumeMessages: (args: { connectionId: string; config: KafkaExposedConfig; topic: string; partition: number; offset: string; limit: number }) => Promise<{ ok: true; result: KafkaConsumeResult } | { ok: false; error: string }>
+    disconnect: (args: { connectionId: string }) => Promise<{ ok: true }>
+  }
+  rabbitmq: {
+    ping: (args: { connectionId: string; config: RabbitMQExposedConfig }) => Promise<
+      { ok: true; result: { rabbitmqVersion: string; erlangVersion: string; clusterName: string; node: string } } | { ok: false; error: string }
+    >
+    listExchanges: (args: { connectionId: string; config: RabbitMQExposedConfig }) => Promise<
+      { ok: true; result: RabbitMQExchangeInfo[] } | { ok: false; error: string }
+    >
+    listQueues: (args: { connectionId: string; config: RabbitMQExposedConfig }) => Promise<
+      { ok: true; result: RabbitMQQueueInfo[] } | { ok: false; error: string }
+    >
+    listBindings: (args: { connectionId: string; config: RabbitMQExposedConfig; exchange: string; queue?: string }) => Promise<
+      { ok: true; result: RabbitMQBindingInfo[] } | { ok: false; error: string }
+    >
+    getQueueMessages: (args: { connectionId: string; config: RabbitMQExposedConfig; queue: string; count: number }) => Promise<
+      { ok: true; result: RabbitMQMessageInfo[] } | { ok: false; error: string }
+    >
+    purgeQueue: (args: { connectionId: string; config: RabbitMQExposedConfig; queue: string }) => Promise<
+      { ok: true } | { ok: false; error: string }
+    >
+    deleteQueue: (args: { connectionId: string; config: RabbitMQExposedConfig; queue: string }) => Promise<
+      { ok: true } | { ok: false; error: string }
+    >
+    publishMessage: (args: { connectionId: string; config: RabbitMQExposedConfig; request: RabbitMQPublishRequest }) => Promise<
+      { ok: true } | { ok: false; error: string }
+    >
     disconnect: (args: { connectionId: string }) => Promise<{ ok: true }>
   }
 }

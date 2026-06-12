@@ -1,4 +1,4 @@
-import { Home, X } from 'lucide-react'
+import { Database, Home, X } from 'lucide-react'
 import { useTabsStore } from '@/state/tabsStore'
 import { getConnectionTypeDef } from '@/data/connectionTypes'
 import { cn } from '@/lib/utils'
@@ -20,7 +20,7 @@ export function TabStrip() {
             {tabs.map((tab) => {
               const isHome = tab.id === HOME_TAB_ID
               const isActive = tab.id === activeTabId
-              const Icon = isHome ? Home : getConnectionTypeDef(tab.type!).icon
+              const Icon = isHome ? Home : (tab.type ? getConnectionTypeDef(tab.type).icon : Database)
               return (
                 <Tooltip key={tab.id}>
                   <TooltipTrigger asChild>
