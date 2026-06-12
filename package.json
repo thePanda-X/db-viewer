@@ -2,6 +2,8 @@
   "name": "db-vwr",
   "private": true,
   "version": "0.0.0",
+  "description": "Multi-database desktop viewer for PostgreSQL, SQLite, Redis, OpenSearch, Kafka, and RabbitMQ",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
