@@ -8,6 +8,7 @@ import {
   getIncomingTableRelations,
   getTableMeta,
   getTableRelations,
+  insertRow as pgInsertRow,
   listDatabases,
   listTables,
   lookupRows,
@@ -20,6 +21,7 @@ import {
   disconnect as sqliteDisconnect,
   getTableMeta as sqliteGetTableMeta,
   getTableRelations as sqliteGetTableRelations,
+  insertRow as sqliteInsertRow,
   listTables as sqliteListTables,
   lookupRows as sqliteLookupRows,
   runQuery as sqliteRunQuery,
@@ -68,6 +70,7 @@ import {
 } from './kafka'
 import type {
   DeleteRowsRequest,
+  InsertRowRequest,
   PostgresConfig,
   QueryRequest,
   QueryResponse,
@@ -79,6 +82,7 @@ import type {
 import type { SqlDeleteRowsResponse } from '../shared/types/sql'
 import type {
   DeleteRowsRequest as SqliteDeleteRowsRequest,
+  InsertRowRequest as SqliteInsertRowRequest,
   QueryRequest as SqliteQueryRequest,
   QueryResponse as SqliteQueryResponse,
   SaveChangesRequest as SqliteSaveChangesRequest,
@@ -489,6 +493,20 @@ app.whenReady().then(() => {
   )
 
   ipcMain.handle(
+    'postgres:insertRow',
+    async (
+      _event,
+      args: { connectionId: string; config: PostgresConfig; request: InsertRowRequest },
+    ) => {
+      try {
+        return await pgInsertRow(args.connectionId, args.config, args.request)
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
     'postgres:saveChanges',
     async (
       _event,
@@ -606,6 +624,20 @@ app.whenReady().then(() => {
         return { ok: true, result }
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) }
+      }
+    },
+  )
+
+  ipcMain.handle(
+    'sqlite:insertRow',
+    async (
+      _event,
+      args: { connectionId: string; filePath: string; request: SqliteInsertRowRequest },
+    ) => {
+      try {
+        return await sqliteInsertRow(args.connectionId, args.filePath, args.request)
+      } catch (err) {
+        return { ok: false, error: toErrorMessage(err) }
       }
     },
   )

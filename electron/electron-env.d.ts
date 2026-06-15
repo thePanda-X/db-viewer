@@ -105,6 +105,17 @@ type PostgresDeleteRowsResponse =
   | { ok: true; deleted: number }
   | { ok: false; error: string }
 
+interface PostgresInsertRowRequest {
+  database: string
+  schema: string
+  table: string
+  values: Record<string, unknown>
+}
+
+type PostgresInsertRowResponse =
+  | { ok: true; inserted: number }
+  | { ok: false; error: string }
+
 interface RedisExposedConfig {
   host: string
   port: number
@@ -122,6 +133,8 @@ type SqliteSaveChangesRequest = import('../src/types/sqlite').SaveChangesRequest
 type SqliteSaveChangesResponse = import('../src/types/sqlite').SaveChangesResponse
 type SqliteDeleteRowsRequest = import('../src/types/sqlite').DeleteRowsRequest
 type SqliteDeleteRowsResponse = import('../src/types/sqlite').DeleteRowsResponse
+type SqliteInsertRowRequest = import('../src/types/sqlite').InsertRowRequest
+type SqliteInsertRowResponse = import('../src/types/sqlite').InsertRowResponse
 
 interface OpenSearchExposedConfig {
   host: string
@@ -248,6 +261,11 @@ interface ExposedApi {
       config: PostgresExposedConfig
       request: PostgresSaveChangesRequest
     }) => Promise<PostgresSaveChangesResponse>
+    insertRow: (args: {
+      connectionId: string
+      config: PostgresExposedConfig
+      request: PostgresInsertRowRequest
+    }) => Promise<PostgresInsertRowResponse>
     deleteRows: (args: {
       connectionId: string
       config: PostgresExposedConfig
@@ -269,6 +287,7 @@ interface ExposedApi {
       search?: { column: string; query: string }
       limit?: number
     }) => Promise<{ ok: true; result: { columns: string[]; rows: unknown[][] } } | { ok: false; error: string }>
+    insertRow: (args: { connectionId: string; filePath: string; request: SqliteInsertRowRequest }) => Promise<SqliteInsertRowResponse>
     saveChanges: (args: { connectionId: string; filePath: string; request: SqliteSaveChangesRequest }) => Promise<SqliteSaveChangesResponse>
     deleteRows: (args: { connectionId: string; filePath: string; request: SqliteDeleteRowsRequest }) => Promise<SqliteDeleteRowsResponse>
     disconnect: (args: { connectionId: string }) => Promise<{ ok: true }>

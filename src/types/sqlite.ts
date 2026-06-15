@@ -1,5 +1,6 @@
 import type {
   EditableColumnKind as SharedEditableColumnKind,
+  SqlInsertRowResponse,
   SqlQueryRequest,
   SqlQueryResponse,
   SqlSaveChange,
@@ -39,6 +40,13 @@ export interface DeleteRowsRequest {
 }
 
 export type DeleteRowsResponse = import('../../shared/types/sql').SqlDeleteRowsResponse
+
+export interface InsertRowRequest {
+  table: string
+  values: Record<string, unknown>
+}
+
+export type InsertRowResponse = SqlInsertRowResponse
 
 export type SaveChange = SqlSaveChange
 

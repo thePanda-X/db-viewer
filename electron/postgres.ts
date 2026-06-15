@@ -5,6 +5,8 @@ import type {
   DatabaseInfo,
   DeleteRowsRequest,
   ForeignKey,
+  InsertRowRequest,
+  InsertRowResponse,
   PostgresConfig,
   QueryRequest,
   QueryResponse,
@@ -138,6 +140,44 @@ function toErrorMessage(err: unknown): string {
   } catch {
     return 'Unknown error'
   }
+}
+
+function postgresErrorCode(err: unknown): string | null {
+  if (err && typeof err === 'object' && 'code' in err && typeof err.code === 'string') {
+    return err.code
+  }
+  return null
+}
+
+function postgresConstraintName(err: unknown): string | null {
+  if (err && typeof err === 'object' && 'constraint' in err && typeof err.constraint === 'string') {
+    return err.constraint
+  }
+  return null
+}
+
+async function describeConstraint(
+  client: pg.PoolClient,
+  schema: string,
+  table: string,
+  constraint: string,
+): Promise<string | null> {
+  const result = await client.query(
+    `SELECT array_agg(a.attname ORDER BY cols.ord)::text[] AS columns
+       FROM pg_constraint c
+       JOIN pg_class t ON t.oid = c.conrelid
+       JOIN pg_namespace n ON n.oid = t.relnamespace
+       JOIN unnest(c.conkey) WITH ORDINALITY AS cols(attnum, ord) ON TRUE
+       JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = cols.attnum
+      WHERE n.nspname = $1
+        AND t.relname = $2
+        AND c.conname = $3
+      GROUP BY c.oid`,
+    [schema, table, constraint],
+  )
+  const columns = result.rows[0]?.columns
+  if (!Array.isArray(columns) || columns.length === 0) return null
+  return columns.map(String).join(', ')
 }
 
 function rowsToColumns(rows: Record<string, unknown>[]): {
@@ -631,6 +671,46 @@ export async function saveChanges(
         await client.query('ROLLBACK')
       } catch (rollbackErr) {
         console.error('[postgres] rollback failed:', rollbackErr)
+      }
+    }
+    return { ok: false, error: toErrorMessage(err) }
+  } finally {
+    if (client) client.release()
+  }
+}
+
+export async function insertRow(
+  connectionId: string,
+  config: PostgresConfig,
+  req: InsertRowRequest,
+): Promise<InsertRowResponse> {
+  const database = req.database
+  const pool = getPool(connectionId, { ...config, database }, database)
+  const entries = Object.entries(req.values)
+  let client: pg.PoolClient | null = null
+  try {
+    client = await pool.connect()
+    const tableIdent = `${ident(req.schema)}.${ident(req.table)}`
+    const sql = entries.length === 0
+      ? `INSERT INTO ${tableIdent} DEFAULT VALUES`
+      : `INSERT INTO ${tableIdent} (${entries.map(([col]) => ident(col)).join(', ')}) VALUES (${entries.map((_, i) => `$${i + 1}`).join(', ')})`
+    const result = await client.query(sql, entries.map(([, value]) => value))
+    return { ok: true, inserted: result.rowCount ?? 0 }
+  } catch (err) {
+    if (client && postgresErrorCode(err) === '23505') {
+      const constraint = postgresConstraintName(err)
+      if (constraint) {
+        try {
+          const columns = await describeConstraint(client, req.schema, req.table, constraint)
+          if (columns) {
+            return {
+              ok: false,
+              error: `Duplicate value for unique column${columns.includes(',') ? 's' : ''} ${columns}. Choose a different value or leave it empty if the database should provide one.`,
+            }
+          }
+        } catch {
+          // Fall through to the original database error if constraint lookup fails.
+        }
       }
     }
     return { ok: false, error: toErrorMessage(err) }
