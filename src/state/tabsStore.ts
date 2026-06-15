@@ -133,7 +133,7 @@ export const useTabsStore = create<TabsState>()(
         );
         if (next.length === tabs.length) return;
         let nextActive = activeTabId;
-        if (idSet.has(activeTabId)) {
+        if (!next.some((t) => t.id === activeTabId)) {
           const fallback = next[next.length - 1];
           nextActive = fallback?.id ?? HOME_TAB_ID;
         }

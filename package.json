@@ -1,5 +1,9 @@
 {
   "name": "db-vwr",
+  "author": {
+    "name": "thePandaX",
+    "email": "alex.asensi90@gmail.com"
+  },
   "private": true,
   "version": "0.0.0",
   "description": "Multi-database desktop viewer for PostgreSQL, SQLite, Redis, OpenSearch, Kafka, and RabbitMQ",
@@ -12,7 +16,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests configured yet\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "vite preview",
     "seed:opensearch": "npx tsx scripts/seed-opensearch.ts",
     "seed:kafka": "npx tsx scripts/seed-kafka.ts"
@@ -54,8 +59,8 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^18.2.64",
     "@types/react-dom": "^18.2.21",
-    "@typescript-eslint/eslint-plugin": "^7.1.1",
-    "@typescript-eslint/parser": "^7.1.1",
+    "@typescript-eslint/eslint-plugin": "^8.34.0",
+    "@typescript-eslint/parser": "^8.34.0",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.20",
     "electron": "^30.0.1",
@@ -63,13 +68,15 @@
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "jsdom": "^24.1.3",
     "postcss": "^8.4.47",
     "prettier": "^3.8.4",
     "tailwindcss": "^3.4.13",
     "typescript": "^5.2.2",
     "vite": "^5.1.6",
     "vite-plugin-electron": "^0.28.6",
-    "vite-plugin-electron-renderer": "^0.14.5"
+    "vite-plugin-electron-renderer": "^0.14.5",
+    "vitest": "^1.6.1"
   },
   "main": "dist-electron/main.js"
 }
