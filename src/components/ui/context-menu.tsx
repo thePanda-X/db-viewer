@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useRef, useState } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -6,36 +6,36 @@ import {
   DropdownMenuPortal,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from './dropdown-menu'
+} from './dropdown-menu';
 
 export interface ContextMenuItem {
-  label?: string
-  icon?: ReactNode
-  onClick?: () => void
-  separator?: boolean
-  destructive?: boolean
-  disabled?: boolean
+  label?: string;
+  icon?: ReactNode;
+  onClick?: () => void;
+  separator?: boolean;
+  destructive?: boolean;
+  disabled?: boolean;
 }
 
 interface ContextMenuProps {
-  items: ContextMenuItem[]
-  children: ReactNode
-  className?: string
+  items: ContextMenuItem[];
+  children: ReactNode;
+  className?: string;
 }
 
 export function ContextMenu({ items, children, className }: ContextMenuProps) {
-  const [open, setOpen] = useState(false)
-  const anchorRef = useRef<HTMLSpanElement>(null)
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement>(null);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
     if (anchorRef.current) {
-      anchorRef.current.style.left = `${e.clientX}px`
-      anchorRef.current.style.top = `${e.clientY}px`
+      anchorRef.current.style.left = `${e.clientX}px`;
+      anchorRef.current.style.top = `${e.clientY}px`;
     }
-    setOpen(true)
-  }, [])
+    setOpen(true);
+  }, []);
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -71,14 +71,22 @@ export function ContextMenu({ items, children, className }: ContextMenuProps) {
                 <DropdownMenuItem
                   disabled={item.disabled}
                   onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    setOpen(false)
-                    item.onClick?.()
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setOpen(false);
+                    item.onClick?.();
                   }}
-                  className={item.destructive ? 'text-destructive focus:text-destructive' : ''}
+                  className={
+                    item.destructive
+                      ? 'text-destructive focus:text-destructive'
+                      : ''
+                  }
                 >
-                  {item.icon && <span className="mr-2 flex h-3.5 w-3.5 items-center justify-center">{item.icon}</span>}
+                  {item.icon && (
+                    <span className="mr-2 flex h-3.5 w-3.5 items-center justify-center">
+                      {item.icon}
+                    </span>
+                  )}
                   {item.label}
                 </DropdownMenuItem>
               )}
@@ -87,5 +95,5 @@ export function ContextMenu({ items, children, className }: ContextMenuProps) {
         </DropdownMenuContent>
       </DropdownMenuPortal>
     </DropdownMenu>
-  )
+  );
 }

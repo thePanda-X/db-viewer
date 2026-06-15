@@ -1,30 +1,48 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Copy, Code2, FileText, Info, Loader2, RefreshCw, Table2, Eye, AlertCircle, Search } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { api } from '@/lib/api'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
-import { toast } from '@/state/toastStore'
-import { ContextMenu, type ContextMenuItem } from '@/components/ui/context-menu'
-import type { TableInfo } from '@/types/sqlite'
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Copy,
+  Code2,
+  FileText,
+  Info,
+  Loader2,
+  RefreshCw,
+  Table2,
+  Eye,
+  AlertCircle,
+  Search,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { toast } from '@/state/toastStore';
+import {
+  ContextMenu,
+  type ContextMenuItem,
+} from '@/components/ui/context-menu';
+import type { TableInfo } from '@/types/sqlite';
 
 export interface RefreshRefHandle {
-  current: (() => void) | null
+  current: (() => void) | null;
 }
 
 interface SqliteSidebarProps {
-  connectionId: string
-  filePath: string
-  selectedTable: string | null
-  onSelectTable: (table: string) => void
-  refreshRef?: RefreshRefHandle
-  onRefresh?: () => void
+  connectionId: string;
+  filePath: string;
+  selectedTable: string | null;
+  onSelectTable: (table: string) => void;
+  refreshRef?: RefreshRefHandle;
+  onRefresh?: () => void;
 }
 
 function isError(value: unknown): value is { error: string } {
-  return typeof value === 'object' && value !== null && 'error' in (value as Record<string, unknown>)
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'error' in (value as Record<string, unknown>)
+  );
 }
 
 export function SqliteSidebar({
@@ -35,43 +53,43 @@ export function SqliteSidebar({
   refreshRef,
   onRefresh,
 }: SqliteSidebarProps) {
-  const [tables, setTables] = useState<TableInfo[] | null>(null)
-  const [tablesError, setTablesError] = useState<string | null>(null)
-  const [loadingTables, setLoadingTables] = useState(false)
-  const [tableFilter, setTableFilter] = useState('')
+  const [tables, setTables] = useState<TableInfo[] | null>(null);
+  const [tablesError, setTablesError] = useState<string | null>(null);
+  const [loadingTables, setLoadingTables] = useState(false);
+  const [tableFilter, setTableFilter] = useState('');
 
   const fetchTables = useCallback(async () => {
-    setLoadingTables(true)
-    setTablesError(null)
+    setLoadingTables(true);
+    setTablesError(null);
     try {
-      const result = await api.sqlite.listTables({ connectionId, filePath })
+      const result = await api.sqlite.listTables({ connectionId, filePath });
       if (isError(result)) {
-        setTablesError(result.error)
-        setTables([])
+        setTablesError(result.error);
+        setTables([]);
       } else {
-        setTables(result)
+        setTables(result);
       }
     } catch (err) {
-      setTablesError(err instanceof Error ? err.message : String(err))
-      setTables([])
+      setTablesError(err instanceof Error ? err.message : String(err));
+      setTables([]);
     } finally {
-      setLoadingTables(false)
+      setLoadingTables(false);
     }
-  }, [connectionId, filePath])
+  }, [connectionId, filePath]);
 
   useEffect(() => {
-    void fetchTables()
-  }, [fetchTables])
+    void fetchTables();
+  }, [fetchTables]);
 
   useEffect(() => {
-    if (!refreshRef) return
+    if (!refreshRef) return;
     refreshRef.current = () => {
-      void fetchTables()
-    }
+      void fetchTables();
+    };
     return () => {
-      if (refreshRef) refreshRef.current = null
-    }
-  }, [refreshRef, fetchTables])
+      if (refreshRef) refreshRef.current = null;
+    };
+  }, [refreshRef, fetchTables]);
 
   return (
     <aside className="flex h-full w-full flex-col border-r border-border bg-muted/20">
@@ -85,7 +103,9 @@ export function SqliteSidebar({
           disabled={loadingTables}
           title="Refresh tables"
         >
-          <RefreshCw className={cn('h-3 w-3', loadingTables && 'animate-spin')} />
+          <RefreshCw
+            className={cn('h-3 w-3', loadingTables && 'animate-spin')}
+          />
         </Button>
       </div>
 
@@ -133,86 +153,96 @@ export function SqliteSidebar({
               <div className="rounded-md border border-dashed border-border p-2 text-center text-[11px] text-muted-foreground">
                 No tables or views found
               </div>
-            ) : tableFilter && tables?.filter((t) => t.name.toLowerCase().includes(tableFilter.toLowerCase())).length === 0 && !loadingTables ? (
+            ) : tableFilter &&
+              tables?.filter((t) =>
+                t.name.toLowerCase().includes(tableFilter.toLowerCase()),
+              ).length === 0 &&
+              !loadingTables ? (
               <div className="rounded-md border border-dashed border-border p-2 text-center text-[11px] text-muted-foreground">
                 No matches
               </div>
             ) : (
               <ul className="space-y-0.5">
                 {tables
-                  ?.filter((t) => !tableFilter || t.name.toLowerCase().includes(tableFilter.toLowerCase()))
-                  .map((t) => {
-                  const active = selectedTable === t.name
-                  const items: ContextMenuItem[] = [
-                    {
-                      label: 'Open',
-                      icon: <Table2 className="h-3.5 w-3.5" />,
-                      onClick: () => onSelectTable(t.name),
-                    },
-                    {
-                      label: 'Copy Name',
-                      icon: <Copy className="h-3.5 w-3.5" />,
-                      onClick: () => {
-                        void navigator.clipboard.writeText(t.name)
-                        toast({ message: 'Copied table name' })
-                      },
-                    },
-                    {
-                      label: 'Copy SELECT',
-                      icon: <Code2 className="h-3.5 w-3.5" />,
-                      onClick: () => {
-                        void navigator.clipboard.writeText(`SELECT * FROM "${t.name}"`)
-                        toast({ message: 'Copied SELECT query' })
-                      },
-                    },
-                    { separator: true },
-                    {
-                      label: 'Refresh',
-                      icon: <RefreshCw className="h-3.5 w-3.5" />,
-                      onClick: () => {
-                        void fetchTables()
-                        onRefresh?.()
-                      },
-                    },
-                    {
-                      label: 'Properties',
-                      icon: <Info className="h-3.5 w-3.5" />,
-                      onClick: () => {
-                        toast({
-                          message: t.name,
-                          detail: `Type: ${t.type}`,
-                        })
-                      },
-                    },
-                  ]
-                  return (
-                    <li key={t.name}>
-                      <ContextMenu items={items}>
-                        <button
-                          type="button"
-                          onClick={() => onSelectTable(t.name)}
-                          className={cn(
-                            'flex w-full items-center gap-1.5 rounded-sm px-1.5 py-1 text-left text-xs transition-colors',
-                            'hover:bg-muted',
-                            active && 'bg-primary/10 text-primary',
-                          )}
-                        >
-                          {t.type === 'view' ? (
-                            <Eye className="h-3 w-3 shrink-0 text-muted-foreground" />
-                          ) : (
-                            <Table2 className="h-3 w-3 shrink-0 text-muted-foreground" />
-                          )}
-                          <span className="truncate font-mono">{t.name}</span>
-                        </button>
-                      </ContextMenu>
-                    </li>
+                  ?.filter(
+                    (t) =>
+                      !tableFilter ||
+                      t.name.toLowerCase().includes(tableFilter.toLowerCase()),
                   )
-                })}
+                  .map((t) => {
+                    const active = selectedTable === t.name;
+                    const items: ContextMenuItem[] = [
+                      {
+                        label: 'Open',
+                        icon: <Table2 className="h-3.5 w-3.5" />,
+                        onClick: () => onSelectTable(t.name),
+                      },
+                      {
+                        label: 'Copy Name',
+                        icon: <Copy className="h-3.5 w-3.5" />,
+                        onClick: () => {
+                          void navigator.clipboard.writeText(t.name);
+                          toast({ message: 'Copied table name' });
+                        },
+                      },
+                      {
+                        label: 'Copy SELECT',
+                        icon: <Code2 className="h-3.5 w-3.5" />,
+                        onClick: () => {
+                          void navigator.clipboard.writeText(
+                            `SELECT * FROM "${t.name}"`,
+                          );
+                          toast({ message: 'Copied SELECT query' });
+                        },
+                      },
+                      { separator: true },
+                      {
+                        label: 'Refresh',
+                        icon: <RefreshCw className="h-3.5 w-3.5" />,
+                        onClick: () => {
+                          void fetchTables();
+                          onRefresh?.();
+                        },
+                      },
+                      {
+                        label: 'Properties',
+                        icon: <Info className="h-3.5 w-3.5" />,
+                        onClick: () => {
+                          toast({
+                            message: t.name,
+                            detail: `Type: ${t.type}`,
+                          });
+                        },
+                      },
+                    ];
+                    return (
+                      <li key={t.name}>
+                        <ContextMenu items={items}>
+                          <button
+                            type="button"
+                            onClick={() => onSelectTable(t.name)}
+                            className={cn(
+                              'flex w-full items-center gap-1.5 rounded-sm px-1.5 py-1 text-left text-xs transition-colors',
+                              'hover:bg-muted',
+                              active && 'bg-primary/10 text-primary',
+                            )}
+                          >
+                            {t.type === 'view' ? (
+                              <Eye className="h-3 w-3 shrink-0 text-muted-foreground" />
+                            ) : (
+                              <Table2 className="h-3 w-3 shrink-0 text-muted-foreground" />
+                            )}
+                            <span className="truncate font-mono">{t.name}</span>
+                          </button>
+                        </ContextMenu>
+                      </li>
+                    );
+                  })}
               </ul>
             )}
           </div>
         </div>
       </ScrollArea>
     </aside>
-  )
+  );
 }

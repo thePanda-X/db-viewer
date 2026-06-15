@@ -1,55 +1,55 @@
-import { Keyboard } from 'lucide-react'
+import { Keyboard } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { formatCombo, listHotkeys } from '@/lib/hotkeys'
+} from '@/components/ui/dialog';
+import { formatCombo, listHotkeys } from '@/lib/hotkeys';
 
 interface ShortcutsDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 interface DisplayEntry {
-  combo: string
-  label: string
-  description?: string
-  group: string
+  combo: string;
+  label: string;
+  description?: string;
+  group: string;
 }
 
 interface GroupedSection {
-  group: string
-  items: DisplayEntry[]
+  group: string;
+  items: DisplayEntry[];
 }
 
 function buildGrouped(): GroupedSection[] {
-  const map = new Map<string, DisplayEntry[]>()
+  const map = new Map<string, DisplayEntry[]>();
   for (const entry of listHotkeys()) {
-    if (!entry.label) continue
+    if (!entry.label) continue;
     const display: DisplayEntry = {
       combo: entry.combo,
       label: entry.label,
       description: entry.description,
       group: entry.group ?? 'Other',
-    }
-    const list = map.get(display.group) ?? []
-    list.push(display)
-    map.set(display.group, list)
+    };
+    const list = map.get(display.group) ?? [];
+    list.push(display);
+    map.set(display.group, list);
   }
   return Array.from(map.entries())
     .map(([group, items]) => ({
       group,
       items: items.sort((a, b) => a.label.localeCompare(b.label)),
     }))
-    .sort((a, b) => a.group.localeCompare(b.group))
+    .sort((a, b) => a.group.localeCompare(b.group));
 }
 
 export function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogProps) {
   // Re-read whenever `open` changes so the cheatsheet reflects the active view
-  const grouped = open ? buildGrouped() : []
+  const grouped = open ? buildGrouped() : [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,7 +82,9 @@ export function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogProps) {
                       className="flex items-center justify-between gap-3 px-3 py-2 text-xs"
                     >
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium text-foreground">{item.label}</div>
+                        <div className="font-medium text-foreground">
+                          {item.label}
+                        </div>
                         {item.description && (
                           <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                             {item.description}
@@ -99,7 +101,7 @@ export function ShortcutsDialog({ open, onOpenChange }: ShortcutsDialogProps) {
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 function Kbd({ children }: { children: React.ReactNode }) {
@@ -107,5 +109,5 @@ function Kbd({ children }: { children: React.ReactNode }) {
     <kbd className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded border border-border bg-muted/50 px-1.5 font-mono text-[11px] text-muted-foreground">
       {children}
     </kbd>
-  )
+  );
 }

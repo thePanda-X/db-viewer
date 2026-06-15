@@ -1,6 +1,6 @@
-export const HOME_TAB_ID = 'home' as const
+export const HOME_TAB_ID = 'home' as const;
 
-export type TabId = typeof HOME_TAB_ID | string
+export type TabId = typeof HOME_TAB_ID | string;
 
 export type PostgresTabView =
   /** Free-form mode: sidebar visible, user picks tables. */
@@ -13,25 +13,25 @@ export type PostgresTabView =
    * clear the filter (or paginate) to browse the table in full.
    */
   | {
-      kind: 'relatedRow'
-      database: string
-      schema: string
-      table: string
-      filterColumn: string
-      filterValue: unknown
+      kind: 'relatedRow';
+      database: string;
+      schema: string;
+      table: string;
+      filterColumn: string;
+      filterValue: unknown;
       /** Display value of the source cell, used for the tab title etc. */
-      filterDisplay: string
-    }
+      filterDisplay: string;
+    };
 
-export type TabViewState = PostgresTabView
+export type TabViewState = PostgresTabView;
 
 export interface Tab {
-  id: TabId
-  connectionId: string
-  title: string
-  type?: import('./connection').ConnectionType
+  id: TabId;
+  connectionId: string;
+  title: string;
+  type?: import('./connection').ConnectionType;
   /** Per-driver persisted view state. */
-  viewState?: TabViewState
+  viewState?: TabViewState;
   /** Legacy persisted state; migrated opportunistically by tabsStore. */
-  postgresView?: PostgresTabView
+  postgresView?: PostgresTabView;
 }

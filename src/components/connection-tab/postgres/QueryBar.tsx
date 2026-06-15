@@ -1,23 +1,23 @@
-import { useCallback, useRef, useState } from 'react'
-import { Loader2, Play } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useHotkey } from '@/lib/hotkeys'
+import { useCallback, useRef, useState } from 'react';
+import { Loader2, Play } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useHotkey } from '@/lib/hotkeys';
 
 interface QueryBarProps {
-  database: string
-  running: boolean
-  onRun: (sql: string) => void
+  database: string;
+  running: boolean;
+  onRun: (sql: string) => void;
 }
 
 export function QueryBar({ database, running, onRun }: QueryBarProps) {
-  const [sql, setSql] = useState<string>('SELECT now() AS server_time;')
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const [sql, setSql] = useState<string>('SELECT now() AS server_time;');
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const run = useCallback(() => {
-    const trimmed = sql.trim()
-    if (!trimmed) return
-    onRun(trimmed)
-  }, [sql, onRun])
+    const trimmed = sql.trim();
+    if (!trimmed) return;
+    onRun(trimmed);
+  }, [sql, onRun]);
 
   useHotkey('Mod+Enter', {
     label: 'Run query',
@@ -25,21 +25,21 @@ export function QueryBar({ database, running, onRun }: QueryBarProps) {
     description: 'Execute the query in the custom query bar',
     allowInInputs: true,
     handler: () => {
-      const target = document.activeElement as HTMLElement | null
+      const target = document.activeElement as HTMLElement | null;
       if (target?.tagName === 'TEXTAREA' && target === textareaRef.current) {
-        run()
+        run();
       }
     },
-  })
+  });
 
   useHotkey('Mod+L', {
     label: 'Focus query bar',
     group: 'Custom query',
     description: 'Focus the custom query bar',
     handler: () => textareaRef.current?.focus(),
-  })
+  });
 
-  const disabled = running || !sql.trim()
+  const disabled = running || !sql.trim();
 
   return (
     <div className="flex h-full flex-col">
@@ -57,7 +57,9 @@ export function QueryBar({ database, running, onRun }: QueryBarProps) {
             <Play className="h-3.5 w-3.5" />
           )}
           <span>Run</span>
-          <span className="ml-1 hidden font-mono text-[10px] opacity-70 sm:inline">⌘↵</span>
+          <span className="ml-1 hidden font-mono text-[10px] opacity-70 sm:inline">
+            ⌘↵
+          </span>
         </Button>
       </div>
       <textarea
@@ -69,5 +71,5 @@ export function QueryBar({ database, running, onRun }: QueryBarProps) {
         placeholder="SELECT * FROM users LIMIT 50;"
       />
     </div>
-  )
+  );
 }

@@ -1,5 +1,5 @@
-import amqplib from 'amqplib'
-import type { RabbitMQConfig } from '../src/types/connection'
+import amqplib from 'amqplib';
+import type { RabbitMQConfig } from '../src/types/connection';
 import type {
   RabbitMQExchangeInfo,
   RabbitMQQueueInfo,
@@ -7,78 +7,94 @@ import type {
   RabbitMQMessageInfo,
   RabbitMQPublishRequest,
   RabbitMQClusterInfo,
-} from '../src/types/rabbitmq'
+} from '../src/types/rabbitmq';
 
-const models = new Map<string, amqplib.ChannelModel>()
-const channels = new Map<string, amqplib.Channel>()
+const models = new Map<string, amqplib.ChannelModel>();
+const channels = new Map<string, amqplib.Channel>();
 
 function amqpUrl(config: RabbitMQConfig): string {
-  const protocol = config.tls ? 'amqps' : 'amqp'
-  const vhost = encodeURIComponent(config.vhost)
-  return `${protocol}://${config.username}:${config.password}@${config.host}:${config.port}/${vhost}?heartbeat=30`
+  const protocol = config.tls ? 'amqps' : 'amqp';
+  const vhost = encodeURIComponent(config.vhost);
+  return `${protocol}://${config.username}:${config.password}@${config.host}:${config.port}/${vhost}?heartbeat=30`;
 }
 
 function mgmtBaseUrl(config: RabbitMQConfig): string {
-  const protocol = config.tls ? 'https' : 'http'
-  return `${protocol}://${config.host}:${config.managementPort}/api`
+  const protocol = config.tls ? 'https' : 'http';
+  return `${protocol}://${config.host}:${config.managementPort}/api`;
 }
 
 function mgmtAuth(config: RabbitMQConfig): string {
-  return Buffer.from(`${config.username}:${config.password}`).toString('base64')
+  return Buffer.from(`${config.username}:${config.password}`).toString(
+    'base64',
+  );
 }
 
 async function mgmtFetch<T>(config: RabbitMQConfig, path: string): Promise<T> {
-  const url = `${mgmtBaseUrl(config)}${path}`
+  const url = `${mgmtBaseUrl(config)}${path}`;
   const res = await fetch(url, {
     headers: {
       Authorization: `Basic ${mgmtAuth(config)}`,
       'Content-Type': 'application/json',
     },
-  })
+  });
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`HTTP ${res.status}: ${text || res.statusText}`)
+    const text = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status}: ${text || res.statusText}`);
   }
-  return res.json() as Promise<T>
+  return res.json() as Promise<T>;
 }
 
-async function getModel(connectionId: string, config: RabbitMQConfig): Promise<amqplib.ChannelModel> {
-  const existing = models.get(connectionId)
-  if (existing) return existing
+async function getModel(
+  connectionId: string,
+  config: RabbitMQConfig,
+): Promise<amqplib.ChannelModel> {
+  const existing = models.get(connectionId);
+  if (existing) return existing;
 
   const model = await amqplib.connect(amqpUrl(config), {
     timeout: 10_000,
-  })
+  });
   model.on('error', (err: Error) => {
-    console.error(`[rabbitmq] model error for ${connectionId}:`, err.message)
-  })
+    console.error(`[rabbitmq] model error for ${connectionId}:`, err.message);
+  });
   model.on('close', () => {
-    channels.delete(connectionId)
-    models.delete(connectionId)
-  })
-  models.set(connectionId, model)
-  return model
+    channels.delete(connectionId);
+    models.delete(connectionId);
+  });
+  models.set(connectionId, model);
+  return model;
 }
 
-async function getChannel(connectionId: string, config: RabbitMQConfig): Promise<amqplib.Channel> {
-  const existing = channels.get(connectionId)
-  if (existing) return existing
-  const model = await getModel(connectionId, config)
-  const channel = await model.createChannel()
-  channels.set(connectionId, channel)
-  return channel
+async function getChannel(
+  connectionId: string,
+  config: RabbitMQConfig,
+): Promise<amqplib.Channel> {
+  const existing = channels.get(connectionId);
+  if (existing) return existing;
+  const model = await getModel(connectionId, config);
+  const channel = await model.createChannel();
+  channels.set(connectionId, channel);
+  return channel;
 }
 
 function dropConnection(connectionId: string): void {
-  const channel = channels.get(connectionId)
+  const channel = channels.get(connectionId);
   if (channel) {
-    try { void channel.close() } catch { /* ignore */ }
-    channels.delete(connectionId)
+    try {
+      void channel.close();
+    } catch {
+      /* ignore */
+    }
+    channels.delete(connectionId);
   }
-  const model = models.get(connectionId)
+  const model = models.get(connectionId);
   if (model) {
-    try { void model.close() } catch { /* ignore */ }
-    models.delete(connectionId)
+    try {
+      void model.close();
+    } catch {
+      /* ignore */
+    }
+    models.delete(connectionId);
   }
 }
 
@@ -86,31 +102,40 @@ export async function ping(
   connectionId: string,
   config: RabbitMQConfig,
 ): Promise<RabbitMQClusterInfo> {
-  const model = await getModel(connectionId, config)
-  const serverProps = model.connection.serverProperties
-  dropConnection(connectionId)
+  const model = await getModel(connectionId, config);
+  const serverProps = model.connection.serverProperties;
+  dropConnection(connectionId);
 
-  let clusterInfo: { rabbitmq_version?: string; erlang_version?: string; cluster_name?: string; node?: string } = {}
+  let clusterInfo: {
+    rabbitmq_version?: string;
+    erlang_version?: string;
+    cluster_name?: string;
+    node?: string;
+  } = {};
   try {
-    clusterInfo = await mgmtFetch<typeof clusterInfo>(config, '/overview')
+    clusterInfo = await mgmtFetch<typeof clusterInfo>(config, '/overview');
   } catch {
     // Management API not available; return what we know from AMQP
   }
 
   return {
-    rabbitmqVersion: clusterInfo.rabbitmq_version ?? serverProps.product ?? 'unknown',
+    rabbitmqVersion:
+      clusterInfo.rabbitmq_version ?? serverProps.product ?? 'unknown',
     erlangVersion: clusterInfo.erlang_version ?? 'unknown',
     clusterName: clusterInfo.cluster_name ?? 'default',
     node: clusterInfo.node ?? 'unknown',
-  }
+  };
 }
 
 export async function listExchanges(
   _connectionId: string,
   config: RabbitMQConfig,
 ): Promise<RabbitMQExchangeInfo[]> {
-  const vhost = encodeURIComponent(config.vhost)
-  const exchanges = await mgmtFetch<Record<string, unknown>[]>(config, `/exchanges/${vhost}`)
+  const vhost = encodeURIComponent(config.vhost);
+  const exchanges = await mgmtFetch<Record<string, unknown>[]>(
+    config,
+    `/exchanges/${vhost}`,
+  );
   return exchanges.map((e) => ({
     name: e.name as string,
     type: (e.type ?? 'direct') as RabbitMQExchangeInfo['type'],
@@ -120,19 +145,24 @@ export async function listExchanges(
     arguments: (e.arguments ?? {}) as Record<string, unknown>,
     messageStats: e.message_stats
       ? {
-          publishIn: (e.message_stats as Record<string, number>).publish_in ?? 0,
-          publishOut: (e.message_stats as Record<string, number>).publish_out ?? 0,
+          publishIn:
+            (e.message_stats as Record<string, number>).publish_in ?? 0,
+          publishOut:
+            (e.message_stats as Record<string, number>).publish_out ?? 0,
         }
       : undefined,
-  }))
+  }));
 }
 
 export async function listQueues(
   _connectionId: string,
   config: RabbitMQConfig,
 ): Promise<RabbitMQQueueInfo[]> {
-  const vhost = encodeURIComponent(config.vhost)
-  const queues = await mgmtFetch<Record<string, unknown>[]>(config, `/queues/${vhost}`)
+  const vhost = encodeURIComponent(config.vhost);
+  const queues = await mgmtFetch<Record<string, unknown>[]>(
+    config,
+    `/queues/${vhost}`,
+  );
   return queues.map((q) => ({
     name: q.name as string,
     durable: q.durable as boolean,
@@ -145,12 +175,13 @@ export async function listQueues(
     messagesUnacknowledged: (q.messages_unacknowledged as number) ?? 0,
     messageStats: q.message_stats
       ? {
-          publishIn: (q.message_stats as Record<string, number>).publish_in ?? 0,
+          publishIn:
+            (q.message_stats as Record<string, number>).publish_in ?? 0,
           deliver: (q.message_stats as Record<string, number>).deliver ?? 0,
           ack: (q.message_stats as Record<string, number>).ack ?? 0,
         }
       : undefined,
-  }))
+  }));
 }
 
 export async function listBindings(
@@ -159,14 +190,14 @@ export async function listBindings(
   exchange: string,
   queue?: string,
 ): Promise<RabbitMQBindingInfo[]> {
-  const vhost = encodeURIComponent(config.vhost)
-  const ex = encodeURIComponent(exchange)
+  const vhost = encodeURIComponent(config.vhost);
+  const ex = encodeURIComponent(exchange);
   if (queue) {
-    const q = encodeURIComponent(queue)
+    const q = encodeURIComponent(queue);
     const bindings = await mgmtFetch<Record<string, unknown>[]>(
       config,
       `/bindings/${vhost}/e/${ex}/q/${q}`,
-    )
+    );
     return bindings.map((b) => ({
       source: b.source as string,
       destination: b.destination as string,
@@ -174,12 +205,12 @@ export async function listBindings(
       routingKey: b.routing_key as string,
       arguments: (b.arguments ?? {}) as Record<string, unknown>,
       propertiesKey: b.properties_key as string,
-    }))
+    }));
   }
   const bindings = await mgmtFetch<Record<string, unknown>[]>(
     config,
     `/exchanges/${vhost}/${ex}/bindings/source`,
-  )
+  );
   return bindings.map((b) => ({
     source: b.source as string,
     destination: b.destination as string,
@@ -187,7 +218,7 @@ export async function listBindings(
     routingKey: b.routing_key as string,
     arguments: (b.arguments ?? {}) as Record<string, unknown>,
     propertiesKey: b.properties_key as string,
-  }))
+  }));
 }
 
 export async function getQueueMessages(
@@ -196,18 +227,18 @@ export async function getQueueMessages(
   queue: string,
   count: number,
 ): Promise<RabbitMQMessageInfo[]> {
-  const channel = await getChannel(connectionId, config)
-  await channel.checkQueue(queue)
-  const messages: RabbitMQMessageInfo[] = []
-  const maxMessages = Math.min(count, 100)
+  const channel = await getChannel(connectionId, config);
+  await channel.checkQueue(queue);
+  const messages: RabbitMQMessageInfo[] = [];
+  const maxMessages = Math.min(count, 100);
 
   for (let i = 0; i < maxMessages; i++) {
-    const msg = await channel.get(queue, { noAck: false })
-    if (!msg) break
+    const msg = await channel.get(queue, { noAck: false });
+    if (!msg) break;
 
-    let bodyDecoded: unknown = msg.content.toString('utf8')
+    let bodyDecoded: unknown = msg.content.toString('utf8');
     try {
-      bodyDecoded = JSON.parse(bodyDecoded as string)
+      bodyDecoded = JSON.parse(bodyDecoded as string);
     } catch {
       // Not JSON, keep as string
     }
@@ -235,12 +266,12 @@ export async function getQueueMessages(
       body: msg.content.toString('base64'),
       bodySize: msg.content.length,
       bodyDecoded,
-    })
+    });
 
-    channel.nack(msg, false, true)
+    channel.nack(msg, false, true);
   }
 
-  return messages
+  return messages;
 }
 
 export async function purgeQueue(
@@ -248,8 +279,8 @@ export async function purgeQueue(
   config: RabbitMQConfig,
   queue: string,
 ): Promise<void> {
-  const channel = await getChannel(connectionId, config)
-  await channel.purgeQueue(queue)
+  const channel = await getChannel(connectionId, config);
+  await channel.purgeQueue(queue);
 }
 
 export async function deleteQueueFn(
@@ -257,8 +288,8 @@ export async function deleteQueueFn(
   config: RabbitMQConfig,
   queue: string,
 ): Promise<void> {
-  const channel = await getChannel(connectionId, config)
-  await channel.deleteQueue(queue)
+  const channel = await getChannel(connectionId, config);
+  await channel.deleteQueue(queue);
 }
 
 export async function publishMessage(
@@ -266,10 +297,10 @@ export async function publishMessage(
   config: RabbitMQConfig,
   request: RabbitMQPublishRequest,
 ): Promise<void> {
-  const channel = await getChannel(connectionId, config)
-  const headers: Record<string, unknown> = {}
+  const channel = await getChannel(connectionId, config);
+  const headers: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(request.headers)) {
-    if (v) headers[k] = v
+    if (v) headers[k] = v;
   }
   channel.publish(
     request.exchange,
@@ -280,9 +311,9 @@ export async function publishMessage(
       deliveryMode: request.deliveryMode,
       headers: Object.keys(headers).length > 0 ? headers : undefined,
     },
-  )
+  );
 }
 
 export function disconnect(connectionId: string): void {
-  dropConnection(connectionId)
+  dropConnection(connectionId);
 }

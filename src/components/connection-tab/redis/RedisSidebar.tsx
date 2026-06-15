@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ContextMenu, type ContextMenuItem } from '@/components/ui/context-menu'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ContextMenu,
+  type ContextMenuItem,
+} from '@/components/ui/context-menu';
 import {
   CheckSquare,
   ChevronDown,
@@ -19,52 +22,52 @@ import {
   Star,
   Activity,
   Braces,
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { useHotkey } from '@/lib/hotkeys'
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useHotkey } from '@/lib/hotkeys';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip'
-import type { RedisKeyType } from '@/types/redis'
-import { KEY_TYPE_BADGE_CLASS } from '@/types/redis'
+} from '@/components/ui/tooltip';
+import type { RedisKeyType } from '@/types/redis';
+import { KEY_TYPE_BADGE_CLASS } from '@/types/redis';
 
 export interface RedisKeyTree {
-  folders: RedisFolder[]
-  rootKeys: string[]
+  folders: RedisFolder[];
+  rootKeys: string[];
 }
 
 export interface RedisFolder {
-  name: string
-  path: string
-  count: number
-  folders: RedisFolder[]
-  keys: string[]
+  name: string;
+  path: string;
+  count: number;
+  folders: RedisFolder[];
+  keys: string[];
 }
 
 interface RedisSidebarProps {
-  connectionName: string
-  host: string
-  db: number
-  loading: boolean
-  error: string | null
-  tree: RedisKeyTree
-  activeKey: string | null
-  selectedKeys: Set<string>
-  onToggleSelectKey: (key: string, ctrl: boolean, shift: boolean) => void
-  onCheckboxToggle: (key: string) => void
-  onRefresh: () => void
-  separator: string
-  onSeparatorChange: (sep: string) => void
-  filter: string
-  onFilterChange: (filter: string) => void
-  onRequestDeleteKey: (key: string) => void
-  onRequestDeleteSelected: () => void
+  connectionName: string;
+  host: string;
+  db: number;
+  loading: boolean;
+  error: string | null;
+  tree: RedisKeyTree;
+  activeKey: string | null;
+  selectedKeys: Set<string>;
+  onToggleSelectKey: (key: string, ctrl: boolean, shift: boolean) => void;
+  onCheckboxToggle: (key: string) => void;
+  onRefresh: () => void;
+  separator: string;
+  onSeparatorChange: (sep: string) => void;
+  filter: string;
+  onFilterChange: (filter: string) => void;
+  onRequestDeleteKey: (key: string) => void;
+  onRequestDeleteSelected: () => void;
 }
 
 export function RedisSidebar({
@@ -86,50 +89,50 @@ export function RedisSidebar({
   onRequestDeleteKey,
   onRequestDeleteSelected,
 }: RedisSidebarProps) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setExpanded((prev) => {
-      const next = new Set(prev)
+      const next = new Set(prev);
       for (const f of tree.folders) {
-        if (!next.has(f.path)) next.add(f.path)
+        if (!next.has(f.path)) next.add(f.path);
       }
-      return next
-    })
-  }, [tree])
+      return next;
+    });
+  }, [tree]);
 
   const toggle = useCallback((path: string) => {
     setExpanded((prev) => {
-      const next = new Set(prev)
-      if (next.has(path)) next.delete(path)
-      else next.add(path)
-      return next
-    })
-  }, [])
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
 
-  const totalKeys = useMemo(() => countAllKeys(tree), [tree])
+  const totalKeys = useMemo(() => countAllKeys(tree), [tree]);
 
-  const filterRef = useRef<HTMLInputElement | null>(null)
+  const filterRef = useRef<HTMLInputElement | null>(null);
   const focusFilter = useCallback(() => {
-    filterRef.current?.focus()
-    filterRef.current?.select()
-  }, [])
+    filterRef.current?.focus();
+    filterRef.current?.select();
+  }, []);
 
   useHotkey('Mod+K', {
     label: 'Focus filter',
     group: 'Redis',
     description: 'Focus the key filter input',
     handler: focusFilter,
-  })
+  });
 
   useHotkey('Delete', {
     label: 'Delete key(s)',
     group: 'Redis',
     description: 'Delete the selected key(s)',
     handler: () => {
-      if (selectedKeys.size > 0) onRequestDeleteSelected()
+      if (selectedKeys.size > 0) onRequestDeleteSelected();
     },
-  })
+  });
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -164,10 +167,15 @@ export function RedisSidebar({
                 {connectionName}
               </span>
             </div>
-            <div className="mt-1 truncate font-mono text-[10px] text-muted-foreground" title={host}>
+            <div
+              className="mt-1 truncate font-mono text-[10px] text-muted-foreground"
+              title={host}
+            >
               {host}
             </div>
-            <div className="mt-1 font-mono text-[10px] text-muted-foreground">db {db}</div>
+            <div className="mt-1 font-mono text-[10px] text-muted-foreground">
+              db {db}
+            </div>
           </div>
 
           <div className="flex items-center gap-2 pt-1">
@@ -265,32 +273,32 @@ export function RedisSidebar({
         </ScrollArea>
       </aside>
     </TooltipProvider>
-  )
+  );
 }
 
 function countAllKeys(tree: RedisKeyTree): number {
-  let n = tree.rootKeys.length
-  for (const f of tree.folders) n += countFolderLeaves(f)
-  return n
+  let n = tree.rootKeys.length;
+  for (const f of tree.folders) n += countFolderLeaves(f);
+  return n;
 }
 
 function countFolderLeaves(f: RedisFolder): number {
-  let n = f.keys.length
-  for (const sub of f.folders) n += countFolderLeaves(sub)
-  return n
+  let n = f.keys.length;
+  for (const sub of f.folders) n += countFolderLeaves(sub);
+  return n;
 }
 
 interface FolderNodeProps {
-  folder: RedisFolder
-  depth: number
-  expanded: Set<string>
-  onToggle: (path: string) => void
-  activeKey: string | null
-  selectedKeys: Set<string>
-  onToggleSelectKey: (key: string, ctrl: boolean, shift: boolean) => void
-  onCheckboxToggle: (key: string) => void
-  onRequestDelete: (key: string) => void
-  onRequestDeleteSelected: () => void
+  folder: RedisFolder;
+  depth: number;
+  expanded: Set<string>;
+  onToggle: (path: string) => void;
+  activeKey: string | null;
+  selectedKeys: Set<string>;
+  onToggleSelectKey: (key: string, ctrl: boolean, shift: boolean) => void;
+  onCheckboxToggle: (key: string) => void;
+  onRequestDelete: (key: string) => void;
+  onRequestDeleteSelected: () => void;
 }
 
 function FolderNode({
@@ -305,7 +313,7 @@ function FolderNode({
   onRequestDelete,
   onRequestDeleteSelected,
 }: FolderNodeProps) {
-  const isOpen = expanded.has(folder.path)
+  const isOpen = expanded.has(folder.path);
 
   const items: ContextMenuItem[] = [
     {
@@ -313,7 +321,7 @@ function FolderNode({
       icon: <FolderIcon className="h-3.5 w-3.5 text-amber-500" />,
       onClick: () => void navigator.clipboard.writeText(folder.path),
     },
-  ]
+  ];
 
   return (
     <>
@@ -381,18 +389,18 @@ function FolderNode({
         </>
       )}
     </>
-  )
+  );
 }
 
 interface KeyLeafProps {
-  keyName: string
-  depth?: number
-  activeKey: string | null
-  selectedKeys: Set<string>
-  onToggleSelectKey: (key: string, ctrl: boolean, shift: boolean) => void
-  onCheckboxToggle: (key: string) => void
-  onRequestDelete: (key: string) => void
-  onRequestDeleteSelected: () => void
+  keyName: string;
+  depth?: number;
+  activeKey: string | null;
+  selectedKeys: Set<string>;
+  onToggleSelectKey: (key: string, ctrl: boolean, shift: boolean) => void;
+  onCheckboxToggle: (key: string) => void;
+  onRequestDelete: (key: string) => void;
+  onRequestDeleteSelected: () => void;
 }
 
 function KeyLeaf({
@@ -405,9 +413,9 @@ function KeyLeaf({
   onRequestDelete,
   onRequestDeleteSelected,
 }: KeyLeafProps) {
-  const isActive = activeKey === keyName
-  const isSelected = selectedKeys.has(keyName)
-  const isMultiSelected = selectedKeys.size > 1 && selectedKeys.has(keyName)
+  const isActive = activeKey === keyName;
+  const isSelected = selectedKeys.has(keyName);
+  const isMultiSelected = selectedKeys.size > 1 && selectedKeys.has(keyName);
 
   const items: ContextMenuItem[] = [
     {
@@ -419,7 +427,10 @@ function KeyLeaf({
       ? {
           label: `Copy Names (${selectedKeys.size})`,
           icon: <Copy className="h-3.5 w-3.5" />,
-          onClick: () => void navigator.clipboard.writeText(Array.from(selectedKeys).join('\n')),
+          onClick: () =>
+            void navigator.clipboard.writeText(
+              Array.from(selectedKeys).join('\n'),
+            ),
         }
       : {
           label: 'Copy Name',
@@ -440,7 +451,7 @@ function KeyLeaf({
           destructive: true,
           onClick: () => onRequestDelete(keyName),
         },
-  ]
+  ];
 
   return (
     <ContextMenu items={items}>
@@ -457,8 +468,8 @@ function KeyLeaf({
         <button
           type="button"
           onClick={(e) => {
-            e.stopPropagation()
-            onCheckboxToggle(keyName)
+            e.stopPropagation();
+            onCheckboxToggle(keyName);
           }}
           className="flex items-center justify-center rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
           aria-label={isSelected ? 'Deselect key' : 'Select key'}
@@ -473,11 +484,11 @@ function KeyLeaf({
           type="button"
           onClick={(e) => {
             if (e.shiftKey) {
-              onToggleSelectKey(keyName, false, true)
+              onToggleSelectKey(keyName, false, true);
             } else if (e.ctrlKey || e.metaKey) {
-              onToggleSelectKey(keyName, true, false)
+              onToggleSelectKey(keyName, true, false);
             } else {
-              onToggleSelectKey(keyName, false, false)
+              onToggleSelectKey(keyName, false, false);
             }
           }}
           className="flex flex-1 items-center gap-1.5 text-left"
@@ -492,8 +503,8 @@ function KeyLeaf({
               <button
                 type="button"
                 onClick={(e) => {
-                  e.stopPropagation()
-                  void navigator.clipboard.writeText(keyName)
+                  e.stopPropagation();
+                  void navigator.clipboard.writeText(keyName);
                 }}
                 className="rounded p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
                 aria-label="Copy key name"
@@ -508,8 +519,8 @@ function KeyLeaf({
               <button
                 type="button"
                 onClick={(e) => {
-                  e.stopPropagation()
-                  onRequestDelete(keyName)
+                  e.stopPropagation();
+                  onRequestDelete(keyName);
                 }}
                 className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                 aria-label="Delete key"
@@ -522,17 +533,18 @@ function KeyLeaf({
         </div>
       </div>
     </ContextMenu>
-  )
+  );
 }
 
 function leafName(keyName: string): string {
-  const idx = keyName.lastIndexOf(':')
-  return idx === -1 ? keyName : keyName.slice(idx + 1)
+  const idx = keyName.lastIndexOf(':');
+  return idx === -1 ? keyName : keyName.slice(idx + 1);
 }
 
 export function KeyTypeIcon({ type }: { type: RedisKeyType }) {
-  if (type === 'none') return <KeyRound className="h-3 w-3 shrink-0 text-muted-foreground" />
-  const cls = KEY_TYPE_BADGE_CLASS[type]
+  if (type === 'none')
+    return <KeyRound className="h-3 w-3 shrink-0 text-muted-foreground" />;
+  const cls = KEY_TYPE_BADGE_CLASS[type];
   return (
     <span
       className={cn(
@@ -547,5 +559,5 @@ export function KeyTypeIcon({ type }: { type: RedisKeyType }) {
       {type === 'hash' && <Braces className="h-2.5 w-2.5" />}
       {type === 'stream' && <Activity className="h-2.5 w-2.5" />}
     </span>
-  )
+  );
 }

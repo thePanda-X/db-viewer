@@ -1,16 +1,21 @@
-import { Database, Home, X } from 'lucide-react'
-import { useTabsStore } from '@/state/tabsStore'
-import { getConnectionTypeDef } from '@/data/connectionTypes'
-import { cn } from '@/lib/utils'
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { HOME_TAB_ID } from '@/types/tab'
+import { Database, Home, X } from 'lucide-react';
+import { useTabsStore } from '@/state/tabsStore';
+import { getConnectionTypeDef } from '@/data/connectionTypes';
+import { cn } from '@/lib/utils';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { HOME_TAB_ID } from '@/types/tab';
 
 export function TabStrip() {
-  const tabs = useTabsStore((s) => s.tabs)
-  const activeTabId = useTabsStore((s) => s.activeTabId)
-  const setActive = useTabsStore((s) => s.setActive)
-  const closeTab = useTabsStore((s) => s.closeTab)
+  const tabs = useTabsStore((s) => s.tabs);
+  const activeTabId = useTabsStore((s) => s.activeTabId);
+  const setActive = useTabsStore((s) => s.setActive);
+  const closeTab = useTabsStore((s) => s.closeTab);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -18,9 +23,13 @@ export function TabStrip() {
         <ScrollArea className="w-full">
           <div className="flex h-9 items-end gap-0.5 px-2">
             {tabs.map((tab) => {
-              const isHome = tab.id === HOME_TAB_ID
-              const isActive = tab.id === activeTabId
-              const Icon = isHome ? Home : (tab.type ? getConnectionTypeDef(tab.type).icon : Database)
+              const isHome = tab.id === HOME_TAB_ID;
+              const isActive = tab.id === activeTabId;
+              const Icon = isHome
+                ? Home
+                : tab.type
+                  ? getConnectionTypeDef(tab.type).icon
+                  : Database;
               return (
                 <Tooltip key={tab.id}>
                   <TooltipTrigger asChild>
@@ -36,7 +45,9 @@ export function TabStrip() {
                       )}
                     >
                       <Icon className="h-3.5 w-3.5 shrink-0" />
-                      <span className="max-w-[160px] truncate">{tab.title}</span>
+                      <span className="max-w-[160px] truncate">
+                        {tab.title}
+                      </span>
                       {!isHome && (
                         <span
                           role="button"
@@ -47,8 +58,8 @@ export function TabStrip() {
                             !isActive && 'opacity-0 group-hover:opacity-100',
                           )}
                           onClick={(e) => {
-                            e.stopPropagation()
-                            closeTab(tab.id)
+                            e.stopPropagation();
+                            closeTab(tab.id);
                           }}
                         >
                           <X className="h-3 w-3" />
@@ -60,12 +71,12 @@ export function TabStrip() {
                     {tab.title}
                   </TooltipContent>
                 </Tooltip>
-              )
+              );
             })}
           </div>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
       </div>
     </TooltipProvider>
-  )
+  );
 }

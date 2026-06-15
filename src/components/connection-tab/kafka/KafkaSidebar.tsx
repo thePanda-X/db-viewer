@@ -1,23 +1,23 @@
-import { Search } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
+import { Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 interface SidebarItem {
-  id: string
-  primary: string
-  secondary?: string
-  badge?: string
+  id: string;
+  primary: string;
+  secondary?: string;
+  badge?: string;
 }
 
 interface KafkaSidebarProps {
-  items: SidebarItem[]
-  loading: boolean
-  error: string | null
-  activeId: string | null
-  onSelect: (id: string) => void
-  filter: string
-  onFilterChange: (value: string) => void
-  placeholder?: string
+  items: SidebarItem[];
+  loading: boolean;
+  error: string | null;
+  activeId: string | null;
+  onSelect: (id: string) => void;
+  filter: string;
+  onFilterChange: (value: string) => void;
+  placeholder?: string;
 }
 
 export function KafkaSidebar({
@@ -81,5 +81,5 @@ export function KafkaSidebar({
         </div>
       )}
     </div>
-  )
+  );
 }

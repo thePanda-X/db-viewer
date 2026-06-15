@@ -1,14 +1,14 @@
-import { AlertTriangle, Home } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { useTabsStore } from '@/state/tabsStore'
+import { AlertTriangle, Home } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useTabsStore } from '@/state/tabsStore';
 
 interface TabNotFoundProps {
-  tabId: string
+  tabId: string;
 }
 
 export function TabNotFound({ tabId }: TabNotFoundProps) {
-  const openHome = useTabsStore((s) => s.openHome)
-  const closeTab = useTabsStore((s) => s.closeTab)
+  const openHome = useTabsStore((s) => s.openHome);
+  const closeTab = useTabsStore((s) => s.closeTab);
 
   return (
     <div className="flex h-full items-center justify-center px-6">
@@ -16,17 +16,20 @@ export function TabNotFound({ tabId }: TabNotFoundProps) {
         <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-muted">
           <AlertTriangle className="h-5 w-5 text-muted-foreground" />
         </div>
-        <h2 className="text-sm font-semibold tracking-tight">Connection unavailable</h2>
+        <h2 className="text-sm font-semibold tracking-tight">
+          Connection unavailable
+        </h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          This connection was removed. Closing this tab will return to your connections list.
+          This connection was removed. Closing this tab will return to your
+          connections list.
         </p>
         <div className="mt-4 flex justify-center gap-2">
           <Button
             size="sm"
             variant="outline"
             onClick={() => {
-              closeTab(tabId)
-              openHome()
+              closeTab(tabId);
+              openHome();
             }}
           >
             Close tab
@@ -38,5 +41,5 @@ export function TabNotFound({ tabId }: TabNotFoundProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, Search, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Loader2, Search, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -16,18 +16,20 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from '@/components/ui/table';
 
 interface ForeignKeyPickerProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  referencedTable: string
-  referencedColumn: string
-  fetchRows: (search?: string) => Promise<{ columns: string[]; rows: unknown[][] }>
-  onSelect: (value: unknown) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  referencedTable: string;
+  referencedColumn: string;
+  fetchRows: (
+    search?: string,
+  ) => Promise<{ columns: string[]; rows: unknown[][] }>;
+  onSelect: (value: unknown) => void;
 }
 
-const SEARCH_DEBOUNCE_MS = 300
+const SEARCH_DEBOUNCE_MS = 300;
 
 export function ForeignKeyPicker({
   open,
@@ -37,45 +39,48 @@ export function ForeignKeyPicker({
   fetchRows,
   onSelect,
 }: ForeignKeyPickerProps) {
-  const [columns, setColumns] = useState<string[]>([])
-  const [rows, setRows] = useState<unknown[][]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [columns, setColumns] = useState<string[]>([]);
+  const [rows, setRows] = useState<unknown[][]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async (searchQuery?: string) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await fetchRows(searchQuery || undefined)
-      setColumns(result.columns)
-      setRows(result.rows)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-      setColumns([])
-      setRows([])
-    } finally {
-      setLoading(false)
-    }
-  }, [fetchRows])
+  const load = useCallback(
+    async (searchQuery?: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await fetchRows(searchQuery || undefined);
+        setColumns(result.columns);
+        setRows(result.rows);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        setColumns([]);
+        setRows([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchRows],
+  );
 
   useEffect(() => {
     if (open) {
-      setSearch('')
-      void load()
+      setSearch('');
+      void load();
     }
-  }, [open, load])
+  }, [open, load]);
 
   const handleSearchChange = (value: string) => {
-    setSearch(value)
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    setSearch(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => {
-      void load(value)
-    }, SEARCH_DEBOUNCE_MS)
-  }
+      void load(value);
+    }, SEARCH_DEBOUNCE_MS);
+  };
 
-  const refColIdx = columns.indexOf(referencedColumn)
+  const refColIdx = columns.indexOf(referencedColumn);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -83,7 +88,9 @@ export function ForeignKeyPicker({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
             Select value from{' '}
-            <span className="font-mono text-xs text-muted-foreground">{referencedTable}</span>
+            <span className="font-mono text-xs text-muted-foreground">
+              {referencedTable}
+            </span>
           </DialogTitle>
         </DialogHeader>
 
@@ -113,7 +120,9 @@ export function ForeignKeyPicker({
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           ) : error ? (
-            <div className="flex h-32 items-center justify-center text-xs text-destructive">{error}</div>
+            <div className="flex h-32 items-center justify-center text-xs text-destructive">
+              {error}
+            </div>
           ) : rows.length === 0 ? (
             <div className="flex h-32 items-center justify-center text-xs text-muted-foreground">
               {search ? 'No matching rows found.' : 'No rows in table.'}
@@ -141,29 +150,32 @@ export function ForeignKeyPicker({
                     key={i}
                     className="cursor-pointer"
                     onClick={() => {
-                      const val = refColIdx >= 0 ? row[refColIdx] : row[0]
-                      onSelect(val)
-                      onOpenChange(false)
+                      const val = refColIdx >= 0 ? row[refColIdx] : row[0];
+                      onSelect(val);
+                      onOpenChange(false);
                     }}
                   >
                     {columns.map((col) => {
-                      const val = row[columns.indexOf(col)]
+                      const val = row[columns.indexOf(col)];
                       return (
                         <TableCell
                           key={col}
                           className={cn(
                             'max-w-[200px] truncate font-mono text-xs',
-                            col === referencedColumn && 'font-medium text-primary',
+                            col === referencedColumn &&
+                              'font-medium text-primary',
                           )}
                           title={val == null ? 'NULL' : String(val)}
                         >
                           {val == null ? (
-                            <span className="italic text-muted-foreground">NULL</span>
+                            <span className="italic text-muted-foreground">
+                              NULL
+                            </span>
                           ) : (
                             String(val)
                           )}
                         </TableCell>
-                      )
+                      );
                     })}
                   </TableRow>
                 ))}
@@ -173,12 +185,19 @@ export function ForeignKeyPicker({
         </div>
 
         <div className="flex items-center justify-between border-t border-border pt-3 text-[11px] text-muted-foreground">
-          <span>{rows.length} row{rows.length !== 1 ? 's' : ''} loaded</span>
-          <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onOpenChange(false)}>
+          <span>
+            {rows.length} row{rows.length !== 1 ? 's' : ''} loaded
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

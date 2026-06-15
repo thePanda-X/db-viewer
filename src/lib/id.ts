@@ -1,3 +1,3 @@
 export function newId(): string {
-  return crypto.randomUUID()
+  return crypto.randomUUID();
 }

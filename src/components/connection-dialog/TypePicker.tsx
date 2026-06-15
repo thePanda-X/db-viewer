@@ -1,23 +1,23 @@
-import { useState } from 'react'
-import { ArrowRight, Search, X } from 'lucide-react'
-import { CONNECTION_TYPES } from '@/data/connectionTypes'
-import type { ConnectionType } from '@/types/connection'
-import { cn } from '@/lib/utils'
-import { Input } from '@/components/ui/input'
+import { useState } from 'react';
+import { ArrowRight, Search, X } from 'lucide-react';
+import { CONNECTION_TYPES } from '@/data/connectionTypes';
+import type { ConnectionType } from '@/types/connection';
+import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 
 interface TypePickerProps {
-  selected?: ConnectionType
-  onSelect: (type: ConnectionType) => void
+  selected?: ConnectionType;
+  onSelect: (type: ConnectionType) => void;
 }
 
 export function TypePicker({ selected, onSelect }: TypePickerProps) {
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState('');
 
   const filtered = CONNECTION_TYPES.filter(
     (def) =>
       def.label.toLowerCase().includes(search.toLowerCase()) ||
       def.description.toLowerCase().includes(search.toLowerCase()),
-  )
+  );
 
   return (
     <div className="space-y-3">
@@ -44,8 +44,8 @@ export function TypePicker({ selected, onSelect }: TypePickerProps) {
       {filtered.length > 0 ? (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {filtered.map((def) => {
-            const Icon = def.icon
-            const isSelected = selected === def.id
+            const Icon = def.icon;
+            const isSelected = selected === def.id;
             return (
               <button
                 type="button"
@@ -54,19 +54,24 @@ export function TypePicker({ selected, onSelect }: TypePickerProps) {
                 className={cn(
                   'group flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left transition-colors',
                   'hover:border-foreground/30 hover:bg-accent/40',
-                  isSelected && 'border-foreground/50 ring-1 ring-foreground/20',
+                  isSelected &&
+                    'border-foreground/50 ring-1 ring-foreground/20',
                 )}
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
                   <Icon className={`h-5 w-5 ${def.brandColor}`} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold tracking-tight">{def.label}</div>
-                  <div className="truncate text-xs text-muted-foreground">{def.description}</div>
+                  <div className="text-sm font-semibold tracking-tight">
+                    {def.label}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {def.description}
+                  </div>
                 </div>
                 <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground" />
               </button>
-            )
+            );
           })}
         </div>
       ) : (
@@ -75,5 +80,5 @@ export function TypePicker({ selected, onSelect }: TypePickerProps) {
         </div>
       )}
     </div>
-  )
+  );
 }

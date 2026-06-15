@@ -1,95 +1,106 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, Pencil } from 'lucide-react'
-import { cn, valuesEqual } from '@/lib/utils'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
+import { useEffect, useRef, useState } from 'react';
+import { Link, Pencil } from 'lucide-react';
+import { cn, valuesEqual } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import type { ColumnMeta, EditableColumnKind } from '@/types/postgres'
-import { editableKindFor } from '@/types/postgres'
+} from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import type { ColumnMeta, EditableColumnKind } from '@/types/postgres';
+import { editableKindFor } from '@/types/postgres';
 
 export interface CellNavigationTarget {
   /** Qualified or unqualified target table name, used in the tooltip. */
-  table: string
+  table: string;
   /** Called when the user clicks the link icon. */
-  onClick: () => void
+  onClick: () => void;
   /**
    * Label for the referenced column used in the FK picker.
    * Only needed for SQLite where we don't have schema info.
    */
-  referencedColumn?: string
+  referencedColumn?: string;
 }
 
 interface EditableCellProps {
-  value: unknown
-  original: unknown
-  column: ColumnMeta
-  disabled?: boolean
-  onCommit: (next: unknown) => void
-  onCancel: () => void
+  value: unknown;
+  original: unknown;
+  column: ColumnMeta;
+  disabled?: boolean;
+  onCommit: (next: unknown) => void;
+  onCancel: () => void;
   /**
    * When set, the cell is rendered as a clickable FK link (in addition to its
    * normal edit affordance). Only used when the cell is non-null/read-only.
    */
-  navigateTo?: CellNavigationTarget
-  incomingNavigateTo?: CellNavigationTarget[]
+  navigateTo?: CellNavigationTarget;
+  incomingNavigateTo?: CellNavigationTarget[];
   /**
    * When set, the cell shows a "Browse" button in edit mode that opens a FK
    * picker dialog. The parent is responsible for managing the dialog.
    */
-  onFkBrowse?: () => void
+  onFkBrowse?: () => void;
 }
 
-function parseInput(kind: EditableColumnKind, raw: string): { ok: true; value: unknown } | { ok: false; error: string } {
-  if (raw === '') return { ok: true, value: null }
+function parseInput(
+  kind: EditableColumnKind,
+  raw: string,
+): { ok: true; value: unknown } | { ok: false; error: string } {
+  if (raw === '') return { ok: true, value: null };
   if (kind === 'number') {
-    const n = Number(raw)
-    if (!Number.isFinite(n)) return { ok: false, error: 'Not a number' }
-    return { ok: true, value: n }
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return { ok: false, error: 'Not a number' };
+    return { ok: true, value: n };
   }
   if (kind === 'json') {
     try {
-      return { ok: true, value: JSON.parse(raw) }
+      return { ok: true, value: JSON.parse(raw) };
     } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : 'Invalid JSON' }
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : 'Invalid JSON',
+      };
     }
   }
   if (kind === 'datetime') {
-    const d = new Date(raw)
-    if (Number.isNaN(d.getTime())) return { ok: false, error: 'Invalid date' }
-    return { ok: true, value: d.toISOString() }
+    const d = new Date(raw);
+    if (Number.isNaN(d.getTime())) return { ok: false, error: 'Invalid date' };
+    return { ok: true, value: d.toISOString() };
   }
-  return { ok: true, value: raw }
+  return { ok: true, value: raw };
 }
 
 function formatValue(value: unknown, kind: EditableColumnKind): string {
-  if (value === null || value === undefined) return ''
+  if (value === null || value === undefined) return '';
   if (kind === 'json') {
-    if (typeof value === 'string') return value
+    if (typeof value === 'string') return value;
     try {
-      return JSON.stringify(value, null, 2)
+      return JSON.stringify(value, null, 2);
     } catch {
-      return String(value)
+      return String(value);
     }
   }
   if (kind === 'datetime') {
-    if (value instanceof Date) return value.toISOString().slice(0, 16)
+    if (value instanceof Date) return value.toISOString().slice(0, 16);
     if (typeof value === 'string') {
-      const d = new Date(value)
+      const d = new Date(value);
       if (!Number.isNaN(d.getTime())) {
-        return d.toISOString().slice(0, 16)
+        return d.toISOString().slice(0, 16);
       }
     }
-    return String(value)
+    return String(value);
   }
-  if (typeof value === 'object') return JSON.stringify(value)
-  return String(value)
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }
 
 export function EditableCell({
@@ -103,59 +114,67 @@ export function EditableCell({
   incomingNavigateTo = [],
   onFkBrowse,
 }: EditableCellProps) {
-  const kind = editableKindFor(column.udtName)
-  const isEditable = !disabled && !column.isGenerated && kind !== 'readonly' && (column.udtName !== 'uuid' || onFkBrowse)
-  const enumValues = column.enumValues
-  const isEnum = enumValues !== undefined && enumValues.length > 0
-  const isNull = value === null || value === undefined
-  const isEmptyString = !isNull && value === ''
-  const isDirty = !valuesEqual(value, original)
-  const canNavigate = !isNull && navigateTo !== undefined
-  const incomingTargets = isNull ? [] : incomingNavigateTo
+  const kind = editableKindFor(column.udtName);
+  const isEditable =
+    !disabled &&
+    !column.isGenerated &&
+    kind !== 'readonly' &&
+    (column.udtName !== 'uuid' || onFkBrowse);
+  const enumValues = column.enumValues;
+  const isEnum = enumValues !== undefined && enumValues.length > 0;
+  const isNull = value === null || value === undefined;
+  const isEmptyString = !isNull && value === '';
+  const isDirty = !valuesEqual(value, original);
+  const canNavigate = !isNull && navigateTo !== undefined;
+  const incomingTargets = isNull ? [] : incomingNavigateTo;
 
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState<string>(formatValue(value, kind))
-  const [isNullDraft, setIsNullDraft] = useState<boolean>(isNull)
-  const [error, setError] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement | null>(null)
-  const taRef = useRef<HTMLTextAreaElement | null>(null)
-  const enumPickedRef = useRef(false)
-  const enumOpenRef = useRef(true)
-  const draftRef = useRef(draft)
-  const isNullDraftRef = useRef(isNullDraft)
-  draftRef.current = draft
-  isNullDraftRef.current = isNullDraft
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<string>(formatValue(value, kind));
+  const [isNullDraft, setIsNullDraft] = useState<boolean>(isNull);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+  const enumPickedRef = useRef(false);
+  const enumOpenRef = useRef(true);
+  const draftRef = useRef(draft);
+  const isNullDraftRef = useRef(isNullDraft);
+  draftRef.current = draft;
+  isNullDraftRef.current = isNullDraft;
 
   useEffect(() => {
-    const nextDraft = formatValue(value, kind)
-    const nextNull = isNull
-    setDraft(nextDraft)
-    setIsNullDraft(nextNull)
-    draftRef.current = nextDraft
-    isNullDraftRef.current = nextNull
-    setError(null)
-  }, [value, kind, isNull])
+    const nextDraft = formatValue(value, kind);
+    const nextNull = isNull;
+    setDraft(nextDraft);
+    setIsNullDraft(nextNull);
+    draftRef.current = nextDraft;
+    isNullDraftRef.current = nextNull;
+    setError(null);
+  }, [value, kind, isNull]);
 
   useEffect(() => {
     if (editing) {
-      enumPickedRef.current = false
-      enumOpenRef.current = true
+      enumPickedRef.current = false;
+      enumOpenRef.current = true;
       if (isEnum) {
         // Radix Select auto-opens via defaultOpen; nothing else to focus.
-        return
+        return;
       }
       if (kind === 'json') {
-        taRef.current?.focus()
-        taRef.current?.select()
+        taRef.current?.focus();
+        taRef.current?.select();
       } else {
-        inputRef.current?.focus()
-        inputRef.current?.select()
+        inputRef.current?.focus();
+        inputRef.current?.select();
       }
     }
-  }, [editing, kind, isEnum])
+  }, [editing, kind, isEnum]);
 
   if (!isEditable) {
-    if ((canNavigate && navigateTo) || incomingTargets.length > 0 || onFkBrowse) {
+    if (
+      (canNavigate && navigateTo) ||
+      incomingTargets.length > 0 ||
+      onFkBrowse
+    ) {
       return (
         <div className="group/cell flex w-full min-w-0 items-center gap-1">
           {canNavigate && navigateTo ? (
@@ -171,9 +190,19 @@ export function EditableCell({
                 'block min-w-0 flex-1 truncate px-1.5 py-0.5 font-mono text-xs',
                 (isNull || isEmptyString) && 'italic text-muted-foreground',
               )}
-              title={isNull ? 'NULL' : isEmptyString ? '(empty string)' : String(value)}
+              title={
+                isNull
+                  ? 'NULL'
+                  : isEmptyString
+                    ? '(empty string)'
+                    : String(value)
+              }
             >
-              {isNull ? 'NULL' : isEmptyString ? '(empty)' : formatValue(value, kind)}
+              {isNull
+                ? 'NULL'
+                : isEmptyString
+                  ? '(empty)'
+                  : formatValue(value, kind)}
             </span>
           )}
           {onFkBrowse && <FkBrowseIcon onClick={onFkBrowse} />}
@@ -186,7 +215,7 @@ export function EditableCell({
             />
           ))}
         </div>
-      )
+      );
     }
     return (
       <span
@@ -194,11 +223,13 @@ export function EditableCell({
           'block truncate font-mono text-xs',
           (isNull || isEmptyString) && 'italic text-muted-foreground',
         )}
-        title={isNull ? 'NULL' : isEmptyString ? '(empty string)' : String(value)}
+        title={
+          isNull ? 'NULL' : isEmptyString ? '(empty string)' : String(value)
+        }
       >
         {isNull ? 'NULL' : isEmptyString ? '(empty)' : formatValue(value, kind)}
       </span>
-    )
+    );
   }
 
   if (kind === 'boolean') {
@@ -209,9 +240,14 @@ export function EditableCell({
           onCheckedChange={(checked) => onCommit(checked)}
           disabled={disabled}
         />
-        {isDirty && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-label="Modified" />}
+        {isDirty && (
+          <span
+            className="h-1.5 w-1.5 rounded-full bg-amber-500"
+            aria-label="Modified"
+          />
+        )}
       </div>
-    )
+    );
   }
 
   if (!editing) {
@@ -221,7 +257,9 @@ export function EditableCell({
           'group/cell relative flex w-full items-center gap-1 rounded-sm text-left font-mono text-xs',
           (isNull || isEmptyString) && 'italic text-muted-foreground',
         )}
-        title={isNull ? 'NULL' : isEmptyString ? '(empty string)' : String(value)}
+        title={
+          isNull ? 'NULL' : isEmptyString ? '(empty string)' : String(value)
+        }
       >
         <button
           type="button"
@@ -233,10 +271,17 @@ export function EditableCell({
             'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
         >
-          {isNull ? 'NULL' : isEmptyString ? '(empty)' : formatValue(value, kind)}
+          {isNull
+            ? 'NULL'
+            : isEmptyString
+              ? '(empty)'
+              : formatValue(value, kind)}
         </button>
         {canNavigate && navigateTo && (
-          <NavigationLinkIcon table={navigateTo.table} onClick={navigateTo.onClick} />
+          <NavigationLinkIcon
+            table={navigateTo.table}
+            onClick={navigateTo.onClick}
+          />
         )}
         {incomingTargets.map((target) => (
           <NavigationLinkIcon
@@ -247,70 +292,75 @@ export function EditableCell({
           />
         ))}
         {onFkBrowse && <FkBrowseIcon onClick={onFkBrowse} />}
-        {isDirty && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-label="Modified" />}
+        {isDirty && (
+          <span
+            className="h-1.5 w-1.5 rounded-full bg-amber-500"
+            aria-label="Modified"
+          />
+        )}
       </div>
-    )
+    );
   }
 
   const commit = () => {
-    const currentDraft = draftRef.current
-    const currentIsNullDraft = isNullDraftRef.current
+    const currentDraft = draftRef.current;
+    const currentIsNullDraft = isNullDraftRef.current;
     if (currentIsNullDraft) {
       if (!column.isNullable && !valuesEqual(value, null)) {
-        setError('Column is NOT NULL')
-        return
+        setError('Column is NOT NULL');
+        return;
       }
-      onCommit(null)
-      setEditing(false)
-      return
+      onCommit(null);
+      setEditing(false);
+      return;
     }
     if (isEnum) {
-      setEditing(false)
-      return
+      setEditing(false);
+      return;
     }
-    const parsed = parseInput(kind, currentDraft)
+    const parsed = parseInput(kind, currentDraft);
     if (!parsed.ok) {
-      setError(parsed.error)
-      return
+      setError(parsed.error);
+      return;
     }
-    onCommit(parsed.value)
-    setEditing(false)
-  }
+    onCommit(parsed.value);
+    setEditing(false);
+  };
 
   const cancel = () => {
-    const resetDraft = formatValue(value, kind)
-    const resetNull = isNull
-    setDraft(resetDraft)
-    setIsNullDraft(resetNull)
-    draftRef.current = resetDraft
-    isNullDraftRef.current = resetNull
-    setError(null)
-    setEditing(false)
-    onCancel()
-  }
+    const resetDraft = formatValue(value, kind);
+    const resetNull = isNull;
+    setDraft(resetDraft);
+    setIsNullDraft(resetNull);
+    draftRef.current = resetDraft;
+    isNullDraftRef.current = resetNull;
+    setError(null);
+    setEditing(false);
+    onCancel();
+  };
 
   const handleEnumWrapperKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter' && isNullDraft) {
-      e.preventDefault()
-      commit()
+      e.preventDefault();
+      commit();
     } else if (e.key === 'Escape') {
-      e.preventDefault()
-      cancel()
+      e.preventDefault();
+      cancel();
     }
-  }
+  };
 
   const handleEnumWrapperBlur = (e: React.FocusEvent<HTMLDivElement>) => {
-    if (enumPickedRef.current) return
+    if (enumPickedRef.current) return;
     // The Select moves focus into its portal-rendered content as soon as it
     // opens; that triggers a blur on the trigger. Don't treat that as the
     // user leaving the cell.
-    if (enumOpenRef.current) return
-    const next = e.relatedTarget as HTMLElement | null
+    if (enumOpenRef.current) return;
+    const next = e.relatedTarget as HTMLElement | null;
     // If the user is moving focus to the null toggle, let the button click
     // handle the next state change without exiting edit mode.
-    if (next && next.getAttribute('data-null-toggle') === 'true') return
-    setEditing(false)
-  }
+    if (next && next.getAttribute('data-null-toggle') === 'true') return;
+    setEditing(false);
+  };
 
   return (
     <div
@@ -322,15 +372,17 @@ export function EditableCell({
         {isEnum ? (
           <Select
             value={
-              typeof value === 'string' && enumValues!.includes(value) ? value : undefined
+              typeof value === 'string' && enumValues!.includes(value)
+                ? value
+                : undefined
             }
             onValueChange={(v) => {
-              enumPickedRef.current = true
-              onCommit(v)
-              setEditing(false)
+              enumPickedRef.current = true;
+              onCommit(v);
+              setEditing(false);
             }}
             onOpenChange={(open) => {
-              enumOpenRef.current = open
+              enumOpenRef.current = open;
             }}
             defaultOpen
           >
@@ -353,20 +405,20 @@ export function EditableCell({
             ref={taRef}
             value={draft}
             onChange={(e) => {
-              setDraft(e.target.value)
-              draftRef.current = e.target.value
+              setDraft(e.target.value);
+              draftRef.current = e.target.value;
               if (isNullDraftRef.current) {
-                setIsNullDraft(false)
-                isNullDraftRef.current = false
+                setIsNullDraft(false);
+                isNullDraftRef.current = false;
               }
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault()
-                commit()
+                e.preventDefault();
+                commit();
               } else if (e.key === 'Escape') {
-                e.preventDefault()
-                cancel()
+                e.preventDefault();
+                cancel();
               }
             }}
             className={cn(
@@ -379,23 +431,29 @@ export function EditableCell({
           <div className="flex items-center gap-1">
             <Input
               ref={inputRef}
-              type={kind === 'number' ? 'number' : kind === 'datetime' ? 'datetime-local' : 'text'}
+              type={
+                kind === 'number'
+                  ? 'number'
+                  : kind === 'datetime'
+                    ? 'datetime-local'
+                    : 'text'
+              }
               value={draft}
               onChange={(e) => {
-                setDraft(e.target.value)
-                draftRef.current = e.target.value
+                setDraft(e.target.value);
+                draftRef.current = e.target.value;
                 if (isNullDraftRef.current) {
-                  setIsNullDraft(false)
-                  isNullDraftRef.current = false
+                  setIsNullDraft(false);
+                  isNullDraftRef.current = false;
                 }
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  e.preventDefault()
-                  commit()
+                  e.preventDefault();
+                  commit();
                 } else if (e.key === 'Escape') {
-                  e.preventDefault()
-                  cancel()
+                  e.preventDefault();
+                  cancel();
                 }
               }}
               onBlur={() => commit()}
@@ -404,8 +462,8 @@ export function EditableCell({
             <button
               type="button"
               onMouseDown={(e) => {
-                e.preventDefault()
-                onFkBrowse()
+                e.preventDefault();
+                onFkBrowse();
               }}
               className="flex h-7 shrink-0 items-center gap-1 rounded-sm border border-border px-2 text-[11px] font-medium text-muted-foreground hover:bg-muted"
               title="Browse referenced table"
@@ -416,23 +474,29 @@ export function EditableCell({
         ) : (
           <Input
             ref={inputRef}
-            type={kind === 'number' ? 'number' : kind === 'datetime' ? 'datetime-local' : 'text'}
+            type={
+              kind === 'number'
+                ? 'number'
+                : kind === 'datetime'
+                  ? 'datetime-local'
+                  : 'text'
+            }
             value={draft}
             onChange={(e) => {
-              setDraft(e.target.value)
-              draftRef.current = e.target.value
+              setDraft(e.target.value);
+              draftRef.current = e.target.value;
               if (isNullDraftRef.current) {
-                setIsNullDraft(false)
-                isNullDraftRef.current = false
+                setIsNullDraft(false);
+                isNullDraftRef.current = false;
               }
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                e.preventDefault()
-                commit()
+                e.preventDefault();
+                commit();
               } else if (e.key === 'Escape') {
-                e.preventDefault()
-                cancel()
+                e.preventDefault();
+                cancel();
               }
             }}
             onBlur={() => commit()}
@@ -444,19 +508,21 @@ export function EditableCell({
           data-null-toggle="true"
           onClick={() => {
             if (!column.isNullable || isNullDraft) {
-              const nextNull = !isNullDraft
-              setIsNullDraft(nextNull)
-              isNullDraftRef.current = nextNull
+              const nextNull = !isNullDraft;
+              setIsNullDraft(nextNull);
+              isNullDraftRef.current = nextNull;
               if (nextNull) {
-                setDraft('')
-                draftRef.current = ''
+                setDraft('');
+                draftRef.current = '';
               }
             }
           }}
           title={column.isNullable ? 'Toggle NULL' : 'Column is NOT NULL'}
           className={cn(
             'rounded-sm border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-wider',
-            isNullDraft ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted',
+            isNullDraft
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-muted',
           )}
         >
           null
@@ -464,7 +530,7 @@ export function EditableCell({
       </div>
       {error && <span className="text-[10px] text-destructive">{error}</span>}
     </div>
-  )
+  );
 }
 
 function NavigationLink({
@@ -473,10 +539,10 @@ function NavigationLink({
   table,
   onClick,
 }: {
-  value: string
-  title: string
-  table: string
-  onClick: () => void
+  value: string;
+  title: string;
+  table: string;
+  onClick: () => void;
 }) {
   return (
     <TooltipProvider delayDuration={200}>
@@ -485,8 +551,8 @@ function NavigationLink({
           <button
             type="button"
             onClick={(e) => {
-              e.stopPropagation()
-              onClick()
+              e.stopPropagation();
+              onClick();
             }}
             className={cn(
               'flex w-full min-w-0 items-center gap-1 truncate rounded-sm px-1.5 py-0.5 text-left font-mono text-xs',
@@ -505,7 +571,7 @@ function NavigationLink({
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  )
+  );
 }
 
 function NavigationLinkIcon({
@@ -513,9 +579,9 @@ function NavigationLinkIcon({
   onClick,
   label = 'Open related row in',
 }: {
-  table: string
-  onClick: () => void
-  label?: string
+  table: string;
+  onClick: () => void;
+  label?: string;
 }) {
   return (
     <TooltipProvider delayDuration={200}>
@@ -524,8 +590,8 @@ function NavigationLinkIcon({
           <button
             type="button"
             onClick={(e) => {
-              e.stopPropagation()
-              onClick()
+              e.stopPropagation();
+              onClick();
             }}
             className={cn(
               'flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground',
@@ -543,7 +609,7 @@ function NavigationLinkIcon({
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  )
+  );
 }
 
 function FkBrowseIcon({ onClick }: { onClick: () => void }) {
@@ -554,8 +620,8 @@ function FkBrowseIcon({ onClick }: { onClick: () => void }) {
           <button
             type="button"
             onClick={(e) => {
-              e.stopPropagation()
-              onClick()
+              e.stopPropagation();
+              onClick();
             }}
             className={cn(
               'flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground',
@@ -573,5 +639,5 @@ function FkBrowseIcon({ onClick }: { onClick: () => void }) {
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  )
+  );
 }

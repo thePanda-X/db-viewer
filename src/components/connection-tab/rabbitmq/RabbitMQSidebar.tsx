@@ -1,32 +1,45 @@
-import { Copy, Eye, GitCompare, Loader2, MessageSquare, RefreshCw, Search, Trash2, XCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { ContextMenu, type ContextMenuItem } from '@/components/ui/context-menu'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { cn } from '@/lib/utils'
-import { toast } from '@/state/toastStore'
-import type { RabbitMQExchangeInfo, RabbitMQQueueInfo } from '@/types/rabbitmq'
+import {
+  Copy,
+  Eye,
+  GitCompare,
+  Loader2,
+  MessageSquare,
+  RefreshCw,
+  Search,
+  Trash2,
+  XCircle,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  ContextMenu,
+  type ContextMenuItem,
+} from '@/components/ui/context-menu';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+import { toast } from '@/state/toastStore';
+import type { RabbitMQExchangeInfo, RabbitMQQueueInfo } from '@/types/rabbitmq';
 
-export type SidebarTab = 'exchanges' | 'queues'
+export type SidebarTab = 'exchanges' | 'queues';
 
 interface RabbitMQSidebarProps {
-  connectionName: string
-  host: string
-  loading: boolean
-  error: string | null
-  exchanges: RabbitMQExchangeInfo[]
-  queues: RabbitMQQueueInfo[]
-  activeTab: SidebarTab
-  onTabChange: (tab: SidebarTab) => void
-  activeExchange: string | null
-  activeQueue: string | null
-  onSelectExchange: (name: string) => void
-  onSelectQueue: (name: string) => void
-  onRefresh: () => void
-  onRequestPurgeQueue: (name: string) => void
-  onRequestDeleteQueue: (name: string) => void
-  filter: string
-  onFilterChange: (filter: string) => void
+  connectionName: string;
+  host: string;
+  loading: boolean;
+  error: string | null;
+  exchanges: RabbitMQExchangeInfo[];
+  queues: RabbitMQQueueInfo[];
+  activeTab: SidebarTab;
+  onTabChange: (tab: SidebarTab) => void;
+  activeExchange: string | null;
+  activeQueue: string | null;
+  onSelectExchange: (name: string) => void;
+  onSelectQueue: (name: string) => void;
+  onRefresh: () => void;
+  onRequestPurgeQueue: (name: string) => void;
+  onRequestDeleteQueue: (name: string) => void;
+  filter: string;
+  onFilterChange: (filter: string) => void;
 }
 
 export function RabbitMQSidebar({
@@ -50,10 +63,10 @@ export function RabbitMQSidebar({
 }: RabbitMQSidebarProps) {
   const filteredExchanges = exchanges.filter(
     (e) => !filter || e.name.toLowerCase().includes(filter.toLowerCase()),
-  )
+  );
   const filteredQueues = queues.filter(
     (q) => !filter || q.name.toLowerCase().includes(filter.toLowerCase()),
-  )
+  );
 
   return (
     <aside className="flex h-full w-full flex-col border-r border-border bg-muted/20">
@@ -81,7 +94,10 @@ export function RabbitMQSidebar({
               {connectionName}
             </span>
           </div>
-          <div className="mt-1 truncate font-mono text-[10px] text-muted-foreground" title={host}>
+          <div
+            className="mt-1 truncate font-mono text-[10px] text-muted-foreground"
+            title={host}
+          >
             {host}
           </div>
         </div>
@@ -161,8 +177,10 @@ export function RabbitMQSidebar({
                       label: 'Copy Name',
                       icon: <Copy className="h-3.5 w-3.5" />,
                       onClick: () => {
-                        void navigator.clipboard.writeText(ex.name || '(AMQP default)')
-                        toast({ message: 'Copied exchange name' })
+                        void navigator.clipboard.writeText(
+                          ex.name || '(AMQP default)',
+                        );
+                        toast({ message: 'Copied exchange name' });
                       },
                     },
                     { separator: true },
@@ -171,7 +189,7 @@ export function RabbitMQSidebar({
                       icon: <RefreshCw className="h-3.5 w-3.5" />,
                       onClick: () => onRefresh(),
                     },
-                  ]
+                  ];
                   return (
                     <ContextMenu key={ex.name} items={exchangeItems}>
                       <button
@@ -179,7 +197,8 @@ export function RabbitMQSidebar({
                         onClick={() => onSelectExchange(ex.name)}
                         className={cn(
                           'flex h-7 w-full items-center gap-2 rounded-sm px-2 text-xs transition-colors hover:bg-muted',
-                          activeExchange === ex.name && 'bg-primary/10 text-primary',
+                          activeExchange === ex.name &&
+                            'bg-primary/10 text-primary',
                         )}
                       >
                         <GitCompare className="h-3 w-3 shrink-0 text-orange-500" />
@@ -191,69 +210,69 @@ export function RabbitMQSidebar({
                         </span>
                       </button>
                     </ContextMenu>
-                  )
+                  );
                 })}
               </div>
             )
+          ) : filteredQueues.length === 0 ? (
+            <div className="rounded-md border border-dashed border-border p-3 text-center text-[11px] text-muted-foreground">
+              {filter ? 'No matching queues' : 'No queues'}
+            </div>
           ) : (
-            filteredQueues.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border p-3 text-center text-[11px] text-muted-foreground">
-                {filter ? 'No matching queues' : 'No queues'}
-              </div>
-            ) : (
-              <div className="space-y-0.5">
-                {filteredQueues.map((q) => {
-                  const queueItems: ContextMenuItem[] = [
-                    {
-                      label: 'Open',
-                      icon: <Eye className="h-3.5 w-3.5" />,
-                      onClick: () => onSelectQueue(q.name),
+            <div className="space-y-0.5">
+              {filteredQueues.map((q) => {
+                const queueItems: ContextMenuItem[] = [
+                  {
+                    label: 'Open',
+                    icon: <Eye className="h-3.5 w-3.5" />,
+                    onClick: () => onSelectQueue(q.name),
+                  },
+                  {
+                    label: 'Copy Name',
+                    icon: <Copy className="h-3.5 w-3.5" />,
+                    onClick: () => {
+                      void navigator.clipboard.writeText(q.name);
+                      toast({ message: 'Copied queue name' });
                     },
-                    {
-                      label: 'Copy Name',
-                      icon: <Copy className="h-3.5 w-3.5" />,
-                      onClick: () => {
-                        void navigator.clipboard.writeText(q.name)
-                        toast({ message: 'Copied queue name' })
-                      },
-                    },
-                    { separator: true },
-                    {
-                      label: 'Purge Queue',
-                      icon: <XCircle className="h-3.5 w-3.5" />,
-                      onClick: () => onRequestPurgeQueue(q.name),
-                    },
-                    {
-                      label: 'Delete Queue',
-                      icon: <Trash2 className="h-3.5 w-3.5" />,
-                      destructive: true,
-                      onClick: () => onRequestDeleteQueue(q.name),
-                    },
-                  ]
-                  return (
-                    <ContextMenu key={q.name} items={queueItems}>
-                      <button
-                        type="button"
-                        onClick={() => onSelectQueue(q.name)}
-                        className={cn(
-                          'flex h-7 w-full items-center gap-2 rounded-sm px-2 text-xs transition-colors hover:bg-muted',
-                          activeQueue === q.name && 'bg-primary/10 text-primary',
-                        )}
-                      >
-                        <MessageSquare className="h-3 w-3 shrink-0 text-orange-500" />
-                        <span className="flex-1 truncate text-left font-mono">{q.name}</span>
-                        <span className="rounded bg-muted px-1 font-mono text-[10px] tabular-nums text-muted-foreground">
-                          {q.messages}
-                        </span>
-                      </button>
-                    </ContextMenu>
-                  )
-                })}
-              </div>
-            )
+                  },
+                  { separator: true },
+                  {
+                    label: 'Purge Queue',
+                    icon: <XCircle className="h-3.5 w-3.5" />,
+                    onClick: () => onRequestPurgeQueue(q.name),
+                  },
+                  {
+                    label: 'Delete Queue',
+                    icon: <Trash2 className="h-3.5 w-3.5" />,
+                    destructive: true,
+                    onClick: () => onRequestDeleteQueue(q.name),
+                  },
+                ];
+                return (
+                  <ContextMenu key={q.name} items={queueItems}>
+                    <button
+                      type="button"
+                      onClick={() => onSelectQueue(q.name)}
+                      className={cn(
+                        'flex h-7 w-full items-center gap-2 rounded-sm px-2 text-xs transition-colors hover:bg-muted',
+                        activeQueue === q.name && 'bg-primary/10 text-primary',
+                      )}
+                    >
+                      <MessageSquare className="h-3 w-3 shrink-0 text-orange-500" />
+                      <span className="flex-1 truncate text-left font-mono">
+                        {q.name}
+                      </span>
+                      <span className="rounded bg-muted px-1 font-mono text-[10px] tabular-nums text-muted-foreground">
+                        {q.messages}
+                      </span>
+                    </button>
+                  </ContextMenu>
+                );
+              })}
+            </div>
           )}
         </div>
       </ScrollArea>
     </aside>
-  )
+  );
 }

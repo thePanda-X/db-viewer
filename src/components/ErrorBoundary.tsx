@@ -1,36 +1,38 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { AlertTriangle, RefreshCw, Trash2 } from 'lucide-react'
+import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { AlertTriangle, RefreshCw, Trash2 } from 'lucide-react';
 
 interface Props {
-  children: ReactNode
+  children: ReactNode;
 }
 
 interface State {
-  hasError: boolean
-  error: Error | null
+  hasError: boolean;
+  error: Error | null;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, error: null }
+  state: State = { hasError: false, error: null };
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error }
+    return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary]', error, info.componentStack)
+    console.error('[ErrorBoundary]', error, info.componentStack);
   }
 
   handleReset = () => {
-    this.setState({ hasError: false, error: null })
-  }
+    this.setState({ hasError: false, error: null });
+  };
 
   handleClearAndReload = () => {
     try {
-      localStorage.clear()
-    } catch { /* ignore */ }
-    window.location.reload()
-  }
+      localStorage.clear();
+    } catch {
+      /* ignore */
+    }
+    window.location.reload();
+  };
 
   render() {
     if (this.state.hasError) {
@@ -40,10 +42,12 @@ export class ErrorBoundary extends Component<Props, State> {
             <AlertTriangle className="h-6 w-6 text-destructive" />
           </div>
           <div className="text-center">
-            <h2 className="text-lg font-semibold tracking-tight">Something went wrong</h2>
+            <h2 className="text-lg font-semibold tracking-tight">
+              Something went wrong
+            </h2>
             <p className="mt-1 max-w-md text-sm text-muted-foreground">
-              The app encountered an error while rendering. This can happen after adding new
-              features if saved state is incompatible.
+              The app encountered an error while rendering. This can happen
+              after adding new features if saved state is incompatible.
             </p>
           </div>
           <div className="flex gap-3">
@@ -75,9 +79,9 @@ export class ErrorBoundary extends Component<Props, State> {
             </details>
           )}
         </div>
-      )
+      );
     }
 
-    return this.props.children
+    return this.props.children;
   }
 }

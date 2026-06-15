@@ -1,6 +1,14 @@
-import { z } from 'zod'
-import { Database, FileText, Search, KeyRound, Layers, GitCompare, type LucideIcon } from 'lucide-react'
-import type { ComponentType } from 'react'
+import { z } from 'zod';
+import {
+  Database,
+  FileText,
+  Search,
+  KeyRound,
+  Layers,
+  GitCompare,
+  type LucideIcon,
+} from 'lucide-react';
+import type { ComponentType } from 'react';
 import type {
   Connection,
   ConnectionType,
@@ -10,53 +18,53 @@ import type {
   RedisConfig,
   KafkaConfig,
   RabbitMQConfig,
-} from '@/types/connection'
-import type { Tab } from '@/types/tab'
-import { OpenSearchTab } from '@/components/connection-tab/opensearch/OpenSearchTab'
-import { PostgresTab } from '@/components/connection-tab/postgres/PostgresTab'
-import { RedisTab } from '@/components/connection-tab/redis/RedisTab'
-import { SqliteTab } from '@/components/connection-tab/sqlite/SqliteTab'
-import { KafkaTab } from '@/components/connection-tab/kafka/KafkaTab'
-import { RabbitMQTab } from '@/components/connection-tab/rabbitmq/RabbitMQTab'
+} from '@/types/connection';
+import type { Tab } from '@/types/tab';
+import { OpenSearchTab } from '@/components/connection-tab/opensearch/OpenSearchTab';
+import { PostgresTab } from '@/components/connection-tab/postgres/PostgresTab';
+import { RedisTab } from '@/components/connection-tab/redis/RedisTab';
+import { SqliteTab } from '@/components/connection-tab/sqlite/SqliteTab';
+import { KafkaTab } from '@/components/connection-tab/kafka/KafkaTab';
+import { RabbitMQTab } from '@/components/connection-tab/rabbitmq/RabbitMQTab';
 
-export type FieldType = 'text' | 'password' | 'number' | 'switch' | 'file'
+export type FieldType = 'text' | 'password' | 'number' | 'switch' | 'file';
 
 export interface FieldDefinition {
-  name: string
-  label: string
-  type: FieldType
-  placeholder?: string
-  defaultValue?: string | number | boolean
-  description?: string
-  required?: boolean
-  min?: number
-  max?: number
+  name: string;
+  label: string;
+  type: FieldType;
+  placeholder?: string;
+  defaultValue?: string | number | boolean;
+  description?: string;
+  required?: boolean;
+  min?: number;
+  max?: number;
   /** How many grid columns the field spans (1 = half, 2 = full). Defaults to 1. */
-  colSpan?: 1 | 2
+  colSpan?: 1 | 2;
 }
 
 export interface FileDialogFilter {
-  name: string
-  extensions: string[]
+  name: string;
+  extensions: string[];
 }
 
 export interface ConnectionTypeDefinition<CConfig> {
-  id: ConnectionType
-  label: string
-  description: string
-  icon: LucideIcon
-  brandColor: string
-  defaultConfig: CConfig
-  fields: FieldDefinition[]
+  id: ConnectionType;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  brandColor: string;
+  defaultConfig: CConfig;
+  fields: FieldDefinition[];
   /** Per-type zod schema for the config object */
-  schema: z.ZodType<CConfig>
+  schema: z.ZodType<CConfig>;
   /** Per-type zod schema for the whole connection (name + config) */
-  fullSchema: z.ZodTypeAny
+  fullSchema: z.ZodTypeAny;
   /** A short subtitle for cards, given the config */
-  subtitle: (config: CConfig) => string
+  subtitle: (config: CConfig) => string;
   /** Renderer for an open connection tab. */
-  TabComponent: ComponentType<{ connection: Connection; tab: Tab }>
-  fileDialogFilters?: FileDialogFilter[]
+  TabComponent: ComponentType<{ connection: Connection; tab: Tab }>;
+  fileDialogFilters?: FileDialogFilter[];
 }
 
 const postgresSchema = z.object({
@@ -66,11 +74,11 @@ const postgresSchema = z.object({
   username: z.string().min(1, 'Username is required'),
   password: z.string(),
   ssl: z.boolean(),
-})
+});
 
 const sqliteSchema = z.object({
   filePath: z.string().min(1, 'File path is required'),
-})
+});
 
 const openSearchSchema = z.object({
   host: z.string().min(1, 'Host is required'),
@@ -78,7 +86,7 @@ const openSearchSchema = z.object({
   username: z.string(),
   password: z.string(),
   ssl: z.boolean(),
-})
+});
 
 const redisSchema = z.object({
   host: z.string().min(1, 'Host is required'),
@@ -86,7 +94,7 @@ const redisSchema = z.object({
   password: z.string(),
   db: z.coerce.number().int().min(0).max(15),
   tls: z.boolean(),
-})
+});
 
 const kafkaSchema = z.object({
   host: z.string().min(1, 'Host is required'),
@@ -94,9 +102,9 @@ const kafkaSchema = z.object({
   username: z.string(),
   password: z.string(),
   tls: z.boolean(),
-})
+});
 
-const nameField = z.string().min(1, 'Name is required').max(64)
+const nameField = z.string().min(1, 'Name is required').max(64);
 
 const postgresDef: ConnectionTypeDefinition<PostgresConfig> = {
   id: 'postgres',
@@ -121,7 +129,13 @@ const postgresDef: ConnectionTypeDefinition<PostgresConfig> = {
       required: true,
       colSpan: 2,
     },
-    { name: 'host', label: 'Host', type: 'text', placeholder: 'localhost', required: true },
+    {
+      name: 'host',
+      label: 'Host',
+      type: 'text',
+      placeholder: 'localhost',
+      required: true,
+    },
     {
       name: 'port',
       label: 'Port',
@@ -129,7 +143,13 @@ const postgresDef: ConnectionTypeDefinition<PostgresConfig> = {
       defaultValue: 5432,
       required: true,
     },
-    { name: 'database', label: 'Database', type: 'text', placeholder: 'mydb', required: true },
+    {
+      name: 'database',
+      label: 'Database',
+      type: 'text',
+      placeholder: 'mydb',
+      required: true,
+    },
     {
       name: 'username',
       label: 'Username',
@@ -138,13 +158,22 @@ const postgresDef: ConnectionTypeDefinition<PostgresConfig> = {
       required: true,
     },
     { name: 'password', label: 'Password', type: 'password' },
-    { name: 'ssl', label: 'Use SSL', type: 'switch', defaultValue: false, colSpan: 2 },
+    {
+      name: 'ssl',
+      label: 'Use SSL',
+      type: 'switch',
+      defaultValue: false,
+      colSpan: 2,
+    },
   ],
   schema: postgresSchema,
   fullSchema: z.object({ name: nameField, config: postgresSchema }),
   subtitle: (c) => `${c.host}:${c.port} / ${c.database || '—'}`,
-  TabComponent: PostgresTab as ComponentType<{ connection: Connection; tab: Tab }>,
-}
+  TabComponent: PostgresTab as ComponentType<{
+    connection: Connection;
+    tab: Tab;
+  }>,
+};
 
 const sqliteDef: ConnectionTypeDefinition<SqliteConfig> = {
   id: 'sqlite',
@@ -177,12 +206,15 @@ const sqliteDef: ConnectionTypeDefinition<SqliteConfig> = {
   schema: sqliteSchema,
   fullSchema: z.object({ name: nameField, config: sqliteSchema }),
   subtitle: (c) => c.filePath || 'No file selected',
-  TabComponent: SqliteTab as ComponentType<{ connection: Connection; tab: Tab }>,
+  TabComponent: SqliteTab as ComponentType<{
+    connection: Connection;
+    tab: Tab;
+  }>,
   fileDialogFilters: [
     { name: 'SQLite databases', extensions: ['db', 'sqlite', 'sqlite3'] },
     { name: 'All files', extensions: ['*'] },
   ],
-}
+};
 
 const openSearchDef: ConnectionTypeDefinition<OpenSearchConfig> = {
   id: 'opensearch',
@@ -206,7 +238,13 @@ const openSearchDef: ConnectionTypeDefinition<OpenSearchConfig> = {
       required: true,
       colSpan: 2,
     },
-    { name: 'host', label: 'Host', type: 'text', placeholder: 'localhost', required: true },
+    {
+      name: 'host',
+      label: 'Host',
+      type: 'text',
+      placeholder: 'localhost',
+      required: true,
+    },
     {
       name: 'port',
       label: 'Port',
@@ -216,13 +254,22 @@ const openSearchDef: ConnectionTypeDefinition<OpenSearchConfig> = {
     },
     { name: 'username', label: 'Username', type: 'text' },
     { name: 'password', label: 'Password', type: 'password' },
-    { name: 'ssl', label: 'Use SSL', type: 'switch', defaultValue: false, colSpan: 2 },
+    {
+      name: 'ssl',
+      label: 'Use SSL',
+      type: 'switch',
+      defaultValue: false,
+      colSpan: 2,
+    },
   ],
   schema: openSearchSchema,
   fullSchema: z.object({ name: nameField, config: openSearchSchema }),
   subtitle: (c) => `${c.host}:${c.port}`,
-  TabComponent: OpenSearchTab as ComponentType<{ connection: Connection; tab: Tab }>,
-}
+  TabComponent: OpenSearchTab as ComponentType<{
+    connection: Connection;
+    tab: Tab;
+  }>,
+};
 
 const rabbitmqSchema = z.object({
   host: z.string().min(1, 'Host is required'),
@@ -232,7 +279,7 @@ const rabbitmqSchema = z.object({
   username: z.string(),
   password: z.string(),
   tls: z.boolean(),
-})
+});
 
 const rabbitmqDef: ConnectionTypeDefinition<RabbitMQConfig> = {
   id: 'rabbitmq',
@@ -258,7 +305,13 @@ const rabbitmqDef: ConnectionTypeDefinition<RabbitMQConfig> = {
       required: true,
       colSpan: 2,
     },
-    { name: 'host', label: 'Host', type: 'text', placeholder: 'localhost', required: true },
+    {
+      name: 'host',
+      label: 'Host',
+      type: 'text',
+      placeholder: 'localhost',
+      required: true,
+    },
     {
       name: 'port',
       label: 'AMQP Port',
@@ -284,13 +337,23 @@ const rabbitmqDef: ConnectionTypeDefinition<RabbitMQConfig> = {
     },
     { name: 'username', label: 'Username', type: 'text', placeholder: 'guest' },
     { name: 'password', label: 'Password', type: 'password' },
-    { name: 'tls', label: 'Use TLS', type: 'switch', defaultValue: false, colSpan: 2 },
+    {
+      name: 'tls',
+      label: 'Use TLS',
+      type: 'switch',
+      defaultValue: false,
+      colSpan: 2,
+    },
   ],
   schema: rabbitmqSchema,
   fullSchema: z.object({ name: nameField, config: rabbitmqSchema }),
-  subtitle: (c) => `${c.host}:${c.port}${c.vhost !== '/' ? ` (vhost: ${c.vhost})` : ''}`,
-  TabComponent: RabbitMQTab as ComponentType<{ connection: Connection; tab: Tab }>,
-}
+  subtitle: (c) =>
+    `${c.host}:${c.port}${c.vhost !== '/' ? ` (vhost: ${c.vhost})` : ''}`,
+  TabComponent: RabbitMQTab as ComponentType<{
+    connection: Connection;
+    tab: Tab;
+  }>,
+};
 
 const redisDef: ConnectionTypeDefinition<RedisConfig> = {
   id: 'redis',
@@ -314,7 +377,13 @@ const redisDef: ConnectionTypeDefinition<RedisConfig> = {
       required: true,
       colSpan: 2,
     },
-    { name: 'host', label: 'Host', type: 'text', placeholder: 'localhost', required: true },
+    {
+      name: 'host',
+      label: 'Host',
+      type: 'text',
+      placeholder: 'localhost',
+      required: true,
+    },
     {
       name: 'port',
       label: 'Port',
@@ -331,13 +400,19 @@ const redisDef: ConnectionTypeDefinition<RedisConfig> = {
       min: 0,
       max: 15,
     },
-    { name: 'tls', label: 'Use TLS', type: 'switch', defaultValue: false, colSpan: 2 },
+    {
+      name: 'tls',
+      label: 'Use TLS',
+      type: 'switch',
+      defaultValue: false,
+      colSpan: 2,
+    },
   ],
   schema: redisSchema,
   fullSchema: z.object({ name: nameField, config: redisSchema }),
   subtitle: (c) => `${c.host}:${c.port}${c.db ? ` (db ${c.db})` : ''}`,
   TabComponent: RedisTab as ComponentType<{ connection: Connection; tab: Tab }>,
-}
+};
 
 const kafkaDef: ConnectionTypeDefinition<KafkaConfig> = {
   id: 'kafka',
@@ -361,7 +436,13 @@ const kafkaDef: ConnectionTypeDefinition<KafkaConfig> = {
       required: true,
       colSpan: 2,
     },
-    { name: 'host', label: 'Host', type: 'text', placeholder: 'localhost', required: true },
+    {
+      name: 'host',
+      label: 'Host',
+      type: 'text',
+      placeholder: 'localhost',
+      required: true,
+    },
     {
       name: 'port',
       label: 'Port',
@@ -371,15 +452,27 @@ const kafkaDef: ConnectionTypeDefinition<KafkaConfig> = {
     },
     { name: 'username', label: 'Username', type: 'text' },
     { name: 'password', label: 'Password', type: 'password' },
-    { name: 'tls', label: 'Use TLS', type: 'switch', defaultValue: false, colSpan: 2 },
+    {
+      name: 'tls',
+      label: 'Use TLS',
+      type: 'switch',
+      defaultValue: false,
+      colSpan: 2,
+    },
   ],
   schema: kafkaSchema,
   fullSchema: z.object({ name: nameField, config: kafkaSchema }),
   subtitle: (c) => `${c.host}:${c.port}`,
   TabComponent: KafkaTab as ComponentType<{ connection: Connection; tab: Tab }>,
-}
+};
 
-export type AnyConnectionConfig = PostgresConfig | SqliteConfig | OpenSearchConfig | RedisConfig | KafkaConfig | RabbitMQConfig
+export type AnyConnectionConfig =
+  | PostgresConfig
+  | SqliteConfig
+  | OpenSearchConfig
+  | RedisConfig
+  | KafkaConfig
+  | RabbitMQConfig;
 
 export type AnyConnectionTypeDefinition =
   | ConnectionTypeDefinition<PostgresConfig>
@@ -387,7 +480,7 @@ export type AnyConnectionTypeDefinition =
   | ConnectionTypeDefinition<OpenSearchConfig>
   | ConnectionTypeDefinition<RedisConfig>
   | ConnectionTypeDefinition<KafkaConfig>
-  | ConnectionTypeDefinition<RabbitMQConfig>
+  | ConnectionTypeDefinition<RabbitMQConfig>;
 
 export const CONNECTION_TYPES: ReadonlyArray<AnyConnectionTypeDefinition> = [
   postgresDef,
@@ -396,10 +489,12 @@ export const CONNECTION_TYPES: ReadonlyArray<AnyConnectionTypeDefinition> = [
   redisDef,
   kafkaDef,
   rabbitmqDef,
-]
+];
 
-export function getConnectionTypeDef(id: ConnectionType): AnyConnectionTypeDefinition {
-  const def = CONNECTION_TYPES.find((d) => d.id === id)
-  if (!def) throw new Error(`Unknown connection type: ${id}`)
-  return def
+export function getConnectionTypeDef(
+  id: ConnectionType,
+): AnyConnectionTypeDefinition {
+  const def = CONNECTION_TYPES.find((d) => d.id === id);
+  if (!def) throw new Error(`Unknown connection type: ${id}`);
+  return def;
 }
