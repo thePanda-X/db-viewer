@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"No tests configured yet\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "preview": "vite preview",
     "seed:opensearch": "npx tsx scripts/seed-opensearch.ts",
     "seed:kafka": "npx tsx scripts/seed-kafka.ts"
@@ -63,13 +64,15 @@
     "eslint": "^8.57.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "jsdom": "^24.1.3",
     "postcss": "^8.4.47",
     "prettier": "^3.8.4",
     "tailwindcss": "^3.4.13",
     "typescript": "^5.2.2",
     "vite": "^5.1.6",
     "vite-plugin-electron": "^0.28.6",
-    "vite-plugin-electron-renderer": "^0.14.5"
+    "vite-plugin-electron-renderer": "^0.14.5",
+    "vitest": "^1.6.1"
   },
   "main": "dist-electron/main.js"
 }
