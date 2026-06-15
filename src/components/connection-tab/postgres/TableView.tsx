@@ -52,8 +52,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { EditableCell } from './EditableCell'
+import { InlineAddRowCell, type AddRowColumn } from '../InlineAddRowCell'
+import { parseInsertDraft } from '../inlineAddRowUtils'
 import { ForeignKeyPicker } from '../ForeignKeyPicker'
-import type { ForeignKey, TableMeta } from '@/types/postgres'
+import { editableKindFor, type ForeignKey, type TableMeta } from '@/types/postgres'
 import type { PostgresConfig } from '@/types/connection'
 import type { RefreshRefHandle } from './PostgresSidebar'
 
@@ -145,10 +147,12 @@ export function TableView({
   const selectionAnchorRef = useRef<number | null>(null)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [insertError, setInsertError] = useState<string | null>(null)
+  const [newRowDraft, setNewRowDraft] = useState<Record<string, string> | null>(null)
   const [contextMenuState, setContextMenuState] = useState<{
     x: number
     y: number
-    rowIdx: number
+    rowIdx: number | null
   } | null>(null)
   // Structural seq — bumped whenever the table or filter changes. Guards
   // fetchMeta/fetchRelations/fetchCount so an in-flight stale fetch can't
@@ -322,6 +326,8 @@ export function TableView({
     setSaveError(null)
     setFailedRowIndex(null)
     setSelectedRows(new Set())
+    setInsertError(null)
+    setNewRowDraft(null)
     setContextMenuState(null)
   }, [schema, table])
 
@@ -338,6 +344,8 @@ export function TableView({
     setSaveError(null)
     setFailedRowIndex(null)
     setSelectedRows(new Set())
+    setInsertError(null)
+    setNewRowDraft(null)
     setContextMenuState(null)
   }, [filter?.column, filter?.value])
 
@@ -380,8 +388,9 @@ export function TableView({
     for (const cols of edits.values()) {
       if (cols.size > 0) count += 1
     }
+    if (newRowDraft) count += 1
     return count
-  }, [edits])
+  }, [edits, newRowDraft])
 
   const relationsByColumn = useMemo(() => {
     const map = new Map<string, ForeignKey>()
@@ -392,6 +401,17 @@ export function TableView({
     }
     return map
   }, [relations])
+
+  const addRowColumns: AddRowColumn[] = useMemo(() => (meta?.columns ?? []).map((col) => ({
+    name: col.name,
+    dataType: col.enumValues && col.enumValues.length > 0 ? `enum (${col.dataType})` : col.dataType,
+    kind: editableKindFor(col.udtName),
+    isNullable: col.isNullable,
+    isPrimaryKey: col.isPrimaryKey,
+    isGenerated: col.isGenerated,
+    autoGenerateUuid: col.isPrimaryKey && col.udtName === 'uuid',
+    enumValues: col.enumValues,
+  })), [meta?.columns])
 
   const incomingRelationsByColumn = useMemo(() => {
     const map = new Map<string, ForeignKey[]>()
@@ -515,24 +535,36 @@ export function TableView({
 
   const handleCopyRowJson = useCallback(() => {
     if (!contextMenuState) return
+    if (contextMenuState.rowIdx === null) return
     const row = originalRows[contextMenuState.rowIdx]
     if (!row) return
     void navigator.clipboard.writeText(JSON.stringify(row, null, 2))
     setContextMenuState(null)
   }, [contextMenuState, originalRows])
 
+  const handleTableContextMenu = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    if (target.closest('tr')) return
+    e.preventDefault()
+    setContextMenuState({ x: e.clientX, y: e.clientY, rowIdx: null })
+  }, [])
+
   const discardChanges = useCallback(() => {
     setEdits(new Map())
+    setNewRowDraft(null)
     setSaveError(null)
     setFailedRowIndex(null)
+    setInsertError(null)
   }, [])
 
   const handleSave = useCallback(async () => {
-    if (!meta || meta.primaryKey === null) return
-    if (edits.size === 0) return
+    if (!meta) return
+    if (edits.size > 0 && meta.primaryKey === null) return
+    if (edits.size === 0 && !newRowDraft) return
     setSaving(true)
     setSaveError(null)
     setFailedRowIndex(null)
+    setInsertError(null)
     const updates = Array.from(edits.entries()).map(([key, cols]) => {
       const original: Row = {}
       const changes: Row = {}
@@ -546,30 +578,51 @@ export function TableView({
       return { original, changes }
     })
     try {
-      const res = await api.postgres.saveChanges({
-        connectionId,
-        config,
-        request: {
-          database,
-          schema,
-          table,
-          primaryKey: meta.primaryKey,
-          updates,
-        },
-      })
-      if (res.ok) {
+      if (newRowDraft) {
+        const parsed = parseInsertDraft(addRowColumns, newRowDraft)
+        if (!parsed.ok) {
+          setInsertError(parsed.error)
+          return
+        }
+        const insertRes = await api.postgres.insertRow({
+          connectionId,
+          config,
+          request: { database, schema, table, values: parsed.values },
+        })
+        if (!insertRes.ok) {
+          setInsertError(insertRes.error)
+          return
+        }
+      }
+      if (updates.length > 0 && meta.primaryKey) {
+        const res = await api.postgres.saveChanges({
+          connectionId,
+          config,
+          request: {
+            database,
+            schema,
+            table,
+            primaryKey: meta.primaryKey,
+            updates,
+          },
+        })
+        if (!res.ok) {
+          setSaveError(res.error)
+          setFailedRowIndex(res.failedRowIndex ?? null)
+          return
+        }
+      }
+      if (newRowDraft || updates.length > 0) {
         setEdits(new Map())
+        setNewRowDraft(null)
         await Promise.all([fetchData(), fetchCount()])
-      } else {
-        setSaveError(res.error)
-        setFailedRowIndex(res.failedRowIndex ?? null)
       }
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : String(err))
     } finally {
       setSaving(false)
     }
-  }, [meta, edits, originalRows, connectionId, config, database, schema, table, fetchData, fetchCount])
+  }, [meta, edits, newRowDraft, addRowColumns, originalRows, connectionId, config, database, schema, table, fetchData, fetchCount])
 
   const handleDelete = useCallback(async () => {
     if (!meta || !meta.primaryKey) return
@@ -602,6 +655,12 @@ export function TableView({
       setDeleting(false)
     }
   }, [meta, selectedRows, originalRows, connectionId, config, database, schema, table, fetchData, fetchCount])
+
+  const startAddRow = useCallback(() => {
+    setInsertError(null)
+    setNewRowDraft((prev) => prev ?? {})
+    setContextMenuState(null)
+  }, [])
 
   const goPage = useCallback((nextOffset: number) => {
     if (pendingCount > 0 && onConfirmNavigationRequest) {
@@ -681,6 +740,10 @@ export function TableView({
   const handleFkSelect = useCallback(
     (value: unknown) => {
       if (!fkPickerState) return
+      if (fkPickerState.rowIdx === -1) {
+        setNewRowDraft((prev) => ({ ...prev, [fkPickerState.col]: value == null ? '' : String(value) }))
+        return
+      }
       setCellEdit(fkPickerState.rowIdx, fkPickerState.col, value)
     },
     [fkPickerState, setCellEdit],
@@ -691,6 +754,30 @@ export function TableView({
   const showRangeEnd = offset + originalRows.length
   const hasNextPage = originalRows.length === limit
   const hasPrevPage = offset > 0
+
+  const renderNewRow = () => (
+    <TableRow className="border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/10">
+      <TableCell className="w-10 align-top text-[10px] font-semibold uppercase text-amber-700 dark:text-amber-300">
+        New
+      </TableCell>
+      {addRowColumns.map((col) => {
+        const fk = relationsByColumn.get(col.name)
+        return (
+          <TableCell
+            key={col.name}
+            className={cn('align-top', col.isPrimaryKey && 'bg-primary/5')}
+          >
+            <InlineAddRowCell
+              column={col}
+              rawValue={newRowDraft?.[col.name] ?? ''}
+              onChange={(value) => setNewRowDraft((prev) => ({ ...(prev ?? {}), [col.name]: value }))}
+              onFkBrowse={fk ? () => handleOpenFkPicker(-1, col.name, fk) : undefined}
+            />
+          </TableCell>
+        )
+      })}
+    </TableRow>
+  )
 
   if (metaError) {
     return (
@@ -737,7 +824,17 @@ export function TableView({
         </div>
       )}
 
-      <div className="flex-1 overflow-auto">
+      {insertError && (
+        <div className="flex items-start gap-2 border-b border-destructive/30 bg-destructive/5 px-4 py-2 text-xs text-destructive">
+          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div className="flex-1">
+            <div className="font-medium">Insert failed — no row was added.</div>
+            <div className="mt-0.5 break-words">{insertError}</div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-auto" onContextMenu={handleTableContextMenu}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -803,24 +900,29 @@ export function TableView({
                 </TableCell>
               </TableRow>
             ) : originalRows.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={meta.columns.length + 1} className="h-32 text-center text-xs text-muted-foreground">
-                  {filter ? (
-                    <div className="mx-auto flex max-w-sm flex-col items-center gap-1.5">
-                      <span>No rows match the current filter.</span>
-                      {onClearFilter && (
-                        <Button size="sm" variant="outline" className="h-6 text-[11px]" onClick={onClearFilter}>
-                          Show full table
-                        </Button>
-                      )}
-                    </div>
-                  ) : (
-                    'No rows.'
-                  )}
-                </TableCell>
-              </TableRow>
+              <>
+                {newRowDraft && renderNewRow()}
+                <TableRow>
+                  <TableCell colSpan={meta.columns.length + 1} className="h-32 text-center text-xs text-muted-foreground">
+                    {filter ? (
+                      <div className="mx-auto flex max-w-sm flex-col items-center gap-1.5">
+                        <span>No rows match the current filter.</span>
+                        {onClearFilter && (
+                          <Button size="sm" variant="outline" className="h-6 text-[11px]" onClick={onClearFilter}>
+                            Show full table
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      'No rows.'
+                    )}
+                  </TableCell>
+                </TableRow>
+              </>
             ) : (
-              originalRows.map((row, rowIdx) => {
+              <>
+                {newRowDraft && renderNewRow()}
+                {originalRows.map((row, rowIdx) => {
                 const pk = meta.primaryKey
                 const key = rowKey(row, pk)
                 const rowEdits = edits.get(key)
@@ -887,7 +989,8 @@ export function TableView({
                     })}
                   </TableRow>
                 )
-              })
+                })}
+              </>
             )}
           </TableBody>
         </Table>
@@ -981,6 +1084,15 @@ export function TableView({
               {selectedRows.size} selected
             </span>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={startAddRow}
+            disabled={newRowDraft !== null}
+            className="h-7"
+          >
+            <span>Add row</span>
+          </Button>
           {pendingCount > 0 && (
             <Button
               size="sm"
@@ -1106,32 +1218,48 @@ export function TableView({
               className="min-w-[160px]"
               onCloseAutoFocus={(e) => e.preventDefault()}
             >
+              {contextMenuState.rowIdx !== null && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleCopyRowJson()
+                  }}
+                >
+                  <ClipboardCopy className="mr-2 h-3.5 w-3.5" />
+                  Copy row (JSON)
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
+                disabled={newRowDraft !== null}
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-                  handleCopyRowJson()
+                  startAddRow()
                 }}
               >
-                <ClipboardCopy className="mr-2 h-3.5 w-3.5" />
-                Copy row (JSON)
+                Add row
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                disabled={!hasPrimaryKey}
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  setContextMenuState(null)
-                  setConfirmDeleteOpen(true)
-                }}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-3.5 w-3.5" />
-                {selectedRows.size > 1
-                  ? `Delete ${selectedRows.size} rows`
-                  : 'Delete row'}
-              </DropdownMenuItem>
+              {contextMenuState.rowIdx !== null && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    disabled={!hasPrimaryKey}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setContextMenuState(null)
+                      setConfirmDeleteOpen(true)
+                    }}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="mr-2 h-3.5 w-3.5" />
+                    {selectedRows.size > 1
+                      ? `Delete ${selectedRows.size} rows`
+                      : 'Delete row'}
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenuPortal>
         </DropdownMenu>

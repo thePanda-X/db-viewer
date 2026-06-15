@@ -3,6 +3,8 @@ import type {
   ColumnMeta,
   DeleteRowsRequest,
   ForeignKey,
+  InsertRowRequest,
+  InsertRowResponse,
   QueryRequest,
   QueryResponse,
   SaveChangesRequest,
@@ -261,6 +263,24 @@ export async function saveChanges(
 
     runUpdates(req.updates)
     return { ok: true, updated }
+  } catch (err) {
+    return { ok: false, error: toErrorMessage(err) }
+  }
+}
+
+export async function insertRow(
+  connectionId: string,
+  filePath: string,
+  req: InsertRowRequest,
+): Promise<InsertRowResponse> {
+  const db = getDatabase(connectionId, filePath)
+  const entries = Object.entries(req.values)
+  try {
+    const sql = entries.length === 0
+      ? `INSERT INTO ${ident(req.table)} DEFAULT VALUES`
+      : `INSERT INTO ${ident(req.table)} (${entries.map(([col]) => ident(col)).join(', ')}) VALUES (${entries.map(() => '?').join(', ')})`
+    const info = db.prepare(sql).run(...entries.map(([, value]) => value))
+    return { ok: true, inserted: info.changes }
   } catch (err) {
     return { ok: false, error: toErrorMessage(err) }
   }

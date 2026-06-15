@@ -48,6 +48,14 @@ export type SqlDeleteRowsResponse =
   | { ok: true; deleted: number }
   | { ok: false; error: string }
 
+export interface SqlInsertRowRequest {
+  values: Record<string, unknown>
+}
+
+export type SqlInsertRowResponse =
+  | { ok: true; inserted: number }
+  | { ok: false; error: string }
+
 export interface SqlLookupRowsRequest {
   schema?: string
   table: string
