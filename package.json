@@ -1,5 +1,9 @@
 {
   "name": "db-vwr",
+  "author": {
+    "name": "thePandaX",
+    "email": "alex.asensi90@gmail.com"
+  },
   "private": true,
   "version": "0.0.0",
   "description": "Multi-database desktop viewer for PostgreSQL, SQLite, Redis, OpenSearch, Kafka, and RabbitMQ",
