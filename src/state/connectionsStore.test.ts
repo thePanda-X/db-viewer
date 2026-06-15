@@ -18,9 +18,8 @@ vi.mock('@/data/connectionTypes', () => ({
   getConnectionTypeDef: (id: string) => ({ label: `Label for ${id}` }),
 }));
 
-const { getConnectionTypeLabel, useConnectionsStore } = await import(
-  './connectionsStore'
-);
+const { getConnectionTypeLabel, useConnectionsStore } =
+  await import('./connectionsStore');
 
 const existingConnection: Connection = {
   id: 'conn-1',

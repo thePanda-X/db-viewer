@@ -5,7 +5,12 @@ function keyEvent(
   key: string,
   init: Partial<KeyboardEventInit> = {},
 ): KeyboardEvent {
-  return new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init });
+  return new KeyboardEvent('keydown', {
+    key,
+    bubbles: true,
+    cancelable: true,
+    ...init,
+  });
 }
 
 describe('hotkey registry', () => {
@@ -34,8 +39,16 @@ describe('hotkey registry', () => {
   it('prefers the most recently registered matching hotkey', () => {
     const first = vi.fn();
     const second = vi.fn();
-    const unregisterFirst = registerHotkey({ combo: 'Mod+K', allowInInputs: true, handler: first });
-    const unregisterSecond = registerHotkey({ combo: 'Mod+K', allowInInputs: true, handler: second });
+    const unregisterFirst = registerHotkey({
+      combo: 'Mod+K',
+      allowInInputs: true,
+      handler: first,
+    });
+    const unregisterSecond = registerHotkey({
+      combo: 'Mod+K',
+      allowInInputs: true,
+      handler: second,
+    });
 
     dispatchHotkey(keyEvent('k', { ctrlKey: true }));
 
@@ -49,14 +62,22 @@ describe('hotkey registry', () => {
     const skipped = vi.fn();
     const allowed = vi.fn();
     const input = document.createElement('input');
-    const unregisterSkipped = registerHotkey({ combo: 'Mod+K', allowInInputs: false, handler: skipped });
+    const unregisterSkipped = registerHotkey({
+      combo: 'Mod+K',
+      allowInInputs: false,
+      handler: skipped,
+    });
     const event = keyEvent('k', { ctrlKey: true });
     Object.defineProperty(event, 'target', { value: input });
 
     dispatchHotkey(event);
 
     expect(skipped).not.toHaveBeenCalled();
-    const unregisterAllowed = registerHotkey({ combo: 'Mod+K', allowInInputs: true, handler: allowed });
+    const unregisterAllowed = registerHotkey({
+      combo: 'Mod+K',
+      allowInInputs: true,
+      handler: allowed,
+    });
     dispatchHotkey(event);
     expect(allowed).toHaveBeenCalledOnce();
     unregisterAllowed();
@@ -72,7 +93,11 @@ describe('hotkey registry', () => {
       allowInInputs: true,
       handler: vi.fn(),
     });
-    const unregisterHidden = registerHotkey({ combo: 'Enter', allowInInputs: true, handler: vi.fn() });
+    const unregisterHidden = registerHotkey({
+      combo: 'Enter',
+      allowInInputs: true,
+      handler: vi.fn(),
+    });
 
     expect(listHotkeys()).toHaveLength(1);
     expect(listHotkeys()[0]).toMatchObject({ combo: 'Escape', label: 'Close' });
