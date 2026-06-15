@@ -1,12 +1,14 @@
 import { app } from 'electron'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { parseConnections } from '../shared/connectionSchema'
+import type { Connection } from '../src/types/connection'
 
 const FILE_VERSION = 1
 
 export interface ConnectionsFile {
   version: number
-  connections: unknown[]
+  connections: Connection[]
 }
 
 let cache: ConnectionsFile | null = null
@@ -30,7 +32,7 @@ async function readFromDisk(): Promise<ConnectionsFile> {
       parsed.version === FILE_VERSION &&
       Array.isArray(parsed.connections)
     ) {
-      return parsed
+      return { version: parsed.version, connections: parseConnections(parsed.connections) }
     }
     throw new Error('invalid shape')
   } catch (err) {
@@ -61,15 +63,16 @@ async function writeToDisk(data: ConnectionsFile): Promise<void> {
   cache = data
 }
 
-export async function listConnections(): Promise<unknown[]> {
+export async function listConnections(): Promise<Connection[]> {
   if (cache) return cache.connections
   const data = await readFromDisk()
   cache = data
   return data.connections
 }
 
-export async function setConnections(connections: unknown[]): Promise<unknown[]> {
-  const data: ConnectionsFile = { version: FILE_VERSION, connections }
+export async function setConnections(connections: unknown[]): Promise<Connection[]> {
+  const validConnections = parseConnections(connections)
+  const data: ConnectionsFile = { version: FILE_VERSION, connections: validConnections }
   await writeToDisk(data)
-  return connections
+  return validConnections
 }

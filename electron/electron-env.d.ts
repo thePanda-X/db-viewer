@@ -443,7 +443,6 @@ interface ExposedApi {
 }
 
 interface Window {
-  ipcRenderer: import('electron').IpcRenderer
   api: ExposedApi
 }
 
