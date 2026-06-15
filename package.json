@@ -12,6 +12,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && electron-builder --publish never",
+    "build:win": "tsc && vite build && electron-builder --publish never --win",
+    "build:mac": "tsc && vite build && electron-builder --publish never --mac",
+    "build:linux": "tsc && vite build && electron-builder --publish never --linux",
     "publish-build": "tsc && vite build && electron-builder",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "format": "prettier --write .",
