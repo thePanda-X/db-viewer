@@ -45,6 +45,64 @@ function toErrorMessage(err: unknown): string {
   return 'Unknown error'
 }
 
+function isLimitWrappedQuery(sql: string): boolean {
+  const normalized = sql.trim().replace(/^;+/, '').trimStart().toUpperCase()
+  return normalized.startsWith('SELECT') || normalized.startsWith('WITH')
+}
+
+function runSqliteReadOnlyStatement(
+  db: Database.Database,
+  sql: string,
+  params: unknown[],
+  maxRows: number,
+  started: number,
+): QueryResponse {
+  const originalStmt = db.prepare(sql)
+  if (!originalStmt.readonly) {
+    return { ok: false, error: 'Only read-only SQLite statements are allowed here.' }
+  }
+
+  if (!originalStmt.reader) {
+    originalStmt.run(...params)
+    return {
+      ok: true,
+      result: {
+        columns: [],
+        rows: [],
+        rowCount: 0,
+        affectedRows: null,
+        durationMs: Date.now() - started,
+        truncated: false,
+      },
+    }
+  }
+
+  const stmt = isLimitWrappedQuery(sql)
+    ? db.prepare(`SELECT * FROM (${sql}) LIMIT ?`)
+    : originalStmt
+  const rows = (isLimitWrappedQuery(sql)
+    ? stmt.all(...params, maxRows + 1)
+    : stmt.all(...params)) as Record<string, unknown>[]
+
+  const truncated = rows.length > maxRows
+  const limited = truncated ? rows.slice(0, maxRows) : rows
+  const columns = limited.length > 0
+    ? Object.keys(limited[0])
+    : originalStmt.columns().map((c) => c.name)
+
+  return {
+    ok: true,
+    result: {
+      columns,
+      rows: limited.map((r) => columns.map((c) => r[c])),
+      rowCount: rows.length,
+      affectedRows: null,
+      durationMs: Date.now() - started,
+      truncated,
+    },
+  }
+}
+
 export async function runQuery(
   connectionId: string,
   filePath: string,
@@ -122,7 +180,14 @@ export async function runReadOnlyQuery(
   filePath: string,
   req: QueryRequest,
 ): Promise<QueryResponse> {
-  return runQuery(connectionId, filePath, req)
+  const maxRows = req.maxRows ?? DEFAULT_MAX_ROWS
+  const started = Date.now()
+  try {
+    const db = getDatabase(connectionId, filePath)
+    return runSqliteReadOnlyStatement(db, req.sql.trim(), req.params ?? [], maxRows, started)
+  } catch (err) {
+    return { ok: false, error: toErrorMessage(err) }
+  }
 }
 
 export async function listTables(
