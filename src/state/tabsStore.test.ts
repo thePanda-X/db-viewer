@@ -33,7 +33,9 @@ const postgresConnection: Connection = {
 
 function resetTabsStore(): void {
   useTabsStore.setState({
-    tabs: [{ id: HOME_TAB_ID, connectionId: HOME_TAB_ID, title: 'Connections' }],
+    tabs: [
+      { id: HOME_TAB_ID, connectionId: HOME_TAB_ID, title: 'Connections' },
+    ],
     activeTabId: HOME_TAB_ID,
   });
 }
@@ -87,7 +89,10 @@ describe('useTabsStore', () => {
     useTabsStore.setState({
       tabs: [
         useTabsStore.getState().tabs[0],
-        { ...useTabsStore.getState().tabs[1], postgresView: { kind: 'default' } },
+        {
+          ...useTabsStore.getState().tabs[1],
+          postgresView: { kind: 'default' },
+        },
       ],
     });
 

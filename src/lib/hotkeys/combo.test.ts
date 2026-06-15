@@ -42,12 +42,24 @@ describe('hotkey combo helpers', () => {
       true,
     );
     expect(matches(parseCombo('Mod+K'), keyEvent('k'))).toBe(false);
-    expect(matches(parseCombo('Shift+ArrowUp'), keyEvent('ArrowUp', { shiftKey: true }))).toBe(true);
+    expect(
+      matches(
+        parseCombo('Shift+ArrowUp'),
+        keyEvent('ArrowUp', { shiftKey: true }),
+      ),
+    ).toBe(true);
   });
 
   it('matches question mark shortcuts from shifted slash', () => {
-    expect(matches(parseCombo('Shift+?'), keyEvent('/', { code: 'Slash', shiftKey: true }))).toBe(true);
-    expect(matches(parseCombo('Shift+?'), keyEvent('/', { code: 'Slash' }))).toBe(false);
+    expect(
+      matches(
+        parseCombo('Shift+?'),
+        keyEvent('/', { code: 'Slash', shiftKey: true }),
+      ),
+    ).toBe(true);
+    expect(
+      matches(parseCombo('Shift+?'), keyEvent('/', { code: 'Slash' })),
+    ).toBe(false);
   });
 
   it('detects editable targets', () => {
@@ -55,7 +67,9 @@ describe('hotkey combo helpers', () => {
     expect(isEditableTarget(document.createElement('textarea'))).toBe(true);
 
     const contentEditable = document.createElement('div');
-    Object.defineProperty(contentEditable, 'isContentEditable', { value: true });
+    Object.defineProperty(contentEditable, 'isContentEditable', {
+      value: true,
+    });
     expect(isEditableTarget(contentEditable)).toBe(true);
     expect(isEditableTarget(document.createElement('button'))).toBe(false);
   });

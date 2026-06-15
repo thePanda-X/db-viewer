@@ -3,9 +3,7 @@ import { cn, valuesEqual } from './utils';
 
 describe('cn', () => {
   it('merges conditional and conflicting tailwind classes', () => {
-    expect(cn('px-2 text-sm', false && 'hidden', 'px-4')).toBe(
-      'text-sm px-4',
-    );
+    expect(cn('px-2 text-sm', false && 'hidden', 'px-4')).toBe('text-sm px-4');
   });
 });
 
