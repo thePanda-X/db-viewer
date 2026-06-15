@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ChevronLeft,
@@ -8,20 +8,20 @@ import {
   Save,
   Trash2,
   Undo2,
-} from 'lucide-react'
-import { cn, valuesEqual } from '@/lib/utils'
-import { api } from '@/lib/api'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { useHotkey } from '@/lib/hotkeys'
-import { toast } from '@/state/toastStore'
+} from 'lucide-react';
+import { cn, valuesEqual } from '@/lib/utils';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useHotkey } from '@/lib/hotkeys';
+import { toast } from '@/state/toastStore';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -29,7 +29,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from '@/components/ui/table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,7 +39,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+} from '@/components/ui/alert-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,45 +47,45 @@ import {
   DropdownMenuPortal,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { EditableCell } from '../postgres/EditableCell'
-import { InlineAddRowCell, type AddRowColumn } from '../InlineAddRowCell'
-import { parseInsertDraft } from '../inlineAddRowUtils'
-import { ForeignKeyPicker } from '../ForeignKeyPicker'
-import type { TableMeta, ForeignKey } from '@/types/sqlite'
-import { editableKindFor as sqliteEditableKindFor } from '@/types/sqlite'
-import type { ColumnMeta as PostgresColumnMeta } from '@/types/postgres'
-import type { SqliteConfig } from '@/types/connection'
-import type { RefreshRefHandle } from './SqliteSidebar'
+} from '@/components/ui/dropdown-menu';
+import { EditableCell } from '../postgres/EditableCell';
+import { InlineAddRowCell, type AddRowColumn } from '../InlineAddRowCell';
+import { parseInsertDraft } from '../inlineAddRowUtils';
+import { ForeignKeyPicker } from '../ForeignKeyPicker';
+import type { TableMeta, ForeignKey } from '@/types/sqlite';
+import { editableKindFor as sqliteEditableKindFor } from '@/types/sqlite';
+import type { ColumnMeta as PostgresColumnMeta } from '@/types/postgres';
+import type { SqliteConfig } from '@/types/connection';
+import type { RefreshRefHandle } from './SqliteSidebar';
 
 interface SqliteTableViewProps {
-  connectionId: string
-  config: SqliteConfig
-  table: string
-  onPendingChangesChange?: (count: number) => void
-  onConfirmNavigationRequest?: (action: () => void) => void
-  refreshRef?: RefreshRefHandle
+  connectionId: string;
+  config: SqliteConfig;
+  table: string;
+  onPendingChangesChange?: (count: number) => void;
+  onConfirmNavigationRequest?: (action: () => void) => void;
+  refreshRef?: RefreshRefHandle;
 }
 
-const LIMIT_OPTIONS = [100, 250, 500, 1000] as const
+const LIMIT_OPTIONS = [100, 250, 500, 1000] as const;
 
-type Row = Record<string, unknown>
+type Row = Record<string, unknown>;
 
 function rowKey(row: Row, pk: string[] | null): string {
   if (pk && pk.length > 0) {
-    return pk.map((k) => String(row[k] ?? '')).join('::')
+    return pk.map((k) => String(row[k] ?? '')).join('::');
   }
-  return JSON.stringify(row)
+  return JSON.stringify(row);
 }
 
 function columnsToRowMap(columns: string[], rows: unknown[][]): Row[] {
   return rows.map((r) => {
-    const obj: Row = {}
+    const obj: Row = {};
     columns.forEach((c, i) => {
-      obj[c] = r[i]
-    })
-    return obj
-  })
+      obj[c] = r[i];
+    });
+    return obj;
+  });
 }
 
 export function SqliteTableView({
@@ -96,159 +96,165 @@ export function SqliteTableView({
   onConfirmNavigationRequest,
   refreshRef,
 }: SqliteTableViewProps) {
-  const [meta, setMeta] = useState<TableMeta | null>(null)
-  const [metaError, setMetaError] = useState<string | null>(null)
-  const [originalRows, setOriginalRows] = useState<Row[]>([])
-  const [edits, setEdits] = useState<Map<string, Map<string, unknown>>>(new Map())
-  const [loading, setLoading] = useState(false)
-  const [dataError, setDataError] = useState<string | null>(null)
-  const [limit, setLimit] = useState<number>(100)
-  const [offset, setOffset] = useState<number>(0)
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [failedRowIndex, setFailedRowIndex] = useState<number | null>(null)
-  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false)
-  const [relations, setRelations] = useState<ForeignKey[]>([])
+  const [meta, setMeta] = useState<TableMeta | null>(null);
+  const [metaError, setMetaError] = useState<string | null>(null);
+  const [originalRows, setOriginalRows] = useState<Row[]>([]);
+  const [edits, setEdits] = useState<Map<string, Map<string, unknown>>>(
+    new Map(),
+  );
+  const [loading, setLoading] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [limit, setLimit] = useState<number>(100);
+  const [offset, setOffset] = useState<number>(0);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [failedRowIndex, setFailedRowIndex] = useState<number | null>(null);
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+  const [relations, setRelations] = useState<ForeignKey[]>([]);
   const [fkPickerState, setFkPickerState] = useState<{
-    rowIdx: number
-    col: string
-    fk: ForeignKey
-  } | null>(null)
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
-  const selectionAnchorRef = useRef<number | null>(null)
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [insertError, setInsertError] = useState<string | null>(null)
-  const [newRowDraft, setNewRowDraft] = useState<Record<string, string> | null>(null)
+    rowIdx: number;
+    col: string;
+    fk: ForeignKey;
+  } | null>(null);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const selectionAnchorRef = useRef<number | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [insertError, setInsertError] = useState<string | null>(null);
+  const [newRowDraft, setNewRowDraft] = useState<Record<string, string> | null>(
+    null,
+  );
   const [contextMenuState, setContextMenuState] = useState<{
-    x: number
-    y: number
-    rowIdx: number | null
-  } | null>(null)
+    x: number;
+    y: number;
+    rowIdx: number | null;
+  } | null>(null);
 
-  const fetchSeq = useRef(0)
-  const dataSeq = useRef(0)
+  const fetchSeq = useRef(0);
+  const dataSeq = useRef(0);
 
   const fetchMeta = useCallback(async () => {
-    const seq = fetchSeq.current
-    setMetaError(null)
+    const seq = fetchSeq.current;
+    setMetaError(null);
     try {
       const result = await api.sqlite.getTableMeta({
         connectionId,
         filePath: config.filePath,
         table,
-      })
-      if (seq !== fetchSeq.current) return
+      });
+      if (seq !== fetchSeq.current) return;
       if (result.ok) {
-        setMeta(result.meta)
-        setEdits(new Map())
+        setMeta(result.meta);
+        setEdits(new Map());
       } else {
-        setMetaError(result.error)
+        setMetaError(result.error);
       }
     } catch (err) {
-      if (seq !== fetchSeq.current) return
-      setMetaError(err instanceof Error ? err.message : String(err))
+      if (seq !== fetchSeq.current) return;
+      setMetaError(err instanceof Error ? err.message : String(err));
     }
-  }, [connectionId, config.filePath, table])
+  }, [connectionId, config.filePath, table]);
 
   const fetchRelations = useCallback(async () => {
-    const seq = fetchSeq.current
+    const seq = fetchSeq.current;
     try {
       const result = await api.sqlite.getTableRelations({
         connectionId,
         filePath: config.filePath,
         table,
-      })
-      if (seq !== fetchSeq.current) return
+      });
+      if (seq !== fetchSeq.current) return;
       if (result.ok) {
-        setRelations(result.relations)
+        setRelations(result.relations);
       } else {
-        setRelations([])
+        setRelations([]);
       }
     } catch {
-      if (seq !== fetchSeq.current) return
-      setRelations([])
+      if (seq !== fetchSeq.current) return;
+      setRelations([]);
     }
-  }, [connectionId, config.filePath, table])
+  }, [connectionId, config.filePath, table]);
 
   const fetchData = useCallback(async () => {
-    const seq = ++dataSeq.current
-    setLoading(true)
-    setDataError(null)
-    setSaveError(null)
-    setFailedRowIndex(null)
+    const seq = ++dataSeq.current;
+    setLoading(true);
+    setDataError(null);
+    setSaveError(null);
+    setFailedRowIndex(null);
     try {
-      const sql = `SELECT * FROM ${quoteIdent(table)} LIMIT ? OFFSET ?`
+      const sql = `SELECT * FROM ${quoteIdent(table)} LIMIT ? OFFSET ?`;
       const result = await api.sqlite.readOnlyQuery({
         connectionId,
         filePath: config.filePath,
         request: { sql, params: [limit, offset] },
-      })
-      if (seq !== dataSeq.current) return
+      });
+      if (seq !== dataSeq.current) return;
       if (result.ok) {
-        setOriginalRows(columnsToRowMap(result.result.columns, result.result.rows))
-        setEdits(new Map())
-        setSelectedRows(new Set())
-        setContextMenuState(null)
+        setOriginalRows(
+          columnsToRowMap(result.result.columns, result.result.rows),
+        );
+        setEdits(new Map());
+        setSelectedRows(new Set());
+        setContextMenuState(null);
       } else {
-        setDataError(result.error)
+        setDataError(result.error);
       }
     } catch (err) {
-      if (seq !== dataSeq.current) return
-      setDataError(err instanceof Error ? err.message : String(err))
+      if (seq !== dataSeq.current) return;
+      setDataError(err instanceof Error ? err.message : String(err));
     } finally {
-      if (seq === dataSeq.current) setLoading(false)
+      if (seq === dataSeq.current) setLoading(false);
     }
-  }, [connectionId, config.filePath, table, limit, offset])
+  }, [connectionId, config.filePath, table, limit, offset]);
 
   useEffect(() => {
-    fetchSeq.current++
-    setOffset(0)
-    setMeta(null)
-    setMetaError(null)
-    setOriginalRows([])
-    setDataError(null)
-    setEdits(new Map())
-    setSaveError(null)
-    setFailedRowIndex(null)
-    setSelectedRows(new Set())
-    setInsertError(null)
-    setNewRowDraft(null)
-    setContextMenuState(null)
-  }, [table])
+    fetchSeq.current++;
+    setOffset(0);
+    setMeta(null);
+    setMetaError(null);
+    setOriginalRows([]);
+    setDataError(null);
+    setEdits(new Map());
+    setSaveError(null);
+    setFailedRowIndex(null);
+    setSelectedRows(new Set());
+    setInsertError(null);
+    setNewRowDraft(null);
+    setContextMenuState(null);
+  }, [table]);
 
   useEffect(() => {
-    void fetchMeta()
-  }, [fetchMeta])
+    void fetchMeta();
+  }, [fetchMeta]);
 
   useEffect(() => {
-    void fetchRelations()
-  }, [fetchRelations])
+    void fetchRelations();
+  }, [fetchRelations]);
 
   useEffect(() => {
-    void fetchData()
-  }, [fetchData])
+    void fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
-    if (!refreshRef) return
+    if (!refreshRef) return;
     refreshRef.current = () => {
-      void fetchMeta()
-      void fetchRelations()
-      void fetchData()
-    }
+      void fetchMeta();
+      void fetchRelations();
+      void fetchData();
+    };
     return () => {
-      if (refreshRef) refreshRef.current = null
-    }
-  }, [refreshRef, fetchMeta, fetchRelations, fetchData])
+      if (refreshRef) refreshRef.current = null;
+    };
+  }, [refreshRef, fetchMeta, fetchRelations, fetchData]);
 
   const pendingCount = useMemo(() => {
-    let count = 0
+    let count = 0;
     for (const cols of edits.values()) {
-      if (cols.size > 0) count += 1
+      if (cols.size > 0) count += 1;
     }
-    if (newRowDraft) count += 1
-    return count
-  }, [edits, newRowDraft])
+    if (newRowDraft) count += 1;
+    return count;
+  }, [edits, newRowDraft]);
 
   useHotkey('Mod+S', {
     label: 'Save changes',
@@ -257,175 +263,182 @@ export function SqliteTableView({
     allowInInputs: true,
     handler: () => {
       if (pendingCount === 0) {
-        toast({ message: 'No changes to save', variant: 'info' })
-        return
+        toast({ message: 'No changes to save', variant: 'info' });
+        return;
       }
-      setConfirmSaveOpen(true)
+      setConfirmSaveOpen(true);
     },
-  })
+  });
 
   useEffect(() => {
-    onPendingChangesChange?.(pendingCount)
-  }, [pendingCount, onPendingChangesChange])
+    onPendingChangesChange?.(pendingCount);
+  }, [pendingCount, onPendingChangesChange]);
 
-  const setCellEdit = useCallback((rowIdx: number, col: string, value: unknown) => {
-    const row = originalRows[rowIdx]
-    if (!row) return
-    const pk = meta?.primaryKey ?? null
-    const key = rowKey(row, pk)
-    setEdits((prev) => {
-      const next = new Map(prev)
-      const existing = new Map(next.get(key) ?? new Map<string, unknown>())
-      const original = row[col]
-      if (valuesEqual(value, original)) {
-        existing.delete(col)
-      } else {
-        existing.set(col, value)
-      }
-      if (existing.size === 0) {
-        next.delete(key)
-      } else {
-        next.set(key, existing)
-      }
-      return next
-    })
-  }, [originalRows, meta])
+  const setCellEdit = useCallback(
+    (rowIdx: number, col: string, value: unknown) => {
+      const row = originalRows[rowIdx];
+      if (!row) return;
+      const pk = meta?.primaryKey ?? null;
+      const key = rowKey(row, pk);
+      setEdits((prev) => {
+        const next = new Map(prev);
+        const existing = new Map(next.get(key) ?? new Map<string, unknown>());
+        const original = row[col];
+        if (valuesEqual(value, original)) {
+          existing.delete(col);
+        } else {
+          existing.set(col, value);
+        }
+        if (existing.size === 0) {
+          next.delete(key);
+        } else {
+          next.set(key, existing);
+        }
+        return next;
+      });
+    },
+    [originalRows, meta],
+  );
 
-  const pkColumns = meta?.primaryKey ?? null
+  const pkColumns = meta?.primaryKey ?? null;
 
-  const addRowColumns: AddRowColumn[] = useMemo(() => (meta?.columns ?? []).map((col) => ({
-    name: col.name,
-    dataType: col.dataType,
-    kind: sqliteEditableKindFor(col.dataType),
-    isNullable: col.isNullable,
-    isPrimaryKey: col.isPrimaryKey,
-  })), [meta?.columns])
+  const addRowColumns: AddRowColumn[] = useMemo(
+    () =>
+      (meta?.columns ?? []).map((col) => ({
+        name: col.name,
+        dataType: col.dataType,
+        kind: sqliteEditableKindFor(col.dataType),
+        isNullable: col.isNullable,
+        isPrimaryKey: col.isPrimaryKey,
+      })),
+    [meta?.columns],
+  );
 
   const toggleRowSelection = useCallback(
     (rowIdx: number) => {
-      const key = rowKey(originalRows[rowIdx], pkColumns)
+      const key = rowKey(originalRows[rowIdx], pkColumns);
       setSelectedRows((prev) => {
-        const next = new Set(prev)
-        if (next.has(key)) next.delete(key)
-        else next.add(key)
-        return next
-      })
-      selectionAnchorRef.current = rowIdx
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+      selectionAnchorRef.current = rowIdx;
     },
     [originalRows, pkColumns],
-  )
+  );
 
   const handleRowClick = useCallback(
     (rowIdx: number, e: React.MouseEvent) => {
-      const key = rowKey(originalRows[rowIdx], pkColumns)
+      const key = rowKey(originalRows[rowIdx], pkColumns);
       if (e.shiftKey && selectionAnchorRef.current !== null) {
-        const start = Math.min(selectionAnchorRef.current, rowIdx)
-        const end = Math.max(selectionAnchorRef.current, rowIdx)
+        const start = Math.min(selectionAnchorRef.current, rowIdx);
+        const end = Math.max(selectionAnchorRef.current, rowIdx);
         setSelectedRows((prev) => {
-          const next = new Set(prev)
+          const next = new Set(prev);
           for (let i = start; i <= end; i++) {
-            next.add(rowKey(originalRows[i], pkColumns))
+            next.add(rowKey(originalRows[i], pkColumns));
           }
-          return next
-        })
+          return next;
+        });
       } else if (e.ctrlKey || e.metaKey) {
-        toggleRowSelection(rowIdx)
+        toggleRowSelection(rowIdx);
       } else {
         setSelectedRows((prev) => {
           if (prev.size === 1 && prev.has(key)) {
-            return new Set()
+            return new Set();
           }
-          return new Set([key])
-        })
-        selectionAnchorRef.current = rowIdx
+          return new Set([key]);
+        });
+        selectionAnchorRef.current = rowIdx;
       }
     },
     [originalRows, pkColumns, toggleRowSelection],
-  )
+  );
 
   const handleSelectAll = useCallback(() => {
-    const pk = meta?.primaryKey ?? null
+    const pk = meta?.primaryKey ?? null;
     if (selectedRows.size === originalRows.length && originalRows.length > 0) {
-      setSelectedRows(new Set())
+      setSelectedRows(new Set());
     } else {
-      const all = new Set(originalRows.map((r) => rowKey(r, pk)))
-      setSelectedRows(all)
+      const all = new Set(originalRows.map((r) => rowKey(r, pk)));
+      setSelectedRows(all);
     }
-  }, [originalRows, meta?.primaryKey, selectedRows.size])
+  }, [originalRows, meta?.primaryKey, selectedRows.size]);
 
   const handleRowContextMenu = useCallback(
     (rowIdx: number, e: React.MouseEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      const key = rowKey(originalRows[rowIdx], pkColumns)
+      e.preventDefault();
+      e.stopPropagation();
+      const key = rowKey(originalRows[rowIdx], pkColumns);
       setSelectedRows((prev) => {
-        if (!prev.has(key)) return new Set([key])
-        return prev
-      })
-      setContextMenuState({ x: e.clientX, y: e.clientY, rowIdx })
+        if (!prev.has(key)) return new Set([key]);
+        return prev;
+      });
+      setContextMenuState({ x: e.clientX, y: e.clientY, rowIdx });
     },
     [originalRows, pkColumns],
-  )
+  );
 
   const handleCopyRowJson = useCallback(() => {
-    if (!contextMenuState) return
-    if (contextMenuState.rowIdx === null) return
-    const row = originalRows[contextMenuState.rowIdx]
-    if (!row) return
-    void navigator.clipboard.writeText(JSON.stringify(row, null, 2))
-    setContextMenuState(null)
-  }, [contextMenuState, originalRows])
+    if (!contextMenuState) return;
+    if (contextMenuState.rowIdx === null) return;
+    const row = originalRows[contextMenuState.rowIdx];
+    if (!row) return;
+    void navigator.clipboard.writeText(JSON.stringify(row, null, 2));
+    setContextMenuState(null);
+  }, [contextMenuState, originalRows]);
 
   const handleTableContextMenu = useCallback((e: React.MouseEvent) => {
-    const target = e.target as HTMLElement
-    if (target.closest('tr')) return
-    e.preventDefault()
-    setContextMenuState({ x: e.clientX, y: e.clientY, rowIdx: null })
-  }, [])
+    const target = e.target as HTMLElement;
+    if (target.closest('tr')) return;
+    e.preventDefault();
+    setContextMenuState({ x: e.clientX, y: e.clientY, rowIdx: null });
+  }, []);
 
   const discardChanges = useCallback(() => {
-    setEdits(new Map())
-    setNewRowDraft(null)
-    setSaveError(null)
-    setFailedRowIndex(null)
-    setInsertError(null)
-  }, [])
+    setEdits(new Map());
+    setNewRowDraft(null);
+    setSaveError(null);
+    setFailedRowIndex(null);
+    setInsertError(null);
+  }, []);
 
   const handleSave = useCallback(async () => {
-    if (!meta) return
-    if (edits.size > 0 && meta.primaryKey === null) return
-    if (edits.size === 0 && !newRowDraft) return
-    setSaving(true)
-    setSaveError(null)
-    setFailedRowIndex(null)
-    setInsertError(null)
+    if (!meta) return;
+    if (edits.size > 0 && meta.primaryKey === null) return;
+    if (edits.size === 0 && !newRowDraft) return;
+    setSaving(true);
+    setSaveError(null);
+    setFailedRowIndex(null);
+    setInsertError(null);
     const updates = Array.from(edits.entries()).map(([key, cols]) => {
-      const original: Row = {}
-      const changes: Row = {}
+      const original: Row = {};
+      const changes: Row = {};
       for (const row of originalRows) {
         if (rowKey(row, meta.primaryKey) === key) {
-          for (const c of meta.columns) original[c.name] = row[c.name]
-          break
+          for (const c of meta.columns) original[c.name] = row[c.name];
+          break;
         }
       }
-      for (const [col, value] of cols.entries()) changes[col] = value
-      return { original, changes }
-    })
+      for (const [col, value] of cols.entries()) changes[col] = value;
+      return { original, changes };
+    });
     try {
       if (newRowDraft) {
-        const parsed = parseInsertDraft(addRowColumns, newRowDraft)
+        const parsed = parseInsertDraft(addRowColumns, newRowDraft);
         if (!parsed.ok) {
-          setInsertError(parsed.error)
-          return
+          setInsertError(parsed.error);
+          return;
         }
         const insertRes = await api.sqlite.insertRow({
           connectionId,
           filePath: config.filePath,
           request: { table, values: parsed.values },
-        })
+        });
         if (!insertRes.ok) {
-          setInsertError(insertRes.error)
-          return
+          setInsertError(insertRes.error);
+          return;
         }
       }
       if (updates.length > 0 && meta.primaryKey) {
@@ -437,32 +450,42 @@ export function SqliteTableView({
             primaryKey: meta.primaryKey,
             updates,
           },
-        })
+        });
         if (!res.ok) {
-          setSaveError(res.error)
-          setFailedRowIndex(res.failedRowIndex ?? null)
-          return
+          setSaveError(res.error);
+          setFailedRowIndex(res.failedRowIndex ?? null);
+          return;
         }
       }
       if (newRowDraft || updates.length > 0) {
-        setEdits(new Map())
-        setNewRowDraft(null)
-        await fetchData()
+        setEdits(new Map());
+        setNewRowDraft(null);
+        await fetchData();
       }
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : String(err))
+      setSaveError(err instanceof Error ? err.message : String(err));
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }, [meta, edits, newRowDraft, addRowColumns, originalRows, connectionId, config.filePath, table, fetchData])
+  }, [
+    meta,
+    edits,
+    newRowDraft,
+    addRowColumns,
+    originalRows,
+    connectionId,
+    config.filePath,
+    table,
+    fetchData,
+  ]);
 
   const handleDelete = useCallback(async () => {
-    if (!meta || !meta.primaryKey) return
-    setDeleting(true)
+    if (!meta || !meta.primaryKey) return;
+    setDeleting(true);
     try {
       const rowsToDelete = originalRows.filter((r) =>
         selectedRows.has(rowKey(r, meta.primaryKey)),
-      )
+      );
       const res = await api.sqlite.deleteRows({
         connectionId,
         filePath: config.filePath,
@@ -471,86 +494,106 @@ export function SqliteTableView({
           primaryKey: meta.primaryKey,
           rows: rowsToDelete,
         },
-      })
+      });
       if (res.ok) {
-        setSelectedRows(new Set())
-        setConfirmDeleteOpen(false)
-        await fetchData()
+        setSelectedRows(new Set());
+        setConfirmDeleteOpen(false);
+        await fetchData();
       } else {
-        toast({ message: `Delete failed: ${res.error}`, variant: 'error' })
+        toast({ message: `Delete failed: ${res.error}`, variant: 'error' });
       }
     } catch (err) {
-      toast({ message: err instanceof Error ? err.message : String(err), variant: 'error' })
+      toast({
+        message: err instanceof Error ? err.message : String(err),
+        variant: 'error',
+      });
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
-  }, [meta, selectedRows, originalRows, connectionId, config.filePath, table, fetchData])
+  }, [
+    meta,
+    selectedRows,
+    originalRows,
+    connectionId,
+    config.filePath,
+    table,
+    fetchData,
+  ]);
 
   const startAddRow = useCallback(() => {
-    setInsertError(null)
-    setNewRowDraft((prev) => prev ?? {})
-    setContextMenuState(null)
-  }, [])
+    setInsertError(null);
+    setNewRowDraft((prev) => prev ?? {});
+    setContextMenuState(null);
+  }, []);
 
-  const goPage = useCallback((nextOffset: number) => {
-    if (pendingCount > 0 && onConfirmNavigationRequest) {
-      onConfirmNavigationRequest(() => {
-        discardChanges()
-        setOffset(nextOffset)
-      })
-    } else {
-      setOffset(nextOffset)
-    }
-  }, [pendingCount, onConfirmNavigationRequest, discardChanges])
+  const goPage = useCallback(
+    (nextOffset: number) => {
+      if (pendingCount > 0 && onConfirmNavigationRequest) {
+        onConfirmNavigationRequest(() => {
+          discardChanges();
+          setOffset(nextOffset);
+        });
+      } else {
+        setOffset(nextOffset);
+      }
+    },
+    [pendingCount, onConfirmNavigationRequest, discardChanges],
+  );
 
-  const changeLimit = useCallback((next: number) => {
-    if (pendingCount > 0 && onConfirmNavigationRequest) {
-      onConfirmNavigationRequest(() => {
-        discardChanges()
-        setLimit(next)
-        setOffset(0)
-      })
-    } else {
-      setLimit(next)
-      setOffset(0)
-    }
-  }, [pendingCount, onConfirmNavigationRequest, discardChanges])
+  const changeLimit = useCallback(
+    (next: number) => {
+      if (pendingCount > 0 && onConfirmNavigationRequest) {
+        onConfirmNavigationRequest(() => {
+          discardChanges();
+          setLimit(next);
+          setOffset(0);
+        });
+      } else {
+        setLimit(next);
+        setOffset(0);
+      }
+    },
+    [pendingCount, onConfirmNavigationRequest, discardChanges],
+  );
 
   const relationsByColumn = useMemo(() => {
-    const map = new Map<string, ForeignKey>()
+    const map = new Map<string, ForeignKey>();
     for (const r of relations) {
-      map.set(r.column, r)
+      map.set(r.column, r);
     }
-    return map
-  }, [relations])
+    return map;
+  }, [relations]);
 
-  const handleOpenFkPicker = useCallback((rowIdx: number, col: string, fk: ForeignKey) => {
-    setFkPickerState({ rowIdx, col, fk })
-  }, [])
+  const handleOpenFkPicker = useCallback(
+    (rowIdx: number, col: string, fk: ForeignKey) => {
+      setFkPickerState({ rowIdx, col, fk });
+    },
+    [],
+  );
 
   const handleCloseFkPicker = useCallback(() => {
-    setFkPickerState(null)
-  }, [])
+    setFkPickerState(null);
+  }, []);
 
   const fetchFkRows = useCallback(
     async (search?: string) => {
-      if (!fkPickerState) return { columns: [], rows: [] }
-      const { fk } = fkPickerState
+      if (!fkPickerState) return { columns: [], rows: [] };
+      const { fk } = fkPickerState;
 
-      let displayCols: string[] = [fk.referencedColumn]
+      let displayCols: string[] = [fk.referencedColumn];
       try {
         const metaResult = await api.sqlite.getTableMeta({
           connectionId,
           filePath: config.filePath,
           table: fk.referencedTable,
-        })
+        });
         if (metaResult.ok) {
-          const meta = metaResult.meta
-          const allCols = meta.columns.map((c) => c.name)
+          const meta = metaResult.meta;
+          const allCols = meta.columns.map((c) => c.name);
           displayCols = [
             fk.referencedColumn,
             ...allCols.filter((c) => c !== fk.referencedColumn),
-          ]
+          ];
         }
       } catch {
         // fall back to just the referenced column
@@ -561,32 +604,37 @@ export function SqliteTableView({
         filePath: config.filePath,
         table: fk.referencedTable,
         columns: displayCols,
-        ...(search ? { search: { column: fk.referencedColumn, query: search } } : {}),
+        ...(search
+          ? { search: { column: fk.referencedColumn, query: search } }
+          : {}),
         limit: 50,
-      })
-      if (!result.ok) throw new Error(result.error)
-      return result.result
+      });
+      if (!result.ok) throw new Error(result.error);
+      return result.result;
     },
     [connectionId, config.filePath, fkPickerState],
-  )
+  );
 
   const handleFkSelect = useCallback(
     (value: unknown) => {
-      if (!fkPickerState) return
+      if (!fkPickerState) return;
       if (fkPickerState.rowIdx === -1) {
-        setNewRowDraft((prev) => ({ ...prev, [fkPickerState.col]: value == null ? '' : String(value) }))
-        return
+        setNewRowDraft((prev) => ({
+          ...prev,
+          [fkPickerState.col]: value == null ? '' : String(value),
+        }));
+        return;
       }
-      setCellEdit(fkPickerState.rowIdx, fkPickerState.col, value)
+      setCellEdit(fkPickerState.rowIdx, fkPickerState.col, value);
     },
     [fkPickerState, setCellEdit],
-  )
+  );
 
-  const hasPrimaryKey = meta?.primaryKey != null
-  const showRangeStart = offset + 1
-  const showRangeEnd = offset + originalRows.length
-  const hasNextPage = originalRows.length === limit
-  const hasPrevPage = offset > 0
+  const hasPrimaryKey = meta?.primaryKey != null;
+  const showRangeStart = offset + 1;
+  const showRangeEnd = offset + originalRows.length;
+  const hasNextPage = originalRows.length === limit;
+  const hasPrevPage = offset > 0;
 
   const renderNewRow = () => (
     <TableRow className="border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/10">
@@ -594,7 +642,7 @@ export function SqliteTableView({
         New
       </TableCell>
       {addRowColumns.map((col) => {
-        const fk = relationsByColumn.get(col.name)
+        const fk = relationsByColumn.get(col.name);
         return (
           <TableCell
             key={col.name}
@@ -603,28 +651,44 @@ export function SqliteTableView({
             <InlineAddRowCell
               column={col}
               rawValue={newRowDraft?.[col.name] ?? ''}
-              onChange={(value) => setNewRowDraft((prev) => ({ ...(prev ?? {}), [col.name]: value }))}
-              onFkBrowse={fk ? () => handleOpenFkPicker(-1, col.name, fk) : undefined}
+              onChange={(value) =>
+                setNewRowDraft((prev) => ({
+                  ...(prev ?? {}),
+                  [col.name]: value,
+                }))
+              }
+              onFkBrowse={
+                fk ? () => handleOpenFkPicker(-1, col.name, fk) : undefined
+              }
             />
           </TableCell>
-        )
+        );
       })}
     </TableRow>
-  )
+  );
 
   if (metaError) {
     return (
       <div className="flex h-full items-center justify-center p-8">
         <div className="flex max-w-md flex-col items-center gap-2 text-center">
           <AlertCircle className="h-6 w-6 text-destructive" />
-          <h3 className="text-sm font-semibold">Failed to load table metadata</h3>
-          <p className="break-words text-xs text-muted-foreground">{metaError}</p>
-          <Button size="sm" variant="outline" className="mt-2" onClick={() => void fetchMeta()}>
+          <h3 className="text-sm font-semibold">
+            Failed to load table metadata
+          </h3>
+          <p className="break-words text-xs text-muted-foreground">
+            {metaError}
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-2"
+            onClick={() => void fetchMeta()}
+          >
             Retry
           </Button>
         </div>
       </div>
-    )
+    );
   }
 
   if (!meta) {
@@ -632,7 +696,7 @@ export function SqliteTableView({
       <div className="flex h-full items-center justify-center">
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
-    )
+    );
   }
 
   return (
@@ -641,8 +705,9 @@ export function SqliteTableView({
         <div className="flex items-start gap-2 border-b border-border bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
-            Table <span className="font-mono">{table}</span> has no primary key — inline editing is
-            disabled. Add a primary key to enable cell edits.
+            Table <span className="font-mono">{table}</span> has no primary key
+            — inline editing is disabled. Add a primary key to enable cell
+            edits.
           </span>
         </div>
       )}
@@ -651,7 +716,9 @@ export function SqliteTableView({
         <div className="flex items-start gap-2 border-b border-destructive/30 bg-destructive/5 px-4 py-2 text-xs text-destructive">
           <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <div className="flex-1">
-            <div className="font-medium">Save failed — no changes were applied.</div>
+            <div className="font-medium">
+              Save failed — no changes were applied.
+            </div>
             <div className="mt-0.5 break-words">{saveError}</div>
           </div>
         </div>
@@ -667,14 +734,18 @@ export function SqliteTableView({
         </div>
       )}
 
-      <div className="flex-1 overflow-auto" onContextMenu={handleTableContextMenu}>
+      <div
+        className="flex-1 overflow-auto"
+        onContextMenu={handleTableContextMenu}
+      >
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
                 <Checkbox
                   checked={
-                    originalRows.length > 0 && selectedRows.size === originalRows.length
+                    originalRows.length > 0 &&
+                    selectedRows.size === originalRows.length
                       ? true
                       : selectedRows.size > 0
                         ? 'indeterminate'
@@ -707,17 +778,29 @@ export function SqliteTableView({
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={meta.columns.length + 1} className="h-32 text-center">
+                <TableCell
+                  colSpan={meta.columns.length + 1}
+                  className="h-32 text-center"
+                >
                   <Loader2 className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
                 </TableCell>
               </TableRow>
             ) : dataError ? (
               <TableRow>
-                <TableCell colSpan={meta.columns.length + 1} className="h-32 text-center">
+                <TableCell
+                  colSpan={meta.columns.length + 1}
+                  className="h-32 text-center"
+                >
                   <div className="mx-auto flex max-w-md flex-col items-center gap-2">
                     <AlertCircle className="h-4 w-4 text-destructive" />
-                    <p className="break-words text-xs text-destructive">{dataError}</p>
-                    <Button size="sm" variant="outline" onClick={() => void fetchData()}>
+                    <p className="break-words text-xs text-destructive">
+                      {dataError}
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => void fetchData()}
+                    >
                       Retry
                     </Button>
                   </div>
@@ -727,7 +810,10 @@ export function SqliteTableView({
               <>
                 {newRowDraft && renderNewRow()}
                 <TableRow>
-                  <TableCell colSpan={meta.columns.length + 1} className="h-32 text-center text-xs text-muted-foreground">
+                  <TableCell
+                    colSpan={meta.columns.length + 1}
+                    className="h-32 text-center text-xs text-muted-foreground"
+                  >
                     No rows found.
                   </TableCell>
                 </TableRow>
@@ -736,72 +822,92 @@ export function SqliteTableView({
               <>
                 {newRowDraft && renderNewRow()}
                 {originalRows.map((row, rowIdx) => {
-                const pk = meta.primaryKey
-                const key = rowKey(row, pk)
-                const rowEdits = edits.get(key)
-                const rowIsDirty = rowEdits !== undefined && rowEdits.size > 0
-                const isFailed = failedRowIndex !== null && failedRowIndex === rowIdx
-                const isSelected = selectedRows.has(key)
-                return (
-                  <TableRow
-                    key={key}
-                    data-state={rowIsDirty ? 'selected' : undefined}
-                    data-selected={isSelected ? 'true' : undefined}
-                    onClick={(e) => handleRowClick(rowIdx, e)}
-                    onContextMenu={(e) => handleRowContextMenu(rowIdx, e)}
-                    className={cn(
-                      'cursor-pointer',
-                      rowIsDirty && 'bg-amber-500/5 hover:bg-amber-500/10',
-                      isSelected && 'bg-primary/5',
-                      isFailed && 'border border-destructive/50 bg-destructive/10',
-                    )}
-                  >
-                    <TableCell className="w-10 align-top" onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleRowSelection(rowIdx)}
-                        aria-label={`Select row ${rowIdx + 1}`}
-                      />
-                    </TableCell>
-                    {meta.columns.map((col) => {
-                      const edited = rowEdits?.get(col.name)
-                      const current = edited !== undefined ? edited : row[col.name]
-                      const fk = relationsByColumn.get(col.name)
-                      return (
-                        <TableCell
-                          key={col.name}
-                          className={cn(
-                            'align-top',
-                            col.isPrimaryKey && 'bg-primary/5',
-                          )}
-                        >
-                          <EditableCell
-                            value={current}
-                            original={row[col.name]}
-                            // Map Sqlite ColumnMeta to Postgres ColumnMeta shape for EditableCell
-                            column={{
-                              name: col.name,
-                              dataType: col.dataType,
-                              udtName: sqliteUdtNameFor(col.dataType),
-                              isNullable: col.isNullable,
-                              isGenerated: false,
-                              isPrimaryKey: col.isPrimaryKey,
-                            } as unknown as PostgresColumnMeta}
-                            disabled={!hasPrimaryKey}
-                            onCommit={(next) => setCellEdit(rowIdx, col.name, next)}
-                            onCancel={() => {}}
-                            navigateTo={fk && current !== null && current !== undefined ? {
-                              table: fk.referencedTable,
-                              referencedColumn: fk.referencedColumn,
-                              onClick: () => {},
-                            } : undefined}
-                            onFkBrowse={fk ? () => handleOpenFkPicker(rowIdx, col.name, fk) : undefined}
-                          />
-                        </TableCell>
-                      )
-                    })}
-                  </TableRow>
-                )
+                  const pk = meta.primaryKey;
+                  const key = rowKey(row, pk);
+                  const rowEdits = edits.get(key);
+                  const rowIsDirty =
+                    rowEdits !== undefined && rowEdits.size > 0;
+                  const isFailed =
+                    failedRowIndex !== null && failedRowIndex === rowIdx;
+                  const isSelected = selectedRows.has(key);
+                  return (
+                    <TableRow
+                      key={key}
+                      data-state={rowIsDirty ? 'selected' : undefined}
+                      data-selected={isSelected ? 'true' : undefined}
+                      onClick={(e) => handleRowClick(rowIdx, e)}
+                      onContextMenu={(e) => handleRowContextMenu(rowIdx, e)}
+                      className={cn(
+                        'cursor-pointer',
+                        rowIsDirty && 'bg-amber-500/5 hover:bg-amber-500/10',
+                        isSelected && 'bg-primary/5',
+                        isFailed &&
+                          'border border-destructive/50 bg-destructive/10',
+                      )}
+                    >
+                      <TableCell
+                        className="w-10 align-top"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleRowSelection(rowIdx)}
+                          aria-label={`Select row ${rowIdx + 1}`}
+                        />
+                      </TableCell>
+                      {meta.columns.map((col) => {
+                        const edited = rowEdits?.get(col.name);
+                        const current =
+                          edited !== undefined ? edited : row[col.name];
+                        const fk = relationsByColumn.get(col.name);
+                        return (
+                          <TableCell
+                            key={col.name}
+                            className={cn(
+                              'align-top',
+                              col.isPrimaryKey && 'bg-primary/5',
+                            )}
+                          >
+                            <EditableCell
+                              value={current}
+                              original={row[col.name]}
+                              // Map Sqlite ColumnMeta to Postgres ColumnMeta shape for EditableCell
+                              column={
+                                {
+                                  name: col.name,
+                                  dataType: col.dataType,
+                                  udtName: sqliteUdtNameFor(col.dataType),
+                                  isNullable: col.isNullable,
+                                  isGenerated: false,
+                                  isPrimaryKey: col.isPrimaryKey,
+                                } as unknown as PostgresColumnMeta
+                              }
+                              disabled={!hasPrimaryKey}
+                              onCommit={(next) =>
+                                setCellEdit(rowIdx, col.name, next)
+                              }
+                              onCancel={() => {}}
+                              navigateTo={
+                                fk && current !== null && current !== undefined
+                                  ? {
+                                      table: fk.referencedTable,
+                                      referencedColumn: fk.referencedColumn,
+                                      onClick: () => {},
+                                    }
+                                  : undefined
+                              }
+                              onFkBrowse={
+                                fk
+                                  ? () =>
+                                      handleOpenFkPicker(rowIdx, col.name, fk)
+                                  : undefined
+                              }
+                            />
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  );
                 })}
               </>
             )}
@@ -813,13 +919,18 @@ export function SqliteTableView({
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">Rows</span>
           <span className="font-mono">
-            {originalRows.length > 0 ? `${showRangeStart.toLocaleString()}–${showRangeEnd.toLocaleString()}` : '0'}
+            {originalRows.length > 0
+              ? `${showRangeStart.toLocaleString()}–${showRangeEnd.toLocaleString()}`
+              : '0'}
           </span>
         </div>
 
         <div className="flex items-center gap-1">
           <span className="text-muted-foreground">Limit</span>
-          <Select value={String(limit)} onValueChange={(v) => changeLimit(Number(v))}>
+          <Select
+            value={String(limit)}
+            onValueChange={(v) => changeLimit(Number(v))}
+          >
             <SelectTrigger className="h-7 w-[80px] text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -899,7 +1010,12 @@ export function SqliteTableView({
               ) : (
                 <Trash2 className="h-3.5 w-3.5" />
               )}
-              <span>Delete {selectedRows.size > 0 ? `${selectedRows.size} row${selectedRows.size === 1 ? '' : 's'}` : ''}</span>
+              <span>
+                Delete{' '}
+                {selectedRows.size > 0
+                  ? `${selectedRows.size} row${selectedRows.size === 1 ? '' : 's'}`
+                  : ''}
+              </span>
             </Button>
           )}
           <Button
@@ -913,7 +1029,12 @@ export function SqliteTableView({
             ) : (
               <Save className="h-3.5 w-3.5" />
             )}
-            <span>Save {pendingCount > 0 ? `${pendingCount} change${pendingCount === 1 ? '' : 's'}` : 'changes'}</span>
+            <span>
+              Save{' '}
+              {pendingCount > 0
+                ? `${pendingCount} change${pendingCount === 1 ? '' : 's'}`
+                : 'changes'}
+            </span>
           </Button>
         </div>
       </div>
@@ -925,8 +1046,8 @@ export function SqliteTableView({
             <AlertDialogDescription>
               {selectedRows.size === 1
                 ? `Delete 1 row from ${table}?`
-                : `Delete ${selectedRows.size} rows from ${table}?`}
-              {' '}This action cannot be undone.
+                : `Delete ${selectedRows.size} rows from ${table}?`}{' '}
+              This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -953,7 +1074,9 @@ export function SqliteTableView({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleSave()}>Save</AlertDialogAction>
+            <AlertDialogAction onClick={() => void handleSave()}>
+              Save
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -962,7 +1085,7 @@ export function SqliteTableView({
         <ForeignKeyPicker
           open
           onOpenChange={(open) => {
-            if (!open) handleCloseFkPicker()
+            if (!open) handleCloseFkPicker();
           }}
           referencedTable={fkPickerState.fk.referencedTable}
           referencedColumn={fkPickerState.fk.referencedColumn}
@@ -975,7 +1098,7 @@ export function SqliteTableView({
         <DropdownMenu
           open={!!contextMenuState}
           onOpenChange={(open) => {
-            if (!open) setContextMenuState(null)
+            if (!open) setContextMenuState(null);
           }}
         >
           <DropdownMenuTrigger asChild>
@@ -1001,9 +1124,9 @@ export function SqliteTableView({
               {contextMenuState.rowIdx !== null && (
                 <DropdownMenuItem
                   onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    handleCopyRowJson()
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleCopyRowJson();
                   }}
                 >
                   <ClipboardCopy className="mr-2 h-3.5 w-3.5" />
@@ -1013,9 +1136,9 @@ export function SqliteTableView({
               <DropdownMenuItem
                 disabled={newRowDraft !== null}
                 onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  startAddRow()
+                  e.preventDefault();
+                  e.stopPropagation();
+                  startAddRow();
                 }}
               >
                 Add row
@@ -1026,10 +1149,10 @@ export function SqliteTableView({
                   <DropdownMenuItem
                     disabled={!hasPrimaryKey}
                     onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      setContextMenuState(null)
-                      setConfirmDeleteOpen(true)
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setContextMenuState(null);
+                      setConfirmDeleteOpen(true);
                     }}
                     className="text-destructive focus:text-destructive"
                   >
@@ -1045,20 +1168,25 @@ export function SqliteTableView({
         </DropdownMenu>
       )}
     </div>
-  )
+  );
 }
 
 function sqliteUdtNameFor(dataType: string): string {
-  const kind = sqliteEditableKindFor(dataType)
+  const kind = sqliteEditableKindFor(dataType);
   switch (kind) {
-    case 'number': return 'int4'
-    case 'boolean': return 'bool'
-    case 'datetime': return 'timestamptz'
-    case 'json': return 'jsonb'
-    default: return 'text'
+    case 'number':
+      return 'int4';
+    case 'boolean':
+      return 'bool';
+    case 'datetime':
+      return 'timestamptz';
+    case 'json':
+      return 'jsonb';
+    default:
+      return 'text';
   }
 }
 
 function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`
+  return `"${name.replace(/"/g, '""')}"`;
 }

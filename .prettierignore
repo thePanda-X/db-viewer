@@ -1,0 +1,10 @@
+# Bun and Node defaults
+node_modules
+.bun-cache
+bun.lock
+bun.lockb
+
+# Electron build outputs
+dist
+out
+release

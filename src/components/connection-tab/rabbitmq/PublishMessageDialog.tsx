@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -6,21 +6,21 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Loader2, Send } from 'lucide-react'
-import { api } from '@/lib/api'
-import type { RabbitMQConfig } from '@/types/connection'
-import { toast } from '@/state/toastStore'
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Loader2, Send } from 'lucide-react';
+import { api } from '@/lib/api';
+import type { RabbitMQConfig } from '@/types/connection';
+import { toast } from '@/state/toastStore';
 
 interface PublishMessageDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  connectionId: string
-  config: RabbitMQConfig
-  exchange: string
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  connectionId: string;
+  config: RabbitMQConfig;
+  exchange: string;
 }
 
 export function PublishMessageDialog({
@@ -30,15 +30,15 @@ export function PublishMessageDialog({
   config,
   exchange,
 }: PublishMessageDialogProps) {
-  const [routingKey, setRoutingKey] = useState('')
-  const [body, setBody] = useState('')
-  const [contentType, setContentType] = useState('text/plain')
-  const [deliveryMode, setDeliveryMode] = useState<'1' | '2'>('1')
-  const [publishing, setPublishing] = useState(false)
+  const [routingKey, setRoutingKey] = useState('');
+  const [body, setBody] = useState('');
+  const [contentType, setContentType] = useState('text/plain');
+  const [deliveryMode, setDeliveryMode] = useState<'1' | '2'>('1');
+  const [publishing, setPublishing] = useState(false);
 
   const handlePublish = async () => {
-    if (!body) return
-    setPublishing(true)
+    if (!body) return;
+    setPublishing(true);
     try {
       const res = await api.rabbitmq.publishMessage({
         connectionId,
@@ -51,21 +51,32 @@ export function PublishMessageDialog({
           headers: {},
           deliveryMode: deliveryMode === '2' ? 2 : 1,
         },
-      })
+      });
       if (!res.ok) {
-        toast({ message: 'Publish failed', detail: res.error, variant: 'error' })
-        return
+        toast({
+          message: 'Publish failed',
+          detail: res.error,
+          variant: 'error',
+        });
+        return;
       }
-      toast({ message: 'Message published', detail: `to exchange "${exchange}"` })
-      onOpenChange(false)
-      setRoutingKey('')
-      setBody('')
+      toast({
+        message: 'Message published',
+        detail: `to exchange "${exchange}"`,
+      });
+      onOpenChange(false);
+      setRoutingKey('');
+      setBody('');
     } catch (err) {
-      toast({ message: 'Publish failed', detail: err instanceof Error ? err.message : String(err), variant: 'error' })
+      toast({
+        message: 'Publish failed',
+        detail: err instanceof Error ? err.message : String(err),
+        variant: 'error',
+      });
     } finally {
-      setPublishing(false)
+      setPublishing(false);
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -73,7 +84,8 @@ export function PublishMessageDialog({
         <DialogHeader>
           <DialogTitle>Publish Message</DialogTitle>
           <DialogDescription>
-            Publish a message to exchange <span className="font-mono font-medium">{exchange}</span>
+            Publish a message to exchange{' '}
+            <span className="font-mono font-medium">{exchange}</span>
           </DialogDescription>
         </DialogHeader>
 
@@ -125,7 +137,11 @@ export function PublishMessageDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={publishing}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={publishing}
+          >
             Cancel
           </Button>
           <Button onClick={handlePublish} disabled={publishing || !body}>
@@ -139,5 +155,5 @@ export function PublishMessageDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

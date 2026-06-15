@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   Check,
@@ -12,11 +12,11 @@ import {
   Trash2,
   X,
   XCircle,
-} from 'lucide-react'
-import { api } from '@/lib/api'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
+} from 'lucide-react';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Table,
   TableBody,
@@ -24,13 +24,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
+} from '@/components/ui/table';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip'
+} from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -38,22 +38,22 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { cn } from '@/lib/utils'
-import type { RedisConfig } from '@/types/connection'
-import type { RedisKeyMeta, RedisKeyValue } from '@/types/redis'
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+import type { RedisConfig } from '@/types/connection';
+import type { RedisKeyMeta, RedisKeyValue } from '@/types/redis';
 
 interface KeyValueViewProps {
-  keyName: string
-  meta: RedisKeyMeta | null
-  value: RedisKeyValue | null
-  loading: boolean
-  error: string | null
-  connectionId: string
-  config: RedisConfig
-  onValueChanged: () => void
-  onMetaChanged: (patch: Partial<RedisKeyMeta>) => void
+  keyName: string;
+  meta: RedisKeyMeta | null;
+  value: RedisKeyValue | null;
+  loading: boolean;
+  error: string | null;
+  connectionId: string;
+  config: RedisConfig;
+  onValueChanged: () => void;
+  onMetaChanged: (patch: Partial<RedisKeyMeta>) => void;
 }
 
 export function KeyValueView({
@@ -72,7 +72,7 @@ export function KeyValueView({
       <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
         <Loader2 className="mr-2 h-3 w-3 animate-spin" /> Loading…
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -83,13 +83,13 @@ export function KeyValueView({
           <span className="break-words">{error}</span>
         </div>
       </div>
-    )
+    );
   }
 
-  if (!meta || !value) return null
+  if (!meta || !value) return null;
 
   if (value.kind === 'none') {
-    return <NoneState keyName={keyName} />
+    return <NoneState keyName={keyName} />;
   }
 
   return (
@@ -110,8 +110,8 @@ export function KeyValueView({
           connectionId={connectionId}
           config={config}
           onChanged={() => {
-            onValueChanged()
-            onMetaChanged({ length: null })
+            onValueChanged();
+            onMetaChanged({ length: null });
           }}
         />
       )}
@@ -122,8 +122,8 @@ export function KeyValueView({
           connectionId={connectionId}
           config={config}
           onChanged={() => {
-            onValueChanged()
-            onMetaChanged({ length: null })
+            onValueChanged();
+            onMetaChanged({ length: null });
           }}
         />
       )}
@@ -134,8 +134,8 @@ export function KeyValueView({
           connectionId={connectionId}
           config={config}
           onChanged={() => {
-            onValueChanged()
-            onMetaChanged({ length: null })
+            onValueChanged();
+            onMetaChanged({ length: null });
           }}
         />
       )}
@@ -146,8 +146,8 @@ export function KeyValueView({
           connectionId={connectionId}
           config={config}
           onChanged={() => {
-            onValueChanged()
-            onMetaChanged({ length: null })
+            onValueChanged();
+            onMetaChanged({ length: null });
           }}
         />
       )}
@@ -158,13 +158,13 @@ export function KeyValueView({
           connectionId={connectionId}
           config={config}
           onChanged={() => {
-            onValueChanged()
-            onMetaChanged({ length: null })
+            onValueChanged();
+            onMetaChanged({ length: null });
           }}
         />
       )}
     </div>
-  )
+  );
 }
 
 function NoneState({ keyName }: { keyName: string }) {
@@ -177,7 +177,7 @@ function NoneState({ keyName }: { keyName: string }) {
         </p>
       </div>
     </div>
-  )
+  );
 }
 
 function ValueEditDialog({
@@ -188,57 +188,59 @@ function ValueEditDialog({
   onSave,
   saveLabel = 'Save',
 }: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  title: string
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
   fields: Array<{
-    name: string
-    label: string
-    type?: 'text' | 'number'
-    placeholder?: string
-    required?: boolean
-    textarea?: boolean
-  }>
-  onSave: (values: Record<string, string>) => Promise<void> | void
-  saveLabel?: string
+    name: string;
+    label: string;
+    type?: 'text' | 'number';
+    placeholder?: string;
+    required?: boolean;
+    textarea?: boolean;
+  }>;
+  onSave: (values: Record<string, string>) => Promise<void> | void;
+  saveLabel?: string;
 }) {
-  const [values, setValues] = useState<Record<string, string>>({})
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
-      setValues({})
-      setError(null)
+      setValues({});
+      setError(null);
     }
-  }, [open])
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     for (const f of fields) {
       if (f.required && !(values[f.name] ?? '').trim()) {
-        setError(`${f.label} is required`)
-        return
+        setError(`${f.label} is required`);
+        return;
       }
     }
-    setSubmitting(true)
-    setError(null)
+    setSubmitting(true);
+    setError(null);
     try {
-      await onSave(values)
-      onOpenChange(false)
+      await onSave(values);
+      onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>Fields marked required cannot be empty.</DialogDescription>
+          <DialogDescription>
+            Fields marked required cannot be empty.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-3">
           {fields.map((f) => (
@@ -251,7 +253,9 @@ function ValueEditDialog({
                 <textarea
                   id={f.name}
                   value={values[f.name] ?? ''}
-                  onChange={(e) => setValues((p) => ({ ...p, [f.name]: e.target.value }))}
+                  onChange={(e) =>
+                    setValues((p) => ({ ...p, [f.name]: e.target.value }))
+                  }
                   placeholder={f.placeholder}
                   className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   autoFocus
@@ -261,7 +265,9 @@ function ValueEditDialog({
                   id={f.name}
                   type={f.type === 'number' ? 'number' : 'text'}
                   value={values[f.name] ?? ''}
-                  onChange={(e) => setValues((p) => ({ ...p, [f.name]: e.target.value }))}
+                  onChange={(e) =>
+                    setValues((p) => ({ ...p, [f.name]: e.target.value }))
+                  }
                   placeholder={f.placeholder}
                   autoFocus={fields.indexOf(f) === 0}
                   className="text-xs"
@@ -293,25 +299,31 @@ function ValueEditDialog({
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
 
 function useCopy() {
-  const [copied, setCopied] = useState<string | null>(null)
+  const [copied, setCopied] = useState<string | null>(null);
   const copy = async (text: string, id: string) => {
-    await navigator.clipboard.writeText(text)
-    setCopied(id)
-    setTimeout(() => setCopied((c) => (c === id ? null : c)), 1100)
-  }
-  return { copied, copy }
+    await navigator.clipboard.writeText(text);
+    setCopied(id);
+    setTimeout(() => setCopied((c) => (c === id ? null : c)), 1100);
+  };
+  return { copied, copy };
 }
 
-function CopyButton({ text, id, copied, copy, label = 'Copy' }: {
-  text: string
-  id: string
-  copied: string | null
-  copy: (text: string, id: string) => void
-  label?: string
+function CopyButton({
+  text,
+  id,
+  copied,
+  copy,
+  label = 'Copy',
+}: {
+  text: string;
+  id: string;
+  copied: string | null;
+  copy: (text: string, id: string) => void;
+  label?: string;
 }) {
   return (
     <TooltipProvider delayDuration={300}>
@@ -323,13 +335,17 @@ function CopyButton({ text, id, copied, copy, label = 'Copy' }: {
             className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label={label}
           >
-            {copied === id ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+            {copied === id ? (
+              <Check className="h-3 w-3 text-emerald-500" />
+            ) : (
+              <Copy className="h-3 w-3" />
+            )}
           </button>
         </TooltipTrigger>
         <TooltipContent>{label}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  )
+  );
 }
 
 function StringView({
@@ -339,47 +355,52 @@ function StringView({
   config,
   onSaved,
 }: {
-  keyName: string
-  value: string | null
-  connectionId: string
-  config: RedisConfig
-  onSaved: () => void
+  keyName: string;
+  value: string | null;
+  connectionId: string;
+  config: RedisConfig;
+  onSaved: () => void;
 }) {
-  const { copied, copy } = useCopy()
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [pretty, setPretty] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { copied, copy } = useCopy();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [pretty, setPretty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (editing) setDraft(value ?? '')
-  }, [editing, value])
+    if (editing) setDraft(value ?? '');
+  }, [editing, value]);
 
   const parsedJson = useMemo(() => {
-    if (value == null) return null
+    if (value == null) return null;
     try {
-      return JSON.parse(value)
+      return JSON.parse(value);
     } catch {
-      return null
+      return null;
     }
-  }, [value])
+  }, [value]);
 
   const handleSave = async () => {
-    setSaving(true)
-    setError(null)
+    setSaving(true);
+    setError(null);
     try {
-      const res = await api.redis.setString({ connectionId, config, key: keyName, value: draft })
+      const res = await api.redis.setString({
+        connectionId,
+        config,
+        key: keyName,
+        value: draft,
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
-      setEditing(false)
-      onSaved()
+      setEditing(false);
+      onSaved();
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -415,7 +436,11 @@ function StringView({
                   className="h-7 text-xs"
                   disabled={saving}
                 >
-                  {saving ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Save className="mr-1 h-3 w-3" />}
+                  {saving ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <Save className="mr-1 h-3 w-3" />
+                  )}
                   Save
                 </Button>
               </>
@@ -454,16 +479,25 @@ function StringView({
         ) : (
           <div className="group relative h-full w-full overflow-auto rounded-md border border-border bg-muted/20 p-3 font-mono text-xs leading-relaxed">
             <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">
-              <CopyButton text={value ?? ''} id="string" copied={copied} copy={copy} />
+              <CopyButton
+                text={value ?? ''}
+                id="string"
+                copied={copied}
+                copy={copy}
+              />
             </div>
             <pre className="whitespace-pre-wrap break-all">
-              {value === null ? <span className="text-muted-foreground">(nil)</span> : value}
+              {value === null ? (
+                <span className="text-muted-foreground">(nil)</span>
+              ) : (
+                value
+              )}
             </pre>
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }
 
 function ListView({
@@ -473,22 +507,22 @@ function ListView({
   config,
   onChanged,
 }: {
-  keyName: string
-  values: string[]
-  connectionId: string
-  config: RedisConfig
-  onChanged: () => void
+  keyName: string;
+  values: string[];
+  connectionId: string;
+  config: RedisConfig;
+  onChanged: () => void;
 }) {
-  const [addOpen, setAddOpen] = useState(false)
-  const [editing, setEditing] = useState<number | null>(null)
-  const [editValue, setEditValue] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const { copied, copy } = useCopy()
+  const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { copied, copy } = useCopy();
 
   const handleAdd = async (vals: Record<string, string>) => {
-    setBusy(true)
-    setError(null)
+    setBusy(true);
+    setError(null);
     try {
       const res = await api.redis.pushListElement({
         connectionId,
@@ -496,41 +530,41 @@ function ListView({
         key: keyName,
         value: vals.value,
         position: vals.position as 'head' | 'tail',
-      })
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
-      onChanged()
+      onChanged();
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   const handleRemove = async (index: number) => {
-    setBusy(true)
-    setError(null)
+    setBusy(true);
+    setError(null);
     try {
       const res = await api.redis.removeListElement({
         connectionId,
         config,
         key: keyName,
         index,
-      })
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
-      onChanged()
+      onChanged();
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   const handleSaveEdit = async () => {
-    if (editing === null) return
-    setBusy(true)
-    setError(null)
+    if (editing === null) return;
+    setBusy(true);
+    setError(null);
     try {
       const res = await api.redis.pushListElement({
         connectionId,
@@ -538,34 +572,38 @@ function ListView({
         key: keyName,
         value: editValue,
         position: 'head',
-      })
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
       const rem = await api.redis.removeListElement({
         connectionId,
         config,
         key: keyName,
         index: editing + 1,
-      })
+      });
       if (!rem.ok) {
-        setError(rem.error)
-        return
+        setError(rem.error);
+        return;
       }
-      setEditing(null)
-      onChanged()
+      setEditing(null);
+      onChanged();
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <Toolbar
         total={values.length}
         right={
-          <Button size="sm" onClick={() => setAddOpen(true)} className="h-7 text-xs">
+          <Button
+            size="sm"
+            onClick={() => setAddOpen(true)}
+            className="h-7 text-xs"
+          >
             <Plus className="mr-1 h-3 w-3" /> Add element
           </Button>
         }
@@ -604,7 +642,11 @@ function ListView({
                       onClick={handleSaveEdit}
                       disabled={busy}
                     >
-                      {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                      {busy ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Save className="h-3 w-3" />
+                      )}
                     </Button>
                     <Button
                       size="icon"
@@ -621,15 +663,20 @@ function ListView({
                       {v}
                     </pre>
                     <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                      <CopyButton text={v} id={`list-${idx}`} copied={copied} copy={copy} />
+                      <CopyButton
+                        text={v}
+                        id={`list-${idx}`}
+                        copied={copied}
+                        copy={copy}
+                      />
                       <TooltipProvider delayDuration={300}>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <button
                               type="button"
                               onClick={() => {
-                                setEditValue(v)
-                                setEditing(idx)
+                                setEditValue(v);
+                                setEditing(idx);
                               }}
                               className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                             >
@@ -671,11 +718,17 @@ function ListView({
         onSave={handleAdd}
         fields={[
           { name: 'value', label: 'Value', required: true, textarea: true },
-          { name: 'position', label: 'Position', type: 'text', placeholder: 'head or tail', required: true },
+          {
+            name: 'position',
+            label: 'Position',
+            type: 'text',
+            placeholder: 'head or tail',
+            required: true,
+          },
         ]}
       />
     </div>
-  )
+  );
 }
 
 function SetView({
@@ -685,63 +738,67 @@ function SetView({
   config,
   onChanged,
 }: {
-  keyName: string
-  values: string[]
-  connectionId: string
-  config: RedisConfig
-  onChanged: () => void
+  keyName: string;
+  values: string[];
+  connectionId: string;
+  config: RedisConfig;
+  onChanged: () => void;
 }) {
-  const [addOpen, setAddOpen] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const { copied, copy } = useCopy()
+  const [addOpen, setAddOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { copied, copy } = useCopy();
 
   const handleAdd = async (vals: Record<string, string>) => {
-    setBusy(true)
-    setError(null)
+    setBusy(true);
+    setError(null);
     try {
       const res = await api.redis.addSetMember({
         connectionId,
         config,
         key: keyName,
         member: vals.member,
-      })
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
-      onChanged()
+      onChanged();
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   const handleRemove = async (member: string) => {
-    setBusy(true)
-    setError(null)
+    setBusy(true);
+    setError(null);
     try {
       const res = await api.redis.removeSetMember({
         connectionId,
         config,
         key: keyName,
         member,
-      })
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
-      onChanged()
+      onChanged();
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <Toolbar
         total={values.length}
         right={
-          <Button size="sm" onClick={() => setAddOpen(true)} className="h-7 text-xs">
+          <Button
+            size="sm"
+            onClick={() => setAddOpen(true)}
+            className="h-7 text-xs"
+          >
             <Plus className="mr-1 h-3 w-3" /> Add member
           </Button>
         }
@@ -766,7 +823,12 @@ function SetView({
                   {v}
                 </pre>
                 <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                  <CopyButton text={v} id={`set-${v}`} copied={copied} copy={copy} />
+                  <CopyButton
+                    text={v}
+                    id={`set-${v}`}
+                    copied={copied}
+                    copy={copy}
+                  />
                   <TooltipProvider delayDuration={300}>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -795,10 +857,12 @@ function SetView({
         title="Add set member"
         saveLabel="Add"
         onSave={handleAdd}
-        fields={[{ name: 'member', label: 'Member', required: true, textarea: true }]}
+        fields={[
+          { name: 'member', label: 'Member', required: true, textarea: true },
+        ]}
       />
     </div>
-  )
+  );
 }
 
 function ZsetView({
@@ -808,22 +872,22 @@ function ZsetView({
   config,
   onChanged,
 }: {
-  keyName: string
-  values: { member: string; score: number }[]
-  connectionId: string
-  config: RedisConfig
-  onChanged: () => void
+  keyName: string;
+  values: { member: string; score: number }[];
+  connectionId: string;
+  config: RedisConfig;
+  onChanged: () => void;
 }) {
-  const [addOpen, setAddOpen] = useState(false)
-  const [editing, setEditing] = useState<string | null>(null)
-  const [editScore, setEditScore] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const { copied, copy } = useCopy()
+  const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editScore, setEditScore] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { copied, copy } = useCopy();
 
   const handleAdd = async (vals: Record<string, string>) => {
-    setBusy(true)
-    setError(null)
+    setBusy(true);
+    setError(null);
     try {
       const res = await api.redis.setZsetMember({
         connectionId,
@@ -831,46 +895,46 @@ function ZsetView({
         key: keyName,
         member: vals.member,
         score: Number(vals.score),
-      })
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
-      onChanged()
+      onChanged();
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   const handleRemove = async (member: string) => {
-    setBusy(true)
-    setError(null)
+    setBusy(true);
+    setError(null);
     try {
       const res = await api.redis.removeZsetMember({
         connectionId,
         config,
         key: keyName,
         member,
-      })
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
-      onChanged()
+      onChanged();
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   const handleSaveScore = async () => {
-    if (!editing) return
-    const score = Number(editScore)
+    if (!editing) return;
+    const score = Number(editScore);
     if (!Number.isFinite(score)) {
-      setError('Score must be a number')
-      return
+      setError('Score must be a number');
+      return;
     }
-    setBusy(true)
-    setError(null)
+    setBusy(true);
+    setError(null);
     try {
       const res = await api.redis.setZsetMember({
         connectionId,
@@ -878,24 +942,28 @@ function ZsetView({
         key: keyName,
         member: editing,
         score,
-      })
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
-      setEditing(null)
-      onChanged()
+      setEditing(null);
+      onChanged();
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <Toolbar
         total={values.length}
         right={
-          <Button size="sm" onClick={() => setAddOpen(true)} className="h-7 text-xs">
+          <Button
+            size="sm"
+            onClick={() => setAddOpen(true)}
+            className="h-7 text-xs"
+          >
             <Plus className="mr-1 h-3 w-3" /> Add member
           </Button>
         }
@@ -918,14 +986,19 @@ function ZsetView({
           <TableBody>
             {values.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-xs text-muted-foreground">
+                <TableCell
+                  colSpan={3}
+                  className="text-center text-xs text-muted-foreground"
+                >
                   Sorted set is empty.
                 </TableCell>
               </TableRow>
             ) : (
               values.map(({ member, score }) => (
                 <TableRow key={member}>
-                  <TableCell className="font-mono text-[11px]">{member}</TableCell>
+                  <TableCell className="font-mono text-[11px]">
+                    {member}
+                  </TableCell>
                   <TableCell>
                     {editing === member ? (
                       <div className="flex items-center gap-1">
@@ -942,7 +1015,11 @@ function ZsetView({
                           onClick={handleSaveScore}
                           disabled={busy}
                         >
-                          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                          {busy ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <Save className="h-3 w-3" />
+                          )}
                         </Button>
                         <Button
                           size="icon"
@@ -954,20 +1031,27 @@ function ZsetView({
                         </Button>
                       </div>
                     ) : (
-                      <span className="font-mono text-[11px] tabular-nums">{score}</span>
+                      <span className="font-mono text-[11px] tabular-nums">
+                        {score}
+                      </span>
                     )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-0.5">
-                      <CopyButton text={member} id={`zset-m-${member}`} copied={copied} copy={copy} />
+                      <CopyButton
+                        text={member}
+                        id={`zset-m-${member}`}
+                        copied={copied}
+                        copy={copy}
+                      />
                       <TooltipProvider delayDuration={300}>
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <button
                               type="button"
                               onClick={() => {
-                                setEditScore(String(score))
-                                setEditing(member)
+                                setEditScore(String(score));
+                                setEditing(member);
                               }}
                               className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                             >
@@ -1009,11 +1093,17 @@ function ZsetView({
         onSave={handleAdd}
         fields={[
           { name: 'member', label: 'Member', required: true, textarea: true },
-          { name: 'score', label: 'Score', type: 'number', placeholder: 'e.g. 0', required: true },
+          {
+            name: 'score',
+            label: 'Score',
+            type: 'number',
+            placeholder: 'e.g. 0',
+            required: true,
+          },
         ]}
       />
     </div>
-  )
+  );
 }
 
 function HashView({
@@ -1023,31 +1113,33 @@ function HashView({
   config,
   onChanged,
 }: {
-  keyName: string
-  value: Record<string, string>
-  connectionId: string
-  config: RedisConfig
-  onChanged: () => void
+  keyName: string;
+  value: Record<string, string>;
+  connectionId: string;
+  config: RedisConfig;
+  onChanged: () => void;
 }) {
-  const [search, setSearch] = useState('')
-  const [searchActive, setSearchActive] = useState(false)
-  const [addOpen, setAddOpen] = useState(false)
-  const [editing, setEditing] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const { copied, copy } = useCopy()
+  const [search, setSearch] = useState('');
+  const [searchActive, setSearchActive] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { copied, copy } = useCopy();
 
   const entries = useMemo(() => {
-    const list = Object.entries(value).sort(([a], [b]) => a.localeCompare(b))
-    if (!searchActive || !search.trim()) return list
-    const q = search.trim().toLowerCase()
-    return list.filter(([k, v]) => k.toLowerCase().includes(q) || v.toLowerCase().includes(q))
-  }, [value, search, searchActive])
+    const list = Object.entries(value).sort(([a], [b]) => a.localeCompare(b));
+    if (!searchActive || !search.trim()) return list;
+    const q = search.trim().toLowerCase();
+    return list.filter(
+      ([k, v]) => k.toLowerCase().includes(q) || v.toLowerCase().includes(q),
+    );
+  }, [value, search, searchActive]);
 
   const handleAdd = async (vals: Record<string, string>) => {
-    setBusy(true)
-    setError(null)
+    setBusy(true);
+    setError(null);
     try {
       const res = await api.redis.setHashField({
         connectionId,
@@ -1055,41 +1147,41 @@ function HashView({
         key: keyName,
         field: vals.field,
         value: vals.value,
-      })
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
-      onChanged()
+      onChanged();
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   const handleDelete = async (field: string) => {
-    setBusy(true)
-    setError(null)
+    setBusy(true);
+    setError(null);
     try {
       const res = await api.redis.deleteHashField({
         connectionId,
         config,
         key: keyName,
         field,
-      })
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
-      onChanged()
+      onChanged();
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
   const handleSaveEdit = async () => {
-    if (editing === null) return
-    setBusy(true)
-    setError(null)
+    if (editing === null) return;
+    setBusy(true);
+    setError(null);
     try {
       const res = await api.redis.setHashField({
         connectionId,
@@ -1097,19 +1189,19 @@ function HashView({
         key: keyName,
         field: editing,
         value: editValue,
-      })
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
-      setEditing(null)
-      onChanged()
+      setEditing(null);
+      onChanged();
     } finally {
-      setBusy(false)
+      setBusy(false);
     }
-  }
+  };
 
-  const total = Object.keys(value).length
+  const total = Object.keys(value).length;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -1134,9 +1226,16 @@ function HashView({
               className="h-7 text-xs"
               disabled={busy}
             >
-              <RefreshCw className={cn('mr-1 h-3 w-3', busy && 'animate-spin')} /> Refresh
+              <RefreshCw
+                className={cn('mr-1 h-3 w-3', busy && 'animate-spin')}
+              />{' '}
+              Refresh
             </Button>
-            <Button size="sm" onClick={() => setAddOpen(true)} className="h-7 text-xs">
+            <Button
+              size="sm"
+              onClick={() => setAddOpen(true)}
+              className="h-7 text-xs"
+            >
               <Plus className="mr-1 h-3 w-3" /> Add field
             </Button>
           </div>
@@ -1161,7 +1260,10 @@ function HashView({
             <TableBody>
               {entries.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-xs text-muted-foreground">
+                  <TableCell
+                    colSpan={3}
+                    className="text-center text-xs text-muted-foreground"
+                  >
                     {searchActive && search.trim()
                       ? 'No fields match the search.'
                       : 'Hash is empty.'}
@@ -1170,7 +1272,9 @@ function HashView({
               ) : (
                 entries.map(([field, val]) => (
                   <TableRow key={field}>
-                    <TableCell className="font-mono text-[11px] align-top">{field}</TableCell>
+                    <TableCell className="font-mono text-[11px] align-top">
+                      {field}
+                    </TableCell>
                     <TableCell className="align-top">
                       {editing === field ? (
                         <div className="flex items-center gap-1">
@@ -1187,7 +1291,11 @@ function HashView({
                             onClick={handleSaveEdit}
                             disabled={busy}
                           >
-                            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
+                            {busy ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Save className="h-3 w-3" />
+                            )}
                           </Button>
                           <Button
                             size="icon"
@@ -1206,15 +1314,20 @@ function HashView({
                     </TableCell>
                     <TableCell className="text-right align-top">
                       <div className="flex justify-end gap-0.5">
-                        <CopyButton text={val} id={`hash-v-${field}`} copied={copied} copy={copy} />
+                        <CopyButton
+                          text={val}
+                          id={`hash-v-${field}`}
+                          copied={copied}
+                          copy={copy}
+                        />
                         <TooltipProvider delayDuration={300}>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setEditValue(val)
-                                  setEditing(field)
+                                  setEditValue(val);
+                                  setEditing(field);
                                 }}
                                 className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                               >
@@ -1261,7 +1374,7 @@ function HashView({
         ]}
       />
     </div>
-  )
+  );
 }
 
 function StreamView({
@@ -1271,46 +1384,52 @@ function StreamView({
   config,
   onChanged,
 }: {
-  keyName: string
-  values: { id: string; fields: string[] }[]
-  connectionId: string
-  config: RedisConfig
-  onChanged: () => void
+  keyName: string;
+  values: { id: string; fields: string[] }[];
+  connectionId: string;
+  config: RedisConfig;
+  onChanged: () => void;
 }) {
-  const [addOpen, setAddOpen] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const { copied, copy } = useCopy()
+  const [addOpen, setAddOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { copied, copy } = useCopy();
 
   const handleAdd = async (vals: Record<string, string>) => {
-    setError(null)
+    setError(null);
     try {
-      const pairs = vals.fields.trim().split(/\s+/).filter(Boolean)
+      const pairs = vals.fields.trim().split(/\s+/).filter(Boolean);
       if (pairs.length === 0 || pairs.length % 2 !== 0) {
-        setError('Fields must be space-separated field/value pairs (e.g. name alice age 30)')
-        return
+        setError(
+          'Fields must be space-separated field/value pairs (e.g. name alice age 30)',
+        );
+        return;
       }
       const res = await api.redis.addStreamEntry({
         connectionId,
         config,
         key: keyName,
         fields: pairs,
-      })
+      });
       if (!res.ok) {
-        setError(res.error)
-        return
+        setError(res.error);
+        return;
       }
-      onChanged()
+      onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(err instanceof Error ? err.message : String(err));
     }
-  }
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <Toolbar
         total={values.length}
         right={
-          <Button size="sm" onClick={() => setAddOpen(true)} className="h-7 text-xs">
+          <Button
+            size="sm"
+            onClick={() => setAddOpen(true)}
+            className="h-7 text-xs"
+          >
             <Plus className="mr-1 h-3 w-3" /> Add entry
           </Button>
         }
@@ -1335,18 +1454,25 @@ function StreamView({
                   <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                     {entry.id}
                   </span>
-                  <CopyButton text={entry.id} id={`stream-${entry.id}`} copied={copied} copy={copy} />
+                  <CopyButton
+                    text={entry.id}
+                    id={`stream-${entry.id}`}
+                    copied={copied}
+                    copy={copy}
+                  />
                 </div>
                 <div className="space-y-0.5 font-mono text-[11px]">
-                  {entry.fields.reduce<Array<[string, string]>>((acc, _, i, arr) => {
-                    if (i % 2 === 0) acc.push([arr[i], arr[i + 1] ?? ''])
-                    return acc
-                  }, []).map(([k, v], i) => (
-                    <div key={i} className="flex gap-2">
-                      <span className="text-muted-foreground">{k}</span>
-                      <span className="break-all">{v}</span>
-                    </div>
-                  ))}
+                  {entry.fields
+                    .reduce<Array<[string, string]>>((acc, _, i, arr) => {
+                      if (i % 2 === 0) acc.push([arr[i], arr[i + 1] ?? '']);
+                      return acc;
+                    }, [])
+                    .map(([k, v], i) => (
+                      <div key={i} className="flex gap-2">
+                        <span className="text-muted-foreground">{k}</span>
+                        <span className="break-all">{v}</span>
+                      </div>
+                    ))}
                 </div>
               </div>
             ))
@@ -1371,7 +1497,7 @@ function StreamView({
         ]}
       />
     </div>
-  )
+  );
 }
 
 function Toolbar({
@@ -1379,23 +1505,25 @@ function Toolbar({
   length,
   right,
 }: {
-  total: number
-  length?: number
-  right?: React.ReactNode
+  total: number;
+  length?: number;
+  right?: React.ReactNode;
 }) {
   return (
     <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border bg-background px-3 text-xs">
       <div className="flex items-center gap-1.5 text-muted-foreground">
         <Search className="h-3 w-3" />
         <span>Total</span>
-        <span className="rounded bg-muted px-1.5 font-mono tabular-nums">{total}</span>
+        <span className="rounded bg-muted px-1.5 font-mono tabular-nums">
+          {total}
+        </span>
         {length !== undefined && length !== total && (
           <span className="font-mono text-[10px]">({length} bytes)</span>
         )}
       </div>
       <div className="ml-auto flex items-center gap-1.5">{right}</div>
     </div>
-  )
+  );
 }
 
 function EmptyList({ label }: { label: string }) {
@@ -1403,5 +1531,5 @@ function EmptyList({ label }: { label: string }) {
     <div className="rounded-md border border-dashed border-border p-4 text-center text-[11px] text-muted-foreground">
       {label}
     </div>
-  )
+  );
 }

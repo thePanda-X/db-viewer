@@ -1,19 +1,19 @@
-import { useState } from 'react'
-import { MoreHorizontal, Pencil, Play, Trash2 } from 'lucide-react'
-import type { Connection } from '@/types/connection'
-import { getConnectionTypeDef } from '@/data/connectionTypes'
-import { useTabsStore } from '@/state/tabsStore'
-import { useConnectionsStore } from '@/state/connectionsStore'
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { useState } from 'react';
+import { MoreHorizontal, Pencil, Play, Trash2 } from 'lucide-react';
+import type { Connection } from '@/types/connection';
+import { getConnectionTypeDef } from '@/data/connectionTypes';
+import { useTabsStore } from '@/state/tabsStore';
+import { useConnectionsStore } from '@/state/connectionsStore';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,26 +23,26 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { ConnectionDialog } from '@/components/connection-dialog/ConnectionDialog'
+} from '@/components/ui/alert-dialog';
+import { ConnectionDialog } from '@/components/connection-dialog/ConnectionDialog';
 
 interface ConnectionCardProps {
-  connection: Connection
+  connection: Connection;
 }
 
 export function ConnectionCard({ connection }: ConnectionCardProps) {
-  const [editOpen, setEditOpen] = useState(false)
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const openConnection = useTabsStore((s) => s.openConnection)
-  const remove = useConnectionsStore((s) => s.remove)
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const openConnection = useTabsStore((s) => s.openConnection);
+  const remove = useConnectionsStore((s) => s.remove);
 
-  const def = getConnectionTypeDef(connection.type)
-  const Icon = def.icon
-  const subtitle = def.subtitle(connection.config as never)
+  const def = getConnectionTypeDef(connection.type);
+  const Icon = def.icon;
+  const subtitle = def.subtitle(connection.config as never);
 
   const handleConnect = () => {
-    openConnection(connection)
-  }
+    openConnection(connection);
+  };
 
   return (
     <>
@@ -56,7 +56,10 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
               <h3 className="truncate text-sm font-semibold tracking-tight">
                 {connection.name}
               </h3>
-              <Badge variant="secondary" className="mt-1 px-1.5 py-0 text-[10px] font-normal">
+              <Badge
+                variant="secondary"
+                className="mt-1 px-1.5 py-0 text-[10px] font-normal"
+              >
                 {def.label}
               </Badge>
             </div>
@@ -92,14 +95,22 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <p className="line-clamp-1 font-mono text-xs text-muted-foreground" title={subtitle}>
+        <p
+          className="line-clamp-1 font-mono text-xs text-muted-foreground"
+          title={subtitle}
+        >
           {subtitle}
         </p>
         <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
             Saved
           </span>
-          <Button size="sm" variant="default" className="h-7" onClick={handleConnect}>
+          <Button
+            size="sm"
+            variant="default"
+            className="h-7"
+            onClick={handleConnect}
+          >
             <Play className="mr-1 h-3 w-3" />
             Connect
           </Button>
@@ -118,8 +129,11 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete connection?</AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="font-medium text-foreground">{connection.name}</span> will be
-              removed and any open tab for it will close. This cannot be undone.
+              <span className="font-medium text-foreground">
+                {connection.name}
+              </span>{' '}
+              will be removed and any open tab for it will close. This cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -134,5 +148,5 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
         </AlertDialogContent>
       </AlertDialog>
     </>
-  )
+  );
 }

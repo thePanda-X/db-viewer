@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react'
-import { Check, Copy, Loader2, Pencil, Trash2, X } from 'lucide-react'
-import { api } from '@/lib/api'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { useEffect, useState } from 'react';
+import { Check, Copy, Loader2, Pencil, Trash2, X } from 'lucide-react';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip'
+} from '@/components/ui/tooltip';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,20 +18,25 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import type { RedisConfig } from '@/types/connection'
-import type { RedisKeyMeta } from '@/types/redis'
-import { KEY_TYPE_BADGE_CLASS, KEY_TYPE_LABEL, formatTtl, tryParseTtlToMs } from '@/types/redis'
-import { KeyTypeIcon } from './RedisSidebar'
+} from '@/components/ui/alert-dialog';
+import type { RedisConfig } from '@/types/connection';
+import type { RedisKeyMeta } from '@/types/redis';
+import {
+  KEY_TYPE_BADGE_CLASS,
+  KEY_TYPE_LABEL,
+  formatTtl,
+  tryParseTtlToMs,
+} from '@/types/redis';
+import { KeyTypeIcon } from './RedisSidebar';
 
 interface KeyViewHeaderProps {
-  keyName: string
-  meta: RedisKeyMeta | null
-  loading: boolean
-  connectionId: string
-  config: RedisConfig
-  onKeyDeleted: (key: string) => void
-  onMetaChanged: (patch: Partial<RedisKeyMeta>) => void
+  keyName: string;
+  meta: RedisKeyMeta | null;
+  loading: boolean;
+  connectionId: string;
+  config: RedisConfig;
+  onKeyDeleted: (key: string) => void;
+  onMetaChanged: (patch: Partial<RedisKeyMeta>) => void;
 }
 
 export function KeyViewHeader({
@@ -43,84 +48,91 @@ export function KeyViewHeader({
   onKeyDeleted,
   onMetaChanged,
 }: KeyViewHeaderProps) {
-  const [copied, setCopied] = useState(false)
-  const [copiedTtl, setCopiedTtl] = useState(false)
-  const [editingTtl, setEditingTtl] = useState(false)
-  const [ttlDraft, setTtlDraft] = useState('')
-  const [ttlError, setTtlError] = useState<string | null>(null)
-  const [ttlSaving, setTtlSaving] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [copied, setCopied] = useState(false);
+  const [copiedTtl, setCopiedTtl] = useState(false);
+  const [editingTtl, setEditingTtl] = useState(false);
+  const [ttlDraft, setTtlDraft] = useState('');
+  const [ttlError, setTtlError] = useState<string | null>(null);
+  const [ttlSaving, setTtlSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    setEditingTtl(false)
-    setTtlDraft('')
-    setTtlError(null)
-  }, [keyName])
+    setEditingTtl(false);
+    setTtlDraft('');
+    setTtlError(null);
+  }, [keyName]);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(keyName)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1200)
-  }
+    await navigator.clipboard.writeText(keyName);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
 
   const handleCopyTtl = async () => {
-    if (!meta) return
-    await navigator.clipboard.writeText(String(meta.ttl))
-    setCopiedTtl(true)
-    setTimeout(() => setCopiedTtl(false), 1200)
-  }
+    if (!meta) return;
+    await navigator.clipboard.writeText(String(meta.ttl));
+    setCopiedTtl(true);
+    setTimeout(() => setCopiedTtl(false), 1200);
+  };
 
   const startEditTtl = () => {
-    if (!meta) return
-    setTtlDraft(meta.ttl < 0 ? '-1' : String(meta.ttl))
-    setTtlError(null)
-    setEditingTtl(true)
-  }
+    if (!meta) return;
+    setTtlDraft(meta.ttl < 0 ? '-1' : String(meta.ttl));
+    setTtlError(null);
+    setEditingTtl(true);
+  };
 
   const saveTtl = async () => {
-    if (!meta) return
-    const ms = tryParseTtlToMs(ttlDraft)
+    if (!meta) return;
+    const ms = tryParseTtlToMs(ttlDraft);
     if (ms === null) {
-      setTtlError('Use a number with optional unit: ms, s, m, h, d (or -1 / persist)')
-      return
+      setTtlError(
+        'Use a number with optional unit: ms, s, m, h, d (or -1 / persist)',
+      );
+      return;
     }
-    setTtlSaving(true)
+    setTtlSaving(true);
     try {
-      const res = await api.redis.setTtl({ connectionId, config, key: keyName, ms })
+      const res = await api.redis.setTtl({
+        connectionId,
+        config,
+        key: keyName,
+        ms,
+      });
       if (!res.ok) {
-        setTtlError(res.error)
-        return
+        setTtlError(res.error);
+        return;
       }
-      onMetaChanged({ ttl: ms })
-      setEditingTtl(false)
+      onMetaChanged({ ttl: ms });
+      setEditingTtl(false);
     } finally {
-      setTtlSaving(false)
+      setTtlSaving(false);
     }
-  }
+  };
 
   const handleDelete = async () => {
-    setDeleting(true)
+    setDeleting(true);
     try {
       const res = await api.redis.deleteKeys({
         connectionId,
         config,
         keys: [keyName],
-      })
+      });
       if (res.ok) {
-        onKeyDeleted(keyName)
-        setConfirmDelete(false)
+        onKeyDeleted(keyName);
+        setConfirmDelete(false);
       } else {
-        setDeleting(false)
-        setConfirmDelete(false)
+        setDeleting(false);
+        setConfirmDelete(false);
       }
     } catch {
-      setDeleting(false)
-      setConfirmDelete(false)
+      setDeleting(false);
+      setConfirmDelete(false);
     }
-  }
+  };
 
-  const typeLabel = meta ? KEY_TYPE_LABEL[meta.type] : '…'
+  const typeLabel = meta ? KEY_TYPE_LABEL[meta.type] : '…';
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -149,22 +161,28 @@ export function KeyViewHeader({
               className="ml-1 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label="Copy key name"
             >
-              {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+              {copied ? (
+                <Check className="h-3 w-3 text-emerald-500" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
             </button>
           </TooltipTrigger>
           <TooltipContent>Copy key name</TooltipContent>
         </Tooltip>
 
         <div className="ml-auto flex items-center gap-1.5">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">TTL</span>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            TTL
+          </span>
           {editingTtl ? (
             <div className="flex items-center gap-1">
               <Input
                 value={ttlDraft}
                 onChange={(e) => setTtlDraft(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') void saveTtl()
-                  if (e.key === 'Escape') setEditingTtl(false)
+                  if (e.key === 'Enter') void saveTtl();
+                  if (e.key === 'Escape') setEditingTtl(false);
                 }}
                 className="h-6 w-24 text-[11px]"
                 autoFocus
@@ -178,7 +196,11 @@ export function KeyViewHeader({
                 disabled={ttlSaving}
                 aria-label="Save TTL"
               >
-                {ttlSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                {ttlSaving ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Check className="h-3 w-3" />
+                )}
               </Button>
               <Button
                 size="icon"
@@ -228,7 +250,9 @@ export function KeyViewHeader({
                     <Pencil className="h-3 w-3" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Edit TTL (e.g. 60s, 5m, persist)</TooltipContent>
+                <TooltipContent>
+                  Edit TTL (e.g. 60s, 5m, persist)
+                </TooltipContent>
               </Tooltip>
             </>
           )}
@@ -258,8 +282,8 @@ export function KeyViewHeader({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete key?</AlertDialogTitle>
             <AlertDialogDescription>
-              <span className="font-mono text-foreground">{keyName}</span> will be permanently
-              deleted. This cannot be undone.
+              <span className="font-mono text-foreground">{keyName}</span> will
+              be permanently deleted. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -268,16 +292,18 @@ export function KeyViewHeader({
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={(e) => {
-                e.preventDefault()
-                void handleDelete()
+                e.preventDefault();
+                void handleDelete();
               }}
             >
-              {deleting ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+              {deleting ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : null}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </TooltipProvider>
-  )
+  );
 }

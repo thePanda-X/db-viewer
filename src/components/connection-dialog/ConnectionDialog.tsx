@@ -1,26 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { TypePicker } from './TypePicker'
-import { ConnectionForm } from './ConnectionForm'
-import { useConnectionsStore } from '@/state/connectionsStore'
-import { useTabsStore } from '@/state/tabsStore'
-import type { Connection, ConnectionType } from '@/types/connection'
-import { getConnectionTypeDef } from '@/data/connectionTypes'
+} from '@/components/ui/dialog';
+import { TypePicker } from './TypePicker';
+import { ConnectionForm } from './ConnectionForm';
+import { useConnectionsStore } from '@/state/connectionsStore';
+import { useTabsStore } from '@/state/tabsStore';
+import type { Connection, ConnectionType } from '@/types/connection';
+import { getConnectionTypeDef } from '@/data/connectionTypes';
 
 interface ConnectionDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  mode?: 'create' | 'edit'
-  connection?: Connection
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  mode?: 'create' | 'edit';
+  connection?: Connection;
 }
 
-type Step = 'pick' | 'form'
+type Step = 'pick' | 'form';
 
 export function ConnectionDialog({
   open,
@@ -28,57 +28,63 @@ export function ConnectionDialog({
   mode = 'create',
   connection,
 }: ConnectionDialogProps) {
-  const add = useConnectionsStore((s) => s.add)
-  const update = useConnectionsStore((s) => s.update)
-  const openConnection = useTabsStore((s) => s.openConnection)
+  const add = useConnectionsStore((s) => s.add);
+  const update = useConnectionsStore((s) => s.update);
+  const openConnection = useTabsStore((s) => s.openConnection);
 
-  const [step, setStep] = useState<Step>(mode === 'edit' ? 'form' : 'pick')
+  const [step, setStep] = useState<Step>(mode === 'edit' ? 'form' : 'pick');
   const [selectedType, setSelectedType] = useState<ConnectionType | undefined>(
     mode === 'edit' ? connection?.type : undefined,
-  )
+  );
 
   useEffect(() => {
     if (open) {
-      setStep(mode === 'edit' ? 'form' : 'pick')
-      setSelectedType(mode === 'edit' ? connection?.type : undefined)
+      setStep(mode === 'edit' ? 'form' : 'pick');
+      setSelectedType(mode === 'edit' ? connection?.type : undefined);
     }
-  }, [open, mode, connection?.type])
+  }, [open, mode, connection?.type]);
 
   const handleTypeSelect = (type: ConnectionType) => {
-    setSelectedType(type)
-    setStep('form')
-  }
+    setSelectedType(type);
+    setStep('form');
+  };
 
   const handleBack = () => {
-    setStep('pick')
-  }
+    setStep('pick');
+  };
 
-  const handleCreate = async (values: { name: string; config: Connection['config'] }) => {
-    if (!selectedType) return
-    const created = await add(selectedType, values.name, values.config)
-    onOpenChange(false)
-    openConnection(created)
-  }
+  const handleCreate = async (values: {
+    name: string;
+    config: Connection['config'];
+  }) => {
+    if (!selectedType) return;
+    const created = await add(selectedType, values.name, values.config);
+    onOpenChange(false);
+    openConnection(created);
+  };
 
-  const handleUpdate = async (values: { name: string; config: Connection['config'] }) => {
-    if (!connection) return
-    await update(connection.id, { name: values.name, config: values.config })
-    onOpenChange(false)
-  }
+  const handleUpdate = async (values: {
+    name: string;
+    config: Connection['config'];
+  }) => {
+    if (!connection) return;
+    await update(connection.id, { name: values.name, config: values.config });
+    onOpenChange(false);
+  };
 
   const title =
     mode === 'edit'
       ? 'Edit connection'
       : step === 'pick'
         ? 'New connection'
-        : 'Connection details'
+        : 'Connection details';
 
   const description =
     mode === 'edit'
       ? `Editing ${connection?.name ?? 'connection'}.`
       : step === 'pick'
         ? 'Choose a connection type to get started.'
-        : `Fill in the details to connect to your ${selectedType ? getConnectionTypeDef(selectedType).label : ''} instance.`
+        : `Fill in the details to connect to your ${selectedType ? getConnectionTypeDef(selectedType).label : ''} instance.`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -95,13 +101,16 @@ export function ConnectionDialog({
             type={selectedType}
             {...(mode === 'edit' && connection
               ? {
-                  initialValues: { name: connection.name, config: connection.config },
+                  initialValues: {
+                    name: connection.name,
+                    config: connection.config,
+                  },
                 }
               : {
                   initialValues: {
                     name: '',
-                    config:
-                      getConnectionTypeDef(selectedType).defaultConfig as unknown as Connection['config'],
+                    config: getConnectionTypeDef(selectedType)
+                      .defaultConfig as unknown as Connection['config'],
                   },
                 })}
             onSubmit={mode === 'edit' ? handleUpdate : handleCreate}
@@ -111,5 +120,5 @@ export function ConnectionDialog({
         ) : null}
       </DialogContent>
     </Dialog>
-  )
+  );
 }

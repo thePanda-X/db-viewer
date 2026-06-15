@@ -6,14 +6,14 @@ Browse, query, and manage multiple data systems through a single unified interfa
 
 ## Supported Data Sources
 
-| Type | Library | Capabilities |
-|---|---|---|
-| **PostgreSQL** | `pg` | Browse tables, run SQL queries (read/write), row editing, foreign key navigation |
-| **SQLite** | `better-sqlite3` | Open local `.db`/`.sqlite` files, browse tables, query, edit |
-| **Redis** | `ioredis` | Key browsing by type (string/list/set/zset/hash/stream), TTL management, command execution |
-| **OpenSearch** | `@opensearch-project/opensearch` | Index listing, document search/CRUD, raw request execution |
-| **Apache Kafka** | `kafkajs` | Topic listing, consumer group management, message consumption |
-| **RabbitMQ** | `amqplib` | Exchange/queue/binding listing, message publishing, queue management |
+| Type             | Library                          | Capabilities                                                                               |
+| ---------------- | -------------------------------- | ------------------------------------------------------------------------------------------ |
+| **PostgreSQL**   | `pg`                             | Browse tables, run SQL queries (read/write), row editing, foreign key navigation           |
+| **SQLite**       | `better-sqlite3`                 | Open local `.db`/`.sqlite` files, browse tables, query, edit                               |
+| **Redis**        | `ioredis`                        | Key browsing by type (string/list/set/zset/hash/stream), TTL management, command execution |
+| **OpenSearch**   | `@opensearch-project/opensearch` | Index listing, document search/CRUD, raw request execution                                 |
+| **Apache Kafka** | `kafkajs`                        | Topic listing, consumer group management, message consumption                              |
+| **RabbitMQ**     | `amqplib`                        | Exchange/queue/binding listing, message publishing, queue management                       |
 
 ## Prerequisites
 

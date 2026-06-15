@@ -1,7 +1,7 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron'
-import { fileURLToPath } from 'node:url'
-import path from 'node:path'
-import { listConnections, setConnections } from './connections'
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import { listConnections, setConnections } from './connections';
 import {
   deleteRows as pgDeleteRows,
   disconnect as pgDisconnect,
@@ -15,7 +15,7 @@ import {
   runQuery,
   runReadOnlyQuery,
   saveChanges,
-} from './postgres'
+} from './postgres';
 import {
   deleteRows as sqliteDeleteRows,
   disconnect as sqliteDisconnect,
@@ -27,7 +27,7 @@ import {
   runQuery as sqliteRunQuery,
   runReadOnlyQuery as sqliteRunReadOnlyQuery,
   saveChanges as sqliteSaveChanges,
-} from './sqlite'
+} from './sqlite';
 import {
   addSetMember as redisAddSetMember,
   addStreamEntry as redisAddStreamEntry,
@@ -47,7 +47,7 @@ import {
   setStringValue as redisSetStringValue,
   setTtl as redisSetTtl,
   setZsetMember as redisSetZsetMember,
-} from './redis'
+} from './redis';
 import {
   deleteDocument as opensearchDeleteDocument,
   deleteIndex as opensearchDeleteIndex,
@@ -58,7 +58,7 @@ import {
   ping as opensearchPing,
   searchDocuments as opensearchSearchDocuments,
   updateDocument as opensearchUpdateDocument,
-} from './opensearch'
+} from './opensearch';
 import {
   ping as kafkaPing,
   listTopics as kafkaListTopics,
@@ -67,7 +67,7 @@ import {
   getConsumerGroupDetail as kafkaGetConsumerGroupDetail,
   consumeMessages as kafkaConsumeMessages,
   disconnect as kafkaDisconnect,
-} from './kafka'
+} from './kafka';
 import type {
   DeleteRowsRequest,
   InsertRowRequest,
@@ -78,8 +78,8 @@ import type {
   SaveChangesResponse,
   TableMeta,
   ForeignKey,
-} from '../src/types/postgres'
-import type { SqlDeleteRowsResponse } from '../shared/types/sql'
+} from '../src/types/postgres';
+import type { SqlDeleteRowsResponse } from '../shared/types/sql';
 import type {
   DeleteRowsRequest as SqliteDeleteRowsRequest,
   InsertRowRequest as SqliteInsertRowRequest,
@@ -89,10 +89,15 @@ import type {
   SaveChangesResponse as SqliteSaveChangesResponse,
   TableMeta as SqliteTableMeta,
   ForeignKey as SqliteForeignKey,
-} from '../src/types/sqlite'
-import type { RedisCommandResult, RedisKeyMeta, RedisKeyValue, RedisKeyType } from '../src/types/redis'
-import type { OpenSearchConfig } from '../src/types/connection'
-import type { KafkaConfig } from '../src/types/connection'
+} from '../src/types/sqlite';
+import type {
+  RedisCommandResult,
+  RedisKeyMeta,
+  RedisKeyValue,
+  RedisKeyType,
+} from '../src/types/redis';
+import type { OpenSearchConfig } from '../src/types/connection';
+import type { KafkaConfig } from '../src/types/connection';
 import type {
   OpenSearchClusterInfo,
   OpenSearchIndexInfo,
@@ -101,7 +106,7 @@ import type {
   OpenSearchRawResponse,
   OpenSearchSearchRequest,
   OpenSearchSearchResult,
-} from '../src/types/opensearch'
+} from '../src/types/opensearch';
 import type {
   KafkaClusterInfo,
   KafkaTopicInfo,
@@ -109,15 +114,15 @@ import type {
   KafkaConsumerGroupInfo,
   KafkaConsumerGroupDetail,
   KafkaConsumeResult,
-} from '../src/types/kafka'
-import type { RabbitMQConfig } from '../src/types/connection'
+} from '../src/types/kafka';
+import type { RabbitMQConfig } from '../src/types/connection';
 import type {
   RabbitMQBindingInfo,
   RabbitMQExchangeInfo,
   RabbitMQMessageInfo,
   RabbitMQPublishRequest,
   RabbitMQQueueInfo,
-} from '../src/types/rabbitmq'
+} from '../src/types/rabbitmq';
 import {
   disconnect as rmqDisconnect,
   getQueueMessages as rmqGetQueueMessages,
@@ -128,19 +133,21 @@ import {
   publishMessage as rmqPublishMessage,
   purgeQueue as rmqPurgeQueue,
   deleteQueueFn as rmqDeleteQueue,
-} from './rabbitmq'
+} from './rabbitmq';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-process.env.APP_ROOT = path.join(__dirname, '..')
+process.env.APP_ROOT = path.join(__dirname, '..');
 
-export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
-export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
-export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
+export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
+export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron');
+export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist');
 
-process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
+process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
+  ? path.join(process.env.APP_ROOT, 'public')
+  : RENDERER_DIST;
 
-let win: BrowserWindow | null
+let win: BrowserWindow | null;
 
 function createWindow() {
   win = new BrowserWindow({
@@ -148,114 +155,126 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
     },
-  })
+  });
 
   win.webContents.on('did-finish-load', () => {
-    win?.webContents.send('main-process-message', (new Date).toLocaleString())
-  })
+    win?.webContents.send('main-process-message', new Date().toLocaleString());
+  });
 
   if (VITE_DEV_SERVER_URL) {
-    win.loadURL(VITE_DEV_SERVER_URL)
+    win.loadURL(VITE_DEV_SERVER_URL);
   } else {
-    win.loadFile(path.join(RENDERER_DIST, 'index.html'))
+    win.loadFile(path.join(RENDERER_DIST, 'index.html'));
   }
 }
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    app.quit()
-    win = null
+    app.quit();
+    win = null;
   }
-})
+});
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow()
+    createWindow();
   }
-})
+});
 
 interface PostgresInvokeArgs {
-  connectionId: string
-  config: PostgresConfig
-  database?: string
+  connectionId: string;
+  config: PostgresConfig;
+  database?: string;
 }
 
 interface TableMetaArgs extends PostgresInvokeArgs {
-  schema: string
-  table: string
+  schema: string;
+  table: string;
 }
 
 interface ListTablesArgs extends PostgresInvokeArgs {
-  database: string
+  database: string;
 }
 
 function toErrorPayload(err: unknown) {
-  return { error: err instanceof Error ? err.message : String(err) }
+  return { error: err instanceof Error ? err.message : String(err) };
 }
 
 function toErrorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message
-  if (typeof err === 'string') return err
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
   try {
-    return JSON.stringify(err)
+    return JSON.stringify(err);
   } catch {
-    return 'Unknown error'
+    return 'Unknown error';
   }
 }
 
-type IpcHandler<TArgs, TResult> = (args: TArgs) => Promise<TResult> | TResult
+type IpcHandler<TArgs, TResult> = (args: TArgs) => Promise<TResult> | TResult;
 
-function register<TArgs, TResult>(channel: string, handler: IpcHandler<TArgs, TResult>) {
-  ipcMain.handle(channel, async (_event, args: TArgs) => handler(args))
+function register<TArgs, TResult>(
+  channel: string,
+  handler: IpcHandler<TArgs, TResult>,
+) {
+  ipcMain.handle(channel, async (_event, args: TArgs) => handler(args));
 }
 
-async function withErrorPayload<T>(fn: () => Promise<T> | T): Promise<T | { error: string }> {
+async function withErrorPayload<T>(
+  fn: () => Promise<T> | T,
+): Promise<T | { error: string }> {
   try {
-    return await fn()
+    return await fn();
   } catch (err) {
-    return toErrorPayload(err)
+    return toErrorPayload(err);
   }
 }
 
 async function withOkPayload<TKey extends string, TValue>(
   key: TKey,
   fn: () => Promise<TValue> | TValue,
-): Promise<({ ok: true } & Record<TKey, TValue>) | { ok: false; error: string }> {
+): Promise<
+  ({ ok: true } & Record<TKey, TValue>) | { ok: false; error: string }
+> {
   try {
-    return { ok: true, [key]: await fn() } as { ok: true } & Record<TKey, TValue>
+    return { ok: true, [key]: await fn() } as { ok: true } & Record<
+      TKey,
+      TValue
+    >;
   } catch (err) {
-    return { ok: false, error: toErrorMessage(err) }
+    return { ok: false, error: toErrorMessage(err) };
   }
 }
 
 async function withResultPayload<T>(
   fn: () => Promise<T> | T,
 ): Promise<{ ok: true; result: T } | { ok: false; error: string }> {
-  return withOkPayload('result', fn)
+  return withOkPayload('result', fn);
 }
 
-async function withSuccess(fn: () => Promise<unknown> | unknown): Promise<{ ok: true } | { ok: false; error: string }> {
+async function withSuccess(
+  fn: () => Promise<unknown> | unknown,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    await fn()
-    return { ok: true }
+    await fn();
+    return { ok: true };
   } catch (err) {
-    return { ok: false, error: toErrorMessage(err) }
+    return { ok: false, error: toErrorMessage(err) };
   }
 }
 
 app.whenReady().then(() => {
-  const isMac = process.platform === 'darwin'
+  const isMac = process.platform === 'darwin';
 
   const openConfigFolder = async () => {
     try {
-      const err = await shell.openPath(app.getPath('userData'))
+      const err = await shell.openPath(app.getPath('userData'));
       if (err) {
-        console.error('[menu] failed to open config folder:', err)
+        console.error('[menu] failed to open config folder:', err);
       }
     } catch (err) {
-      console.error('[menu] failed to open config folder', err)
+      console.error('[menu] failed to open config folder', err);
     }
-  }
+  };
 
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(isMac
@@ -283,7 +302,7 @@ app.whenReady().then(() => {
           label: 'Open Config Folder',
           accelerator: 'CmdOrCtrl+Shift+O',
           click: () => {
-            void openConfigFolder()
+            void openConfigFolder();
           },
         },
         { type: 'separator' },
@@ -342,66 +361,100 @@ app.whenReady().then(() => {
           ]
         : [{ role: 'minimize' as const }, { role: 'close' as const }],
     },
-  ]
+  ];
 
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 
-  register('connections:list', () => listConnections())
+  register('connections:list', () => listConnections());
 
-  register('connections:save', (connections: unknown[]) => setConnections(connections))
+  register('connections:save', (connections: unknown[]) =>
+    setConnections(connections),
+  );
 
-  register('dialog:openFile', async (options?: { filters?: Electron.FileFilter[] }) => {
-    if (!win) return null
-    const result = await dialog.showOpenDialog(win, {
-      properties: ['openFile'],
-      filters: options?.filters,
-    })
-    if (result.canceled || result.filePaths.length === 0) return null
-    return result.filePaths[0]
-  })
+  register(
+    'dialog:openFile',
+    async (options?: { filters?: Electron.FileFilter[] }) => {
+      if (!win) return null;
+      const result = await dialog.showOpenDialog(win, {
+        properties: ['openFile'],
+        filters: options?.filters,
+      });
+      if (result.canceled || result.filePaths.length === 0) return null;
+      return result.filePaths[0];
+    },
+  );
 
   ipcMain.handle(
     'postgres:query',
-    async (_event, args: { connectionId: string; config: PostgresConfig; request: QueryRequest }): Promise<QueryResponse> => {
+    async (
+      _event,
+      args: {
+        connectionId: string;
+        config: PostgresConfig;
+        request: QueryRequest;
+      },
+    ): Promise<QueryResponse> => {
       try {
-        return await runQuery(args.connectionId, args.config, args.request)
+        return await runQuery(args.connectionId, args.config, args.request);
       } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'postgres:readOnlyQuery',
-    async (_event, args: { connectionId: string; config: PostgresConfig; request: QueryRequest }): Promise<QueryResponse> => {
+    async (
+      _event,
+      args: {
+        connectionId: string;
+        config: PostgresConfig;
+        request: QueryRequest;
+      },
+    ): Promise<QueryResponse> => {
       try {
-        return await runReadOnlyQuery(args.connectionId, args.config, args.request)
+        return await runReadOnlyQuery(
+          args.connectionId,
+          args.config,
+          args.request,
+        );
       } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'postgres:listDatabases',
     async (_event, args: { connectionId: string; config: PostgresConfig }) =>
       withErrorPayload(() => listDatabases(args.connectionId, args.config)),
-  )
+  );
 
   ipcMain.handle(
     'postgres:listTables',
     async (_event, args: ListTablesArgs) => {
       try {
-        return await listTables(args.connectionId, args.config, args.database)
+        return await listTables(args.connectionId, args.config, args.database);
       } catch (err) {
-        return toErrorPayload(err)
+        return toErrorPayload(err);
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'postgres:getTableMeta',
-    async (_event, args: TableMetaArgs): Promise<{ ok: true; meta: TableMeta } | { ok: false; error: string }> => {
+    async (
+      _event,
+      args: TableMetaArgs,
+    ): Promise<
+      { ok: true; meta: TableMeta } | { ok: false; error: string }
+    > => {
       try {
         const meta = await getTableMeta(
           args.connectionId,
@@ -409,20 +462,25 @@ app.whenReady().then(() => {
           args.database ?? args.config.database,
           args.schema,
           args.table,
-        )
-        return { ok: true, meta }
+        );
+        return { ok: true, meta };
       } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'postgres:getTableRelations',
     async (
       _event,
       args: TableMetaArgs,
-    ): Promise<{ ok: true; relations: ForeignKey[] } | { ok: false; error: string }> => {
+    ): Promise<
+      { ok: true; relations: ForeignKey[] } | { ok: false; error: string }
+    > => {
       try {
         const relations = await getTableRelations(
           args.connectionId,
@@ -430,20 +488,25 @@ app.whenReady().then(() => {
           args.database ?? args.config.database,
           args.schema,
           args.table,
-        )
-        return { ok: true, relations }
+        );
+        return { ok: true, relations };
       } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'postgres:getIncomingTableRelations',
     async (
       _event,
       args: TableMetaArgs,
-    ): Promise<{ ok: true; relations: ForeignKey[] } | { ok: false; error: string }> => {
+    ): Promise<
+      { ok: true; relations: ForeignKey[] } | { ok: false; error: string }
+    > => {
       try {
         const relations = await getIncomingTableRelations(
           args.connectionId,
@@ -451,29 +514,35 @@ app.whenReady().then(() => {
           args.database ?? args.config.database,
           args.schema,
           args.table,
-        )
-        return { ok: true, relations }
+        );
+        return { ok: true, relations };
       } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'postgres:lookupRows',
     async (
       _event,
       args: {
-        connectionId: string
-        config: PostgresConfig
-        database: string
-        schema: string
-        table: string
-        columns: string[]
-        search?: { column: string; query: string }
-        limit?: number
+        connectionId: string;
+        config: PostgresConfig;
+        database: string;
+        schema: string;
+        table: string;
+        columns: string[];
+        search?: { column: string; query: string };
+        limit?: number;
       },
-    ): Promise<{ ok: true; result: { columns: string[]; rows: unknown[][] } } | { ok: false; error: string }> => {
+    ): Promise<
+      | { ok: true; result: { columns: string[]; rows: unknown[][] } }
+      | { ok: false; error: string }
+    > => {
       try {
         const result = await lookupRows(
           args.connectionId,
@@ -484,134 +553,201 @@ app.whenReady().then(() => {
           args.columns,
           args.search,
           args.limit,
-        )
-        return { ok: true, result }
+        );
+        return { ok: true, result };
       } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'postgres:insertRow',
     async (
       _event,
-      args: { connectionId: string; config: PostgresConfig; request: InsertRowRequest },
+      args: {
+        connectionId: string;
+        config: PostgresConfig;
+        request: InsertRowRequest;
+      },
     ) => {
       try {
-        return await pgInsertRow(args.connectionId, args.config, args.request)
+        return await pgInsertRow(args.connectionId, args.config, args.request);
       } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'postgres:saveChanges',
     async (
       _event,
-      args: { connectionId: string; config: PostgresConfig; request: SaveChangesRequest },
+      args: {
+        connectionId: string;
+        config: PostgresConfig;
+        request: SaveChangesRequest;
+      },
     ): Promise<SaveChangesResponse> => {
       try {
-        return await saveChanges(args.connectionId, args.config, args.request)
+        return await saveChanges(args.connectionId, args.config, args.request);
       } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'postgres:deleteRows',
     async (
       _event,
-      args: { connectionId: string; config: PostgresConfig; request: DeleteRowsRequest },
+      args: {
+        connectionId: string;
+        config: PostgresConfig;
+        request: DeleteRowsRequest;
+      },
     ): Promise<SqlDeleteRowsResponse> => {
       try {
-        return await pgDeleteRows(args.connectionId, args.config, args.request)
+        return await pgDeleteRows(args.connectionId, args.config, args.request);
       } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'postgres:disconnect',
     async (_event, args: { connectionId: string; database?: string }) => {
-      pgDisconnect(args.connectionId, args.database)
-      return { ok: true }
+      pgDisconnect(args.connectionId, args.database);
+      return { ok: true };
     },
-  )
+  );
 
   ipcMain.handle(
     'sqlite:query',
-    async (_event, args: { connectionId: string; filePath: string; request: SqliteQueryRequest }): Promise<SqliteQueryResponse> => {
+    async (
+      _event,
+      args: {
+        connectionId: string;
+        filePath: string;
+        request: SqliteQueryRequest;
+      },
+    ): Promise<SqliteQueryResponse> => {
       try {
-        return await sqliteRunQuery(args.connectionId, args.filePath, args.request)
+        return await sqliteRunQuery(
+          args.connectionId,
+          args.filePath,
+          args.request,
+        );
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'sqlite:readOnlyQuery',
-    async (_event, args: { connectionId: string; filePath: string; request: SqliteQueryRequest }): Promise<SqliteQueryResponse> => {
+    async (
+      _event,
+      args: {
+        connectionId: string;
+        filePath: string;
+        request: SqliteQueryRequest;
+      },
+    ): Promise<SqliteQueryResponse> => {
       try {
-        return await sqliteRunReadOnlyQuery(args.connectionId, args.filePath, args.request)
+        return await sqliteRunReadOnlyQuery(
+          args.connectionId,
+          args.filePath,
+          args.request,
+        );
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'sqlite:listTables',
     async (_event, args: { connectionId: string; filePath: string }) => {
       try {
-        return await sqliteListTables(args.connectionId, args.filePath)
+        return await sqliteListTables(args.connectionId, args.filePath);
       } catch (err) {
-        return toErrorPayload(err)
+        return toErrorPayload(err);
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'sqlite:getTableMeta',
-    async (_event, args: { connectionId: string; filePath: string; table: string }): Promise<{ ok: true; meta: SqliteTableMeta } | { ok: false; error: string }> => {
+    async (
+      _event,
+      args: { connectionId: string; filePath: string; table: string },
+    ): Promise<
+      { ok: true; meta: SqliteTableMeta } | { ok: false; error: string }
+    > => {
       try {
-        const meta = await sqliteGetTableMeta(args.connectionId, args.filePath, args.table)
-        return { ok: true, meta }
+        const meta = await sqliteGetTableMeta(
+          args.connectionId,
+          args.filePath,
+          args.table,
+        );
+        return { ok: true, meta };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'sqlite:getTableRelations',
-    async (_event, args: { connectionId: string; filePath: string; table: string }): Promise<{ ok: true; relations: SqliteForeignKey[] } | { ok: false; error: string }> => {
+    async (
+      _event,
+      args: { connectionId: string; filePath: string; table: string },
+    ): Promise<
+      { ok: true; relations: SqliteForeignKey[] } | { ok: false; error: string }
+    > => {
       try {
-        const relations = await sqliteGetTableRelations(args.connectionId, args.filePath, args.table)
-        return { ok: true, relations }
+        const relations = await sqliteGetTableRelations(
+          args.connectionId,
+          args.filePath,
+          args.table,
+        );
+        return { ok: true, relations };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'sqlite:lookupRows',
     async (
       _event,
       args: {
-        connectionId: string
-        filePath: string
-        table: string
-        columns: string[]
-        search?: { column: string; query: string }
-        limit?: number
+        connectionId: string;
+        filePath: string;
+        table: string;
+        columns: string[];
+        search?: { column: string; query: string };
+        limit?: number;
       },
-    ): Promise<{ ok: true; result: { columns: string[]; rows: unknown[][] } } | { ok: false; error: string }> => {
+    ): Promise<
+      | { ok: true; result: { columns: string[]; rows: unknown[][] } }
+      | { ok: false; error: string }
+    > => {
       try {
         const result = await sqliteLookupRows(
           args.connectionId,
@@ -620,154 +756,211 @@ app.whenReady().then(() => {
           args.columns,
           args.search,
           args.limit,
-        )
-        return { ok: true, result }
+        );
+        return { ok: true, result };
       } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'sqlite:insertRow',
     async (
       _event,
-      args: { connectionId: string; filePath: string; request: SqliteInsertRowRequest },
+      args: {
+        connectionId: string;
+        filePath: string;
+        request: SqliteInsertRowRequest;
+      },
     ) => {
       try {
-        return await sqliteInsertRow(args.connectionId, args.filePath, args.request)
+        return await sqliteInsertRow(
+          args.connectionId,
+          args.filePath,
+          args.request,
+        );
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'sqlite:saveChanges',
-    async (_event, args: { connectionId: string; filePath: string; request: SqliteSaveChangesRequest }): Promise<SqliteSaveChangesResponse> => {
+    async (
+      _event,
+      args: {
+        connectionId: string;
+        filePath: string;
+        request: SqliteSaveChangesRequest;
+      },
+    ): Promise<SqliteSaveChangesResponse> => {
       try {
-        return await sqliteSaveChanges(args.connectionId, args.filePath, args.request)
+        return await sqliteSaveChanges(
+          args.connectionId,
+          args.filePath,
+          args.request,
+        );
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'sqlite:deleteRows',
     async (
       _event,
-      args: { connectionId: string; filePath: string; request: SqliteDeleteRowsRequest },
+      args: {
+        connectionId: string;
+        filePath: string;
+        request: SqliteDeleteRowsRequest;
+      },
     ): Promise<SqlDeleteRowsResponse> => {
       try {
-        return await sqliteDeleteRows(args.connectionId, args.filePath, args.request)
+        return await sqliteDeleteRows(
+          args.connectionId,
+          args.filePath,
+          args.request,
+        );
       } catch (err) {
-        return { ok: false, error: err instanceof Error ? err.message : String(err) }
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'sqlite:disconnect',
     async (_event, args: { connectionId: string }) => {
-      sqliteDisconnect(args.connectionId)
-      return { ok: true }
+      sqliteDisconnect(args.connectionId);
+      return { ok: true };
     },
-  )
+  );
 
   type RedisInvokeArgs = {
-    connectionId: string
-    config: import('../src/types/connection').RedisConfig
-  }
+    connectionId: string;
+    config: import('../src/types/connection').RedisConfig;
+  };
 
-  ipcMain.handle(
-    'redis:ping',
-    async (_event, args: RedisInvokeArgs) => {
-      try {
-        const reply = await redisPing(args.connectionId, args.config)
-        return { ok: true as const, reply }
-      } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
-      }
-    },
-  )
+  ipcMain.handle('redis:ping', async (_event, args: RedisInvokeArgs) => {
+    try {
+      const reply = await redisPing(args.connectionId, args.config);
+      return { ok: true as const, reply };
+    } catch (err) {
+      return { ok: false as const, error: toErrorMessage(err) };
+    }
+  });
 
   ipcMain.handle(
     'redis:scanAll',
     async (_event, args: RedisInvokeArgs & { match: string }) => {
       try {
-        const keys = await redisScanAll(args.connectionId, args.config, args.match)
-        return { ok: true as const, keys }
+        const keys = await redisScanAll(
+          args.connectionId,
+          args.config,
+          args.match,
+        );
+        return { ok: true as const, keys };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:getMeta',
-    async (_event, args: RedisInvokeArgs & { key: string }): Promise<
+    async (
+      _event,
+      args: RedisInvokeArgs & { key: string },
+    ): Promise<
       { ok: true; meta: RedisKeyMeta } | { ok: false; error: string }
     > => {
       try {
-        const meta = await redisGetMeta(args.connectionId, args.config, args.key)
-        return { ok: true, meta }
+        const meta = await redisGetMeta(
+          args.connectionId,
+          args.config,
+          args.key,
+        );
+        return { ok: true, meta };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:getValue',
     async (
       _event,
       args: RedisInvokeArgs & { key: string; type: RedisKeyType },
-    ): Promise<{ ok: true; value: RedisKeyValue } | { ok: false; error: string }> => {
+    ): Promise<
+      { ok: true; value: RedisKeyValue } | { ok: false; error: string }
+    > => {
       try {
-        const value = await redisGetValue(args.connectionId, args.config, args.key, args.type)
-        return { ok: true, value }
+        const value = await redisGetValue(
+          args.connectionId,
+          args.config,
+          args.key,
+          args.type,
+        );
+        return { ok: true, value };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:deleteKeys',
     async (_event, args: RedisInvokeArgs & { keys: string[] }) => {
       try {
-        const deleted = await redisDeleteKeys(args.connectionId, args.config, args.keys)
-        return { ok: true as const, deleted }
+        const deleted = await redisDeleteKeys(
+          args.connectionId,
+          args.config,
+          args.keys,
+        );
+        return { ok: true as const, deleted };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:setTtl',
     async (_event, args: RedisInvokeArgs & { key: string; ms: number }) => {
       try {
-        await redisSetTtl(args.connectionId, args.config, args.key, args.ms)
-        return { ok: true as const }
+        await redisSetTtl(args.connectionId, args.config, args.key, args.ms);
+        return { ok: true as const };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:setString',
     async (_event, args: RedisInvokeArgs & { key: string; value: string }) => {
       try {
-        await redisSetStringValue(args.connectionId, args.config, args.key, args.value)
-        return { ok: true as const }
+        await redisSetStringValue(
+          args.connectionId,
+          args.config,
+          args.key,
+          args.value,
+        );
+        return { ok: true as const };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:setHashField',
@@ -776,31 +969,46 @@ app.whenReady().then(() => {
       args: RedisInvokeArgs & { key: string; field: string; value: string },
     ) => {
       try {
-        await redisSetHashField(args.connectionId, args.config, args.key, args.field, args.value)
-        return { ok: true as const }
+        await redisSetHashField(
+          args.connectionId,
+          args.config,
+          args.key,
+          args.field,
+          args.value,
+        );
+        return { ok: true as const };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:deleteHashField',
     async (_event, args: RedisInvokeArgs & { key: string; field: string }) => {
       try {
-        await redisDeleteHashField(args.connectionId, args.config, args.key, args.field)
-        return { ok: true as const }
+        await redisDeleteHashField(
+          args.connectionId,
+          args.config,
+          args.key,
+          args.field,
+        );
+        return { ok: true as const };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:pushListElement',
     async (
       _event,
-      args: RedisInvokeArgs & { key: string; value: string; position: 'head' | 'tail' },
+      args: RedisInvokeArgs & {
+        key: string;
+        value: string;
+        position: 'head' | 'tail';
+      },
     ) => {
       try {
         const length = await redisPushListElement(
@@ -809,49 +1017,64 @@ app.whenReady().then(() => {
           args.key,
           args.value,
           args.position,
-        )
-        return { ok: true as const, length }
+        );
+        return { ok: true as const, length };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:removeListElement',
     async (_event, args: RedisInvokeArgs & { key: string; index: number }) => {
       try {
-        await redisRemoveListElement(args.connectionId, args.config, args.key, args.index)
-        return { ok: true as const }
+        await redisRemoveListElement(
+          args.connectionId,
+          args.config,
+          args.key,
+          args.index,
+        );
+        return { ok: true as const };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:addSetMember',
     async (_event, args: RedisInvokeArgs & { key: string; member: string }) => {
       try {
-        await redisAddSetMember(args.connectionId, args.config, args.key, args.member)
-        return { ok: true as const }
+        await redisAddSetMember(
+          args.connectionId,
+          args.config,
+          args.key,
+          args.member,
+        );
+        return { ok: true as const };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:removeSetMember',
     async (_event, args: RedisInvokeArgs & { key: string; member: string }) => {
       try {
-        await redisRemoveSetMember(args.connectionId, args.config, args.key, args.member)
-        return { ok: true as const }
+        await redisRemoveSetMember(
+          args.connectionId,
+          args.config,
+          args.key,
+          args.member,
+        );
+        return { ok: true as const };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:setZsetMember',
@@ -866,347 +1089,509 @@ app.whenReady().then(() => {
           args.key,
           args.member,
           args.score,
-        )
-        return { ok: true as const }
+        );
+        return { ok: true as const };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:removeZsetMember',
     async (_event, args: RedisInvokeArgs & { key: string; member: string }) => {
       try {
-        await redisRemoveZsetMember(args.connectionId, args.config, args.key, args.member)
-        return { ok: true as const }
+        await redisRemoveZsetMember(
+          args.connectionId,
+          args.config,
+          args.key,
+          args.member,
+        );
+        return { ok: true as const };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:addStreamEntry',
-    async (_event, args: RedisInvokeArgs & { key: string; fields: string[] }) => {
+    async (
+      _event,
+      args: RedisInvokeArgs & { key: string; fields: string[] },
+    ) => {
       try {
-        const id = await redisAddStreamEntry(args.connectionId, args.config, args.key, args.fields)
-        return { ok: true as const, id }
+        const id = await redisAddStreamEntry(
+          args.connectionId,
+          args.config,
+          args.key,
+          args.fields,
+        );
+        return { ok: true as const, id };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:executeCommand',
     async (
       _event,
       args: RedisInvokeArgs & { command: string[] },
-    ): Promise<{ ok: true; result: RedisCommandResult } | { ok: false; error: string }> => {
+    ): Promise<
+      { ok: true; result: RedisCommandResult } | { ok: false; error: string }
+    > => {
       try {
-        const result = await redisExecuteCommand(args.connectionId, args.config, args.command)
-        return { ok: true, result }
+        const result = await redisExecuteCommand(
+          args.connectionId,
+          args.config,
+          args.command,
+        );
+        return { ok: true, result };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'redis:disconnect',
     async (_event, args: { connectionId: string; db?: number }) => {
-      redisDisconnect(args.connectionId, args.db)
-      return { ok: true }
+      redisDisconnect(args.connectionId, args.db);
+      return { ok: true };
     },
-  )
+  );
 
   type OpenSearchInvokeArgs = {
-    connectionId: string
-    config: OpenSearchConfig
-  }
+    connectionId: string;
+    config: OpenSearchConfig;
+  };
 
   ipcMain.handle(
     'opensearch:ping',
-    async (_event, args: OpenSearchInvokeArgs): Promise<
+    async (
+      _event,
+      args: OpenSearchInvokeArgs,
+    ): Promise<
       { ok: true; result: OpenSearchClusterInfo } | { ok: false; error: string }
-    > => withResultPayload(() => opensearchPing(args.connectionId, args.config)),
-  )
+    > =>
+      withResultPayload(() => opensearchPing(args.connectionId, args.config)),
+  );
 
   ipcMain.handle(
     'opensearch:listIndices',
-    async (_event, args: OpenSearchInvokeArgs & { includeSystem: boolean }): Promise<
+    async (
+      _event,
+      args: OpenSearchInvokeArgs & { includeSystem: boolean },
+    ): Promise<
       { ok: true; result: OpenSearchIndexInfo[] } | { ok: false; error: string }
     > => {
       try {
-        const result = await opensearchListIndices(args.connectionId, args.config, args.includeSystem)
-        return { ok: true, result }
+        const result = await opensearchListIndices(
+          args.connectionId,
+          args.config,
+          args.includeSystem,
+        );
+        return { ok: true, result };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'opensearch:getIndexMeta',
-    async (_event, args: OpenSearchInvokeArgs & { index: string }): Promise<
+    async (
+      _event,
+      args: OpenSearchInvokeArgs & { index: string },
+    ): Promise<
       { ok: true; result: OpenSearchIndexMeta } | { ok: false; error: string }
     > => {
       try {
-        const result = await opensearchGetIndexMeta(args.connectionId, args.config, args.index)
-        return { ok: true, result }
+        const result = await opensearchGetIndexMeta(
+          args.connectionId,
+          args.config,
+          args.index,
+        );
+        return { ok: true, result };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'opensearch:searchDocuments',
-    async (_event, args: OpenSearchInvokeArgs & { request: OpenSearchSearchRequest }): Promise<
-      { ok: true; result: OpenSearchSearchResult } | { ok: false; error: string }
+    async (
+      _event,
+      args: OpenSearchInvokeArgs & { request: OpenSearchSearchRequest },
+    ): Promise<
+      | { ok: true; result: OpenSearchSearchResult }
+      | { ok: false; error: string }
     > => {
       try {
-        const result = await opensearchSearchDocuments(args.connectionId, args.config, args.request)
-        return { ok: true, result }
+        const result = await opensearchSearchDocuments(
+          args.connectionId,
+          args.config,
+          args.request,
+        );
+        return { ok: true, result };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'opensearch:updateDocument',
-    async (_event, args: OpenSearchInvokeArgs & { index: string; id: string; source: unknown }) => {
-      return withSuccess(() => opensearchUpdateDocument(args.connectionId, args.config, args.index, args.id, args.source))
+    async (
+      _event,
+      args: OpenSearchInvokeArgs & {
+        index: string;
+        id: string;
+        source: unknown;
+      },
+    ) => {
+      return withSuccess(() =>
+        opensearchUpdateDocument(
+          args.connectionId,
+          args.config,
+          args.index,
+          args.id,
+          args.source,
+        ),
+      );
     },
-  )
+  );
 
   ipcMain.handle(
     'opensearch:deleteDocument',
-    async (_event, args: OpenSearchInvokeArgs & { index: string; id: string }) => {
+    async (
+      _event,
+      args: OpenSearchInvokeArgs & { index: string; id: string },
+    ) => {
       try {
-        await opensearchDeleteDocument(args.connectionId, args.config, args.index, args.id)
-        return { ok: true as const }
+        await opensearchDeleteDocument(
+          args.connectionId,
+          args.config,
+          args.index,
+          args.id,
+        );
+        return { ok: true as const };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'opensearch:executeRequest',
-    async (_event, args: OpenSearchInvokeArgs & { request: OpenSearchRawRequest }): Promise<
+    async (
+      _event,
+      args: OpenSearchInvokeArgs & { request: OpenSearchRawRequest },
+    ): Promise<
       { ok: true; result: OpenSearchRawResponse } | { ok: false; error: string }
     > => {
       try {
-        const result = await opensearchExecuteRequest(args.connectionId, args.config, args.request)
-        return { ok: true, result }
+        const result = await opensearchExecuteRequest(
+          args.connectionId,
+          args.config,
+          args.request,
+        );
+        return { ok: true, result };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'opensearch:deleteIndex',
     async (_event, args: OpenSearchInvokeArgs & { index: string }) => {
       try {
-        await opensearchDeleteIndex(args.connectionId, args.config, args.index)
-        return { ok: true as const }
+        await opensearchDeleteIndex(args.connectionId, args.config, args.index);
+        return { ok: true as const };
       } catch (err) {
-        return { ok: false as const, error: toErrorMessage(err) }
+        return { ok: false as const, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'opensearch:disconnect',
     async (_event, args: { connectionId: string }) => {
-      opensearchDisconnect(args.connectionId)
-      return { ok: true }
+      opensearchDisconnect(args.connectionId);
+      return { ok: true };
     },
-  )
+  );
 
   type KafkaInvokeArgs = {
-    connectionId: string
-    config: KafkaConfig
-  }
+    connectionId: string;
+    config: KafkaConfig;
+  };
 
   ipcMain.handle(
     'kafka:ping',
-    async (_event, args: KafkaInvokeArgs): Promise<
+    async (
+      _event,
+      args: KafkaInvokeArgs,
+    ): Promise<
       { ok: true; result: KafkaClusterInfo } | { ok: false; error: string }
     > => withResultPayload(() => kafkaPing(args.connectionId, args.config)),
-  )
+  );
 
   ipcMain.handle(
     'kafka:listTopics',
-    async (_event, args: KafkaInvokeArgs): Promise<
+    async (
+      _event,
+      args: KafkaInvokeArgs,
+    ): Promise<
       { ok: true; result: KafkaTopicInfo[] } | { ok: false; error: string }
-    > => withResultPayload(() => kafkaListTopics(args.connectionId, args.config)),
-  )
+    > =>
+      withResultPayload(() => kafkaListTopics(args.connectionId, args.config)),
+  );
 
   ipcMain.handle(
     'kafka:getTopicMeta',
-    async (_event, args: KafkaInvokeArgs & { topic: string }): Promise<
+    async (
+      _event,
+      args: KafkaInvokeArgs & { topic: string },
+    ): Promise<
       { ok: true; result: KafkaTopicMeta } | { ok: false; error: string }
-    > => withResultPayload(() => kafkaGetTopicMeta(args.connectionId, args.config, args.topic)),
-  )
+    > =>
+      withResultPayload(() =>
+        kafkaGetTopicMeta(args.connectionId, args.config, args.topic),
+      ),
+  );
 
   ipcMain.handle(
     'kafka:listConsumerGroups',
-    async (_event, args: KafkaInvokeArgs): Promise<
-      { ok: true; result: KafkaConsumerGroupInfo[] } | { ok: false; error: string }
-    > => withResultPayload(() => kafkaListConsumerGroups(args.connectionId, args.config)),
-  )
+    async (
+      _event,
+      args: KafkaInvokeArgs,
+    ): Promise<
+      | { ok: true; result: KafkaConsumerGroupInfo[] }
+      | { ok: false; error: string }
+    > =>
+      withResultPayload(() =>
+        kafkaListConsumerGroups(args.connectionId, args.config),
+      ),
+  );
 
   ipcMain.handle(
     'kafka:getConsumerGroupDetail',
-    async (_event, args: KafkaInvokeArgs & { groupId: string }): Promise<
-      { ok: true; result: KafkaConsumerGroupDetail } | { ok: false; error: string }
-    > => withResultPayload(() => kafkaGetConsumerGroupDetail(args.connectionId, args.config, args.groupId)),
-  )
+    async (
+      _event,
+      args: KafkaInvokeArgs & { groupId: string },
+    ): Promise<
+      | { ok: true; result: KafkaConsumerGroupDetail }
+      | { ok: false; error: string }
+    > =>
+      withResultPayload(() =>
+        kafkaGetConsumerGroupDetail(
+          args.connectionId,
+          args.config,
+          args.groupId,
+        ),
+      ),
+  );
 
   ipcMain.handle(
     'kafka:consumeMessages',
-    async (_event, args: KafkaInvokeArgs & { topic: string; partition: number; offset: string; limit: number }): Promise<
+    async (
+      _event,
+      args: KafkaInvokeArgs & {
+        topic: string;
+        partition: number;
+        offset: string;
+        limit: number;
+      },
+    ): Promise<
       { ok: true; result: KafkaConsumeResult } | { ok: false; error: string }
-    > => withResultPayload(() => kafkaConsumeMessages(args.connectionId, args.config, args.topic, args.partition, args.offset, args.limit)),
-  )
+    > =>
+      withResultPayload(() =>
+        kafkaConsumeMessages(
+          args.connectionId,
+          args.config,
+          args.topic,
+          args.partition,
+          args.offset,
+          args.limit,
+        ),
+      ),
+  );
 
   ipcMain.handle(
     'kafka:disconnect',
     async (_event, args: { connectionId: string }) => {
-      kafkaDisconnect(args.connectionId)
-      return { ok: true }
+      kafkaDisconnect(args.connectionId);
+      return { ok: true };
     },
-  )
+  );
 
   type RabbitMQInvokeArgs = {
-    connectionId: string
-    config: RabbitMQConfig
-  }
+    connectionId: string;
+    config: RabbitMQConfig;
+  };
 
   ipcMain.handle(
     'rabbitmq:ping',
-    async (_event, args: RabbitMQInvokeArgs): Promise<
-      { ok: true; result: { rabbitmqVersion: string; erlangVersion: string; clusterName: string; node: string } } | { ok: false; error: string }
+    async (
+      _event,
+      args: RabbitMQInvokeArgs,
+    ): Promise<
+      | {
+          ok: true;
+          result: {
+            rabbitmqVersion: string;
+            erlangVersion: string;
+            clusterName: string;
+            node: string;
+          };
+        }
+      | { ok: false; error: string }
     > => {
       try {
-        const result = await rmqPing(args.connectionId, args.config)
-        return { ok: true, result }
+        const result = await rmqPing(args.connectionId, args.config);
+        return { ok: true, result };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'rabbitmq:listExchanges',
-    async (_event, args: RabbitMQInvokeArgs): Promise<
-      { ok: true; result: RabbitMQExchangeInfo[] } | { ok: false; error: string }
+    async (
+      _event,
+      args: RabbitMQInvokeArgs,
+    ): Promise<
+      | { ok: true; result: RabbitMQExchangeInfo[] }
+      | { ok: false; error: string }
     > => {
       try {
-        const result = await rmqListExchanges(args.connectionId, args.config)
-        return { ok: true, result }
+        const result = await rmqListExchanges(args.connectionId, args.config);
+        return { ok: true, result };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'rabbitmq:listQueues',
-    async (_event, args: RabbitMQInvokeArgs): Promise<
+    async (
+      _event,
+      args: RabbitMQInvokeArgs,
+    ): Promise<
       { ok: true; result: RabbitMQQueueInfo[] } | { ok: false; error: string }
     > => {
       try {
-        const result = await rmqListQueues(args.connectionId, args.config)
-        return { ok: true, result }
+        const result = await rmqListQueues(args.connectionId, args.config);
+        return { ok: true, result };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'rabbitmq:listBindings',
-    async (_event, args: RabbitMQInvokeArgs & { exchange: string; queue?: string }): Promise<
+    async (
+      _event,
+      args: RabbitMQInvokeArgs & { exchange: string; queue?: string },
+    ): Promise<
       { ok: true; result: RabbitMQBindingInfo[] } | { ok: false; error: string }
     > => {
       try {
-        const result = await rmqListBindings(args.connectionId, args.config, args.exchange, args.queue)
-        return { ok: true, result }
+        const result = await rmqListBindings(
+          args.connectionId,
+          args.config,
+          args.exchange,
+          args.queue,
+        );
+        return { ok: true, result };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'rabbitmq:getQueueMessages',
-    async (_event, args: RabbitMQInvokeArgs & { queue: string; count: number }): Promise<
+    async (
+      _event,
+      args: RabbitMQInvokeArgs & { queue: string; count: number },
+    ): Promise<
       { ok: true; result: RabbitMQMessageInfo[] } | { ok: false; error: string }
     > => {
       try {
-        const result = await rmqGetQueueMessages(args.connectionId, args.config, args.queue, args.count)
-        return { ok: true, result }
+        const result = await rmqGetQueueMessages(
+          args.connectionId,
+          args.config,
+          args.queue,
+          args.count,
+        );
+        return { ok: true, result };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'rabbitmq:purgeQueue',
-    async (_event, args: RabbitMQInvokeArgs & { queue: string }): Promise<
-      { ok: true } | { ok: false; error: string }
-    > => {
+    async (
+      _event,
+      args: RabbitMQInvokeArgs & { queue: string },
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
       try {
-        await rmqPurgeQueue(args.connectionId, args.config, args.queue)
-        return { ok: true }
+        await rmqPurgeQueue(args.connectionId, args.config, args.queue);
+        return { ok: true };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'rabbitmq:deleteQueue',
-    async (_event, args: RabbitMQInvokeArgs & { queue: string }): Promise<
-      { ok: true } | { ok: false; error: string }
-    > => {
+    async (
+      _event,
+      args: RabbitMQInvokeArgs & { queue: string },
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
       try {
-        await rmqDeleteQueue(args.connectionId, args.config, args.queue)
-        return { ok: true }
+        await rmqDeleteQueue(args.connectionId, args.config, args.queue);
+        return { ok: true };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'rabbitmq:publishMessage',
-    async (_event, args: RabbitMQInvokeArgs & { request: RabbitMQPublishRequest }): Promise<
-      { ok: true } | { ok: false; error: string }
-    > => {
+    async (
+      _event,
+      args: RabbitMQInvokeArgs & { request: RabbitMQPublishRequest },
+    ): Promise<{ ok: true } | { ok: false; error: string }> => {
       try {
-        await rmqPublishMessage(args.connectionId, args.config, args.request)
-        return { ok: true }
+        await rmqPublishMessage(args.connectionId, args.config, args.request);
+        return { ok: true };
       } catch (err) {
-        return { ok: false, error: toErrorMessage(err) }
+        return { ok: false, error: toErrorMessage(err) };
       }
     },
-  )
+  );
 
   ipcMain.handle(
     'rabbitmq:disconnect',
     async (_event, args: { connectionId: string }) => {
-      rmqDisconnect(args.connectionId)
-      return { ok: true }
+      rmqDisconnect(args.connectionId);
+      return { ok: true };
     },
-  )
+  );
 
-  createWindow()
-})
+  createWindow();
+});

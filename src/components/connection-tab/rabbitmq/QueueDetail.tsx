@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   Columns3,
@@ -9,12 +9,17 @@ import {
   RefreshCw,
   Trash2,
   XCircle,
-} from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,87 +29,111 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { cn } from '@/lib/utils'
-import { api } from '@/lib/api'
-import { toast } from '@/state/toastStore'
-import type { RabbitMQConfig } from '@/types/connection'
-import type { RabbitMQMessageInfo, RabbitMQQueueInfo } from '@/types/rabbitmq'
+} from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
+import { toast } from '@/state/toastStore';
+import type { RabbitMQConfig } from '@/types/connection';
+import type { RabbitMQMessageInfo, RabbitMQQueueInfo } from '@/types/rabbitmq';
 
 interface QueueDetailProps {
-  connectionId: string
-  config: RabbitMQConfig
-  queue: RabbitMQQueueInfo
+  connectionId: string;
+  config: RabbitMQConfig;
+  queue: RabbitMQQueueInfo;
 }
 
 export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
-  const [messages, setMessages] = useState<RabbitMQMessageInfo[]>([])
-  const [loading, setLoading] = useState(true)
-  const [messagesError, setMessagesError] = useState<string | null>(null)
-  const [purgeDialogOpen, setPurgeDialogOpen] = useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [operating, setOperating] = useState(false)
-  const [inspectMsg, setInspectMsg] = useState<RabbitMQMessageInfo | null>(null)
+  const [messages, setMessages] = useState<RabbitMQMessageInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [messagesError, setMessagesError] = useState<string | null>(null);
+  const [purgeDialogOpen, setPurgeDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [operating, setOperating] = useState(false);
+  const [inspectMsg, setInspectMsg] = useState<RabbitMQMessageInfo | null>(
+    null,
+  );
 
   const loadMessages = useCallback(async () => {
-    setLoading(true)
-    setMessagesError(null)
+    setLoading(true);
+    setMessagesError(null);
     try {
       const res = await api.rabbitmq.getQueueMessages({
         connectionId,
         config,
         queue: queue.name,
         count: 20,
-      })
+      });
       if (!res.ok) {
-        setMessagesError(res.error)
-        setMessages([])
+        setMessagesError(res.error);
+        setMessages([]);
       } else {
-        setMessages(res.result)
+        setMessages(res.result);
       }
     } catch (err) {
-      setMessagesError(err instanceof Error ? err.message : String(err))
+      setMessagesError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [connectionId, config, queue.name])
+  }, [connectionId, config, queue.name]);
 
-  useEffect(() => { void loadMessages() }, [loadMessages])
+  useEffect(() => {
+    void loadMessages();
+  }, [loadMessages]);
 
   const handlePurge = async () => {
-    setOperating(true)
+    setOperating(true);
     try {
-      const res = await api.rabbitmq.purgeQueue({ connectionId, config, queue: queue.name })
+      const res = await api.rabbitmq.purgeQueue({
+        connectionId,
+        config,
+        queue: queue.name,
+      });
       if (!res.ok) {
-        toast({ message: 'Purge failed', detail: res.error, variant: 'error' })
-        return
+        toast({ message: 'Purge failed', detail: res.error, variant: 'error' });
+        return;
       }
-      toast({ message: 'Queue purged', detail: queue.name })
-      setPurgeDialogOpen(false)
-      void loadMessages()
+      toast({ message: 'Queue purged', detail: queue.name });
+      setPurgeDialogOpen(false);
+      void loadMessages();
     } catch (err) {
-      toast({ message: 'Purge failed', detail: err instanceof Error ? err.message : String(err), variant: 'error' })
+      toast({
+        message: 'Purge failed',
+        detail: err instanceof Error ? err.message : String(err),
+        variant: 'error',
+      });
     } finally {
-      setOperating(false)
+      setOperating(false);
     }
-  }
+  };
 
   const handleDelete = async () => {
-    setOperating(true)
+    setOperating(true);
     try {
-      const res = await api.rabbitmq.deleteQueue({ connectionId, config, queue: queue.name })
+      const res = await api.rabbitmq.deleteQueue({
+        connectionId,
+        config,
+        queue: queue.name,
+      });
       if (!res.ok) {
-        toast({ message: 'Delete failed', detail: res.error, variant: 'error' })
-        return
+        toast({
+          message: 'Delete failed',
+          detail: res.error,
+          variant: 'error',
+        });
+        return;
       }
-      toast({ message: 'Queue deleted', detail: queue.name })
-      setDeleteDialogOpen(false)
+      toast({ message: 'Queue deleted', detail: queue.name });
+      setDeleteDialogOpen(false);
     } catch (err) {
-      toast({ message: 'Delete failed', detail: err instanceof Error ? err.message : String(err), variant: 'error' })
+      toast({
+        message: 'Delete failed',
+        detail: err instanceof Error ? err.message : String(err),
+        variant: 'error',
+      });
     } finally {
-      setOperating(false)
+      setOperating(false);
     }
-  }
+  };
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -155,16 +184,28 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
 
       <div className="grid grid-cols-3 gap-3 border-b border-border bg-muted/20 p-3 text-xs">
         <div className="rounded-md border border-border bg-background p-2">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Ready</div>
-          <div className="mt-0.5 font-mono text-lg font-semibold tabular-nums">{queue.messagesReady}</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Ready
+          </div>
+          <div className="mt-0.5 font-mono text-lg font-semibold tabular-nums">
+            {queue.messagesReady}
+          </div>
         </div>
         <div className="rounded-md border border-border bg-background p-2">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Unacknowledged</div>
-          <div className="mt-0.5 font-mono text-lg font-semibold tabular-nums">{queue.messagesUnacknowledged}</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Unacknowledged
+          </div>
+          <div className="mt-0.5 font-mono text-lg font-semibold tabular-nums">
+            {queue.messagesUnacknowledged}
+          </div>
         </div>
         <div className="rounded-md border border-border bg-background p-2">
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Consumers</div>
-          <div className="mt-0.5 font-mono text-lg font-semibold tabular-nums">{queue.consumers}</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+            Consumers
+          </div>
+          <div className="mt-0.5 font-mono text-lg font-semibold tabular-nums">
+            {queue.consumers}
+          </div>
         </div>
       </div>
 
@@ -186,11 +227,16 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
                 <span>{messagesError}</span>
               </div>
             ) : messages.length === 0 ? (
-              <div className="p-4 text-xs text-muted-foreground">No messages in queue</div>
+              <div className="p-4 text-xs text-muted-foreground">
+                No messages in queue
+              </div>
             ) : (
               <div className="divide-y divide-border">
                 {messages.map((msg, i) => (
-                  <div key={msg.deliveryTag} className="px-3 py-2.5 hover:bg-muted/30">
+                  <div
+                    key={msg.deliveryTag}
+                    className="px-3 py-2.5 hover:bg-muted/30"
+                  >
                     <div className="flex items-center gap-2 text-xs">
                       <span className="rounded bg-muted px-1 font-mono text-[10px] tabular-nums text-muted-foreground">
                         #{i + 1}
@@ -199,7 +245,10 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
                         tag: {msg.deliveryTag}
                       </span>
                       {msg.redelivered && (
-                        <Badge variant="outline" className="px-1 py-0 text-[10px] text-amber-600">
+                        <Badge
+                          variant="outline"
+                          className="px-1 py-0 text-[10px] text-amber-600"
+                        >
                           redelivered
                         </Badge>
                       )}
@@ -209,7 +258,10 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
                     </div>
                     <div className="mt-1 flex items-start gap-2">
                       {msg.properties.contentType && (
-                        <Badge variant="outline" className="shrink-0 px-1 py-0 text-[10px]">
+                        <Badge
+                          variant="outline"
+                          className="shrink-0 px-1 py-0 text-[10px]"
+                        >
                           {msg.properties.contentType}
                         </Badge>
                       )}
@@ -249,7 +301,12 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
         </div>
       </ScrollArea>
 
-      <Dialog open={inspectMsg !== null} onOpenChange={(o) => { if (!o) setInspectMsg(null) }}>
+      <Dialog
+        open={inspectMsg !== null}
+        onOpenChange={(o) => {
+          if (!o) setInspectMsg(null);
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-sm">
@@ -270,7 +327,8 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
             <AlertDialogTitle>Purge queue?</AlertDialogTitle>
             <AlertDialogDescription>
               This will remove all {queue.messages} messages from{' '}
-              <span className="font-mono font-medium">{queue.name}</span>. This cannot be undone.
+              <span className="font-mono font-medium">{queue.name}</span>. This
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -278,9 +336,14 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
             <AlertDialogAction
               disabled={operating}
               className="bg-amber-600 text-white hover:bg-amber-700"
-              onClick={(e) => { e.preventDefault(); void handlePurge() }}
+              onClick={(e) => {
+                e.preventDefault();
+                void handlePurge();
+              }}
             >
-              {operating ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+              {operating ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : null}
               Purge
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -293,8 +356,8 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
             <AlertDialogTitle>Delete queue?</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently delete{' '}
-              <span className="font-mono font-medium">{queue.name}</span> and all its messages.
-              This cannot be undone.
+              <span className="font-mono font-medium">{queue.name}</span> and
+              all its messages. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -302,58 +365,87 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
             <AlertDialogAction
               disabled={operating}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={(e) => { e.preventDefault(); void handleDelete() }}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleDelete();
+              }}
             >
-              {operating ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+              {operating ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : null}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
+  );
 }
 
-function MessageInspectBody({ message }: { message: RabbitMQMessageInfo | null }) {
-  const [copied, setCopied] = useState(false)
+function MessageInspectBody({
+  message,
+}: {
+  message: RabbitMQMessageInfo | null;
+}) {
+  const [copied, setCopied] = useState(false);
 
   const formatted = useMemo(() => {
-    if (!message) return ''
-    if (typeof message.bodyDecoded === 'string') return message.bodyDecoded
+    if (!message) return '';
+    if (typeof message.bodyDecoded === 'string') return message.bodyDecoded;
     try {
-      return JSON.stringify(message.bodyDecoded, null, 2)
+      return JSON.stringify(message.bodyDecoded, null, 2);
     } catch {
-      return String(message.bodyDecoded)
+      return String(message.bodyDecoded);
     }
-  }, [message])
+  }, [message]);
 
   const handleCopy = useCallback(() => {
-    if (!message) return
-    const raw = typeof message.bodyDecoded === 'string'
-      ? message.bodyDecoded
-      : JSON.stringify(message.bodyDecoded, null, 2)
+    if (!message) return;
+    const raw =
+      typeof message.bodyDecoded === 'string'
+        ? message.bodyDecoded
+        : JSON.stringify(message.bodyDecoded, null, 2);
     navigator.clipboard.writeText(raw).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    })
-  }, [message])
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [message]);
 
-  if (!message) return null
+  if (!message) return null;
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 rounded-md border border-border bg-muted/20 p-3 text-xs">
         <Row label="Exchange" value={message.exchange || '(none)'} />
         <Row label="Routing Key" value={message.routingKey || '(none)'} />
-        <Row label="Content Type" value={message.properties.contentType || '—'} />
-        <Row label="Delivery Mode" value={
-          message.properties.deliveryMode === 2 ? 'Persistent' :
-          message.properties.deliveryMode === 1 ? 'Non-persistent' : '—'
-        } />
-        <Row label="Priority" value={message.properties.priority != null ? String(message.properties.priority) : '—'} />
+        <Row
+          label="Content Type"
+          value={message.properties.contentType || '—'}
+        />
+        <Row
+          label="Delivery Mode"
+          value={
+            message.properties.deliveryMode === 2
+              ? 'Persistent'
+              : message.properties.deliveryMode === 1
+                ? 'Non-persistent'
+                : '—'
+          }
+        />
+        <Row
+          label="Priority"
+          value={
+            message.properties.priority != null
+              ? String(message.properties.priority)
+              : '—'
+          }
+        />
         <Row label="Size" value={`${message.bodySize} bytes`} />
         {message.properties.correlationId && (
-          <Row label="Correlation ID" value={message.properties.correlationId} />
+          <Row
+            label="Correlation ID"
+            value={message.properties.correlationId}
+          />
         )}
         {message.properties.replyTo && (
           <Row label="Reply To" value={message.properties.replyTo} />
@@ -369,25 +461,30 @@ function MessageInspectBody({ message }: { message: RabbitMQMessageInfo | null }
         )}
       </div>
 
-      {message.properties.headers && Object.keys(message.properties.headers).length > 0 && (
-        <div className="rounded-md border border-border p-3">
-          <div className="mb-1.5 text-xs font-semibold text-muted-foreground">Headers</div>
-          <div className="space-y-0.5">
-            {Object.entries(message.properties.headers).map(([k, v]) => (
-              <div key={k} className="flex gap-2 font-mono text-[11px]">
-                <span className="shrink-0 text-muted-foreground">{k}:</span>
-                <span className="break-all text-foreground">
-                  {typeof v === 'object' ? JSON.stringify(v) : String(v)}
-                </span>
-              </div>
-            ))}
+      {message.properties.headers &&
+        Object.keys(message.properties.headers).length > 0 && (
+          <div className="rounded-md border border-border p-3">
+            <div className="mb-1.5 text-xs font-semibold text-muted-foreground">
+              Headers
+            </div>
+            <div className="space-y-0.5">
+              {Object.entries(message.properties.headers).map(([k, v]) => (
+                <div key={k} className="flex gap-2 font-mono text-[11px]">
+                  <span className="shrink-0 text-muted-foreground">{k}:</span>
+                  <span className="break-all text-foreground">
+                    {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       <div className="rounded-md border border-border">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <span className="text-xs font-semibold text-muted-foreground">Body</span>
+          <span className="text-xs font-semibold text-muted-foreground">
+            Body
+          </span>
           <button
             type="button"
             onClick={handleCopy}
@@ -404,7 +501,7 @@ function MessageInspectBody({ message }: { message: RabbitMQMessageInfo | null }
         </ScrollArea>
       </div>
     </div>
-  )
+  );
 }
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -413,5 +510,5 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="shrink-0 text-muted-foreground">{label}:</span>
       <span className="truncate font-mono text-foreground">{value}</span>
     </div>
-  )
+  );
 }

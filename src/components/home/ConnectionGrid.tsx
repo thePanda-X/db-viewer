@@ -1,8 +1,8 @@
-import { useConnectionsStore } from '@/state/connectionsStore'
-import { ConnectionCard } from './ConnectionCard'
+import { useConnectionsStore } from '@/state/connectionsStore';
+import { ConnectionCard } from './ConnectionCard';
 
 export function ConnectionGrid() {
-  const connections = useConnectionsStore((s) => s.connections)
+  const connections = useConnectionsStore((s) => s.connections);
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -10,5 +10,5 @@ export function ConnectionGrid() {
         <ConnectionCard key={c.id} connection={c} />
       ))}
     </div>
-  )
+  );
 }

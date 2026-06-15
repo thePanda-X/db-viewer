@@ -1,8 +1,8 @@
-import { Database, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Database, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface EmptyConnectionsProps {
-  onCreateClick?: () => void
+  onCreateClick?: () => void;
 }
 
 export function EmptyConnections({ onCreateClick }: EmptyConnectionsProps) {
@@ -11,9 +11,12 @@ export function EmptyConnections({ onCreateClick }: EmptyConnectionsProps) {
       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
         <Database className="h-6 w-6 text-muted-foreground" />
       </div>
-      <h2 className="text-base font-semibold tracking-tight">No connections yet</h2>
+      <h2 className="text-base font-semibold tracking-tight">
+        No connections yet
+      </h2>
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-        Create a connection to start browsing your databases, search indices, and key-value stores.
+        Create a connection to start browsing your databases, search indices,
+        and key-value stores.
       </p>
       {onCreateClick && (
         <Button size="sm" className="mt-6" onClick={onCreateClick}>
@@ -22,5 +25,5 @@ export function EmptyConnections({ onCreateClick }: EmptyConnectionsProps) {
         </Button>
       )}
     </div>
-  )
+  );
 }

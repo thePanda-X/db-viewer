@@ -1,82 +1,82 @@
-import { Database } from 'lucide-react'
-import { useState } from 'react'
-import { TabStrip } from './TabStrip'
-import { TabContent } from './TabContent'
-import { ConnectionDialog } from '@/components/connection-dialog/ConnectionDialog'
-import { HotkeyProvider, useHotkey, useRefreshBusStore } from '@/lib/hotkeys'
-import { useTabsStore } from '@/state/tabsStore'
-import { HOME_TAB_ID } from '@/types/tab'
-import { ShortcutsDialog } from '@/components/help/ShortcutsDialog'
-import { ToastHost } from './ToastHost'
+import { Database } from 'lucide-react';
+import { useState } from 'react';
+import { TabStrip } from './TabStrip';
+import { TabContent } from './TabContent';
+import { ConnectionDialog } from '@/components/connection-dialog/ConnectionDialog';
+import { HotkeyProvider, useHotkey, useRefreshBusStore } from '@/lib/hotkeys';
+import { useTabsStore } from '@/state/tabsStore';
+import { HOME_TAB_ID } from '@/types/tab';
+import { ShortcutsDialog } from '@/components/help/ShortcutsDialog';
+import { ToastHost } from './ToastHost';
 
 function GlobalHotkeys({
   onNewConnection,
   onOpenShortcuts,
 }: {
-  onNewConnection: () => void
-  onOpenShortcuts: () => void
+  onNewConnection: () => void;
+  onOpenShortcuts: () => void;
 }) {
   useHotkey('Mod+R', {
     label: 'Refresh',
     group: 'App',
     description: 'Refresh the current view (e.g. reload table, re-run query)',
     handler: () => {
-      const top = useRefreshBusStore.getState().top()
-      if (top) top.refresh()
+      const top = useRefreshBusStore.getState().top();
+      if (top) top.refresh();
     },
-  })
+  });
 
   useHotkey('F5', {
     label: 'Refresh',
     group: 'App',
     description: 'Alias for Ctrl/Cmd+R',
     handler: () => {
-      const top = useRefreshBusStore.getState().top()
-      if (top) top.refresh()
+      const top = useRefreshBusStore.getState().top();
+      if (top) top.refresh();
     },
-  })
+  });
 
   useHotkey('Mod+N', {
     label: 'New connection',
     group: 'App',
     description: 'Open the new connection dialog',
     handler: onNewConnection,
-  })
+  });
 
   useHotkey('Mod+W', {
     label: 'Close tab',
     group: 'Tabs',
     description: 'Close the current tab',
     handler: () => {
-      const { activeTabId, closeTab } = useTabsStore.getState()
-      if (activeTabId !== HOME_TAB_ID) closeTab(activeTabId)
+      const { activeTabId, closeTab } = useTabsStore.getState();
+      if (activeTabId !== HOME_TAB_ID) closeTab(activeTabId);
     },
-  })
+  });
 
   useHotkey('Mod+Alt+ArrowRight', {
     label: 'Next tab',
     group: 'Tabs',
     description: 'Switch to the next tab',
     handler: () => {
-      cycleTab(1)
+      cycleTab(1);
     },
-  })
+  });
 
   useHotkey('Mod+Alt+ArrowLeft', {
     label: 'Previous tab',
     group: 'Tabs',
     description: 'Switch to the previous tab',
     handler: () => {
-      cycleTab(-1)
+      cycleTab(-1);
     },
-  })
+  });
 
   useHotkey('?', {
     label: 'Show shortcuts',
     group: 'App',
     description: 'Open the keyboard shortcuts cheat sheet',
     handler: onOpenShortcuts,
-  })
+  });
 
   return (
     <>
@@ -84,42 +84,42 @@ function GlobalHotkeys({
         <TabNumberHotkey key={i} index={i} />
       ))}
     </>
-  )
+  );
 }
 
 function TabNumberHotkey({ index }: { index: number }) {
-  const n = index + 1
+  const n = index + 1;
   useHotkey(`Mod+${n}`, {
     label: `Switch to tab ${n}`,
     group: 'Tabs',
     description: `Activate the ${n}${ordinalSuffix(n)} tab`,
     handler: () => {
-      const { tabs, setActive } = useTabsStore.getState()
-      const tab = tabs[index]
-      if (tab) setActive(tab.id)
+      const { tabs, setActive } = useTabsStore.getState();
+      const tab = tabs[index];
+      if (tab) setActive(tab.id);
     },
-  })
-  return null
+  });
+  return null;
 }
 
 function cycleTab(direction: 1 | -1) {
-  const { tabs, activeTabId, setActive } = useTabsStore.getState()
-  if (tabs.length <= 1) return
-  const idx = tabs.findIndex((t) => t.id === activeTabId)
-  const next = tabs[(idx + direction + tabs.length) % tabs.length]
-  if (next) setActive(next.id)
+  const { tabs, activeTabId, setActive } = useTabsStore.getState();
+  if (tabs.length <= 1) return;
+  const idx = tabs.findIndex((t) => t.id === activeTabId);
+  const next = tabs[(idx + direction + tabs.length) % tabs.length];
+  if (next) setActive(next.id);
 }
 
 function ordinalSuffix(n: number): string {
-  if (n === 1) return 'st'
-  if (n === 2) return 'nd'
-  if (n === 3) return 'rd'
-  return 'th'
+  if (n === 1) return 'st';
+  if (n === 2) return 'nd';
+  if (n === 3) return 'rd';
+  return 'th';
 }
 
 export function AppShell() {
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -142,5 +142,5 @@ export function AppShell() {
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <ToastHost />
     </div>
-  )
+  );
 }

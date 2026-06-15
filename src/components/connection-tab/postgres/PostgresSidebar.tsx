@@ -1,41 +1,60 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronRight, Copy, Code2, Database, Info, Loader2, RefreshCw, Table2, Eye, AlertCircle, Search } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { api } from '@/lib/api'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ChevronRight,
+  Copy,
+  Code2,
+  Database,
+  Info,
+  Loader2,
+  RefreshCw,
+  Table2,
+  Eye,
+  AlertCircle,
+  Search,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { toast } from '@/state/toastStore'
-import { ContextMenu, type ContextMenuItem } from '@/components/ui/context-menu'
-import type { DatabaseInfo, TableInfo } from '@/types/postgres'
+} from '@/components/ui/select';
+import { toast } from '@/state/toastStore';
+import {
+  ContextMenu,
+  type ContextMenuItem,
+} from '@/components/ui/context-menu';
+import type { DatabaseInfo, TableInfo } from '@/types/postgres';
 
 export interface RefreshRefHandle {
-  current: (() => void) | null
+  current: (() => void) | null;
 }
 
 interface PostgresSidebarProps {
-  connectionId: string
-  config: import('@/types/connection').PostgresConfig
-  selectedDatabase: string
-  onDatabaseChange: (database: string) => void
-  selectedTable: { schema: string; table: string } | null
-  onSelectTable: (table: { schema: string; table: string }) => void
-  selectedSchema: string
-  onSchemaChange: (schema: string) => void
-  refreshRef?: RefreshRefHandle
-  onRefresh?: () => void
+  connectionId: string;
+  config: import('@/types/connection').PostgresConfig;
+  selectedDatabase: string;
+  onDatabaseChange: (database: string) => void;
+  selectedTable: { schema: string; table: string } | null;
+  onSelectTable: (table: { schema: string; table: string }) => void;
+  selectedSchema: string;
+  onSchemaChange: (schema: string) => void;
+  refreshRef?: RefreshRefHandle;
+  onRefresh?: () => void;
 }
 
 function isError(value: unknown): value is { error: string } {
-  return typeof value === 'object' && value !== null && 'error' in (value as Record<string, unknown>)
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'error' in (value as Record<string, unknown>)
+  );
 }
 
 export function PostgresSidebar({
@@ -50,93 +69,98 @@ export function PostgresSidebar({
   refreshRef,
   onRefresh,
 }: PostgresSidebarProps) {
-  const [databases, setDatabases] = useState<DatabaseInfo[] | null>(null)
-  const [databasesError, setDatabasesError] = useState<string | null>(null)
-  const [tables, setTables] = useState<TableInfo[] | null>(null)
-  const [tablesError, setTablesError] = useState<string | null>(null)
-  const [loadingDatabases, setLoadingDatabases] = useState(false)
-  const [loadingTables, setLoadingTables] = useState(false)
-  const [tableFilter, setTableFilter] = useState('')
+  const [databases, setDatabases] = useState<DatabaseInfo[] | null>(null);
+  const [databasesError, setDatabasesError] = useState<string | null>(null);
+  const [tables, setTables] = useState<TableInfo[] | null>(null);
+  const [tablesError, setTablesError] = useState<string | null>(null);
+  const [loadingDatabases, setLoadingDatabases] = useState(false);
+  const [loadingTables, setLoadingTables] = useState(false);
+  const [tableFilter, setTableFilter] = useState('');
 
   const fetchDatabases = useCallback(async () => {
-    setLoadingDatabases(true)
-    setDatabasesError(null)
+    setLoadingDatabases(true);
+    setDatabasesError(null);
     try {
-      const result = await api.postgres.listDatabases({ connectionId, config })
+      const result = await api.postgres.listDatabases({ connectionId, config });
       if (isError(result)) {
-        setDatabasesError(result.error)
-        setDatabases([])
+        setDatabasesError(result.error);
+        setDatabases([]);
       } else {
-        setDatabases(result)
+        setDatabases(result);
       }
     } catch (err) {
-      setDatabasesError(err instanceof Error ? err.message : String(err))
-      setDatabases([])
+      setDatabasesError(err instanceof Error ? err.message : String(err));
+      setDatabases([]);
     } finally {
-      setLoadingDatabases(false)
+      setLoadingDatabases(false);
     }
-  }, [connectionId, config])
+  }, [connectionId, config]);
 
   const fetchTables = useCallback(
     async (database: string) => {
-      setLoadingTables(true)
-      setTablesError(null)
+      setLoadingTables(true);
+      setTablesError(null);
       try {
-        const result = await api.postgres.listTables({ connectionId, config, database })
+        const result = await api.postgres.listTables({
+          connectionId,
+          config,
+          database,
+        });
         if (isError(result)) {
-          setTablesError(result.error)
-          setTables([])
+          setTablesError(result.error);
+          setTables([]);
         } else {
-          setTables(result)
+          setTables(result);
         }
       } catch (err) {
-        setTablesError(err instanceof Error ? err.message : String(err))
-        setTables([])
+        setTablesError(err instanceof Error ? err.message : String(err));
+        setTables([]);
       } finally {
-        setLoadingTables(false)
+        setLoadingTables(false);
       }
     },
     [connectionId, config],
-  )
+  );
 
   useEffect(() => {
-    void fetchDatabases()
-  }, [fetchDatabases])
+    void fetchDatabases();
+  }, [fetchDatabases]);
 
   useEffect(() => {
     if (selectedDatabase) {
-      void fetchTables(selectedDatabase)
+      void fetchTables(selectedDatabase);
     } else {
-      setTables([])
+      setTables([]);
     }
-  }, [selectedDatabase, fetchTables])
+  }, [selectedDatabase, fetchTables]);
 
   useEffect(() => {
-    if (!refreshRef) return
+    if (!refreshRef) return;
     refreshRef.current = () => {
-      void fetchDatabases()
-      if (selectedDatabase) void fetchTables(selectedDatabase)
-    }
+      void fetchDatabases();
+      if (selectedDatabase) void fetchTables(selectedDatabase);
+    };
     return () => {
-      if (refreshRef) refreshRef.current = null
-    }
-  }, [refreshRef, fetchDatabases, fetchTables, selectedDatabase])
+      if (refreshRef) refreshRef.current = null;
+    };
+  }, [refreshRef, fetchDatabases, fetchTables, selectedDatabase]);
 
   const schemas = useMemo(() => {
-    if (!tables) return []
-    const set = new Set<string>()
-    for (const t of tables) set.add(t.schema)
-    return Array.from(set).sort()
-  }, [tables])
+    if (!tables) return [];
+    const set = new Set<string>();
+    for (const t of tables) set.add(t.schema);
+    return Array.from(set).sort();
+  }, [tables]);
 
   const filteredTables = useMemo(() => {
-    if (!tables) return []
+    if (!tables) return [];
     return tables.filter(
       (t) =>
         t.schema === selectedSchema &&
-        (!tableFilter || t.name.toLowerCase().includes(tableFilter.toLowerCase())),
-    )
-  }, [tables, selectedSchema, tableFilter])
+        (!tableFilter ||
+          t.name.toLowerCase().includes(tableFilter.toLowerCase())),
+    );
+  }, [tables, selectedSchema, tableFilter]);
 
   return (
     <aside className="flex h-full w-full flex-col border-r border-border bg-muted/20">
@@ -150,7 +174,9 @@ export function PostgresSidebar({
           disabled={loadingDatabases}
           title="Refresh databases"
         >
-          <RefreshCw className={cn('h-3 w-3', loadingDatabases && 'animate-spin')} />
+          <RefreshCw
+            className={cn('h-3 w-3', loadingDatabases && 'animate-spin')}
+          />
         </Button>
       </div>
 
@@ -167,13 +193,21 @@ export function PostgresSidebar({
                 <span className="break-words">{databasesError}</span>
               </div>
             ) : (
-              <Select value={selectedDatabase} onValueChange={onDatabaseChange} disabled={loadingDatabases}>
+              <Select
+                value={selectedDatabase}
+                onValueChange={onDatabaseChange}
+                disabled={loadingDatabases}
+              >
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue placeholder="Select database" />
                 </SelectTrigger>
                 <SelectContent>
                   {databases?.map((db) => (
-                    <SelectItem key={db.name} value={db.name} className="text-xs">
+                    <SelectItem
+                      key={db.name}
+                      value={db.name}
+                      className="text-xs"
+                    >
                       {db.name}
                     </SelectItem>
                   ))}
@@ -239,26 +273,34 @@ export function PostgresSidebar({
               </div>
             ) : filteredTables.length === 0 && !loadingTables ? (
               <div className="rounded-md border border-dashed border-border p-2 text-center text-[11px] text-muted-foreground">
-                {tableFilter ? 'No matches' : `No tables in `}<span className="font-mono">{selectedSchema}</span>
+                {tableFilter ? 'No matches' : `No tables in `}
+                <span className="font-mono">{selectedSchema}</span>
               </div>
             ) : (
               <ul className="space-y-0.5">
                 {filteredTables.map((t) => {
                   const active =
-                    selectedTable?.schema === t.schema && selectedTable?.table === t.name
-                  const tableRef = t
+                    selectedTable?.schema === t.schema &&
+                    selectedTable?.table === t.name;
+                  const tableRef = t;
                   const items: ContextMenuItem[] = [
                     {
                       label: 'Open',
                       icon: <Table2 className="h-3.5 w-3.5" />,
-                      onClick: () => onSelectTable({ schema: tableRef.schema, table: tableRef.name }),
+                      onClick: () =>
+                        onSelectTable({
+                          schema: tableRef.schema,
+                          table: tableRef.name,
+                        }),
                     },
                     {
                       label: 'Copy Name',
                       icon: <Copy className="h-3.5 w-3.5" />,
                       onClick: () => {
-                        void navigator.clipboard.writeText(`${tableRef.schema}.${tableRef.name}`)
-                        toast({ message: 'Copied table name' })
+                        void navigator.clipboard.writeText(
+                          `${tableRef.schema}.${tableRef.name}`,
+                        );
+                        toast({ message: 'Copied table name' });
                       },
                     },
                     {
@@ -267,8 +309,8 @@ export function PostgresSidebar({
                       onClick: () => {
                         void navigator.clipboard.writeText(
                           `SELECT * FROM "${tableRef.schema}"."${tableRef.name}"`,
-                        )
-                        toast({ message: 'Copied SELECT query' })
+                        );
+                        toast({ message: 'Copied SELECT query' });
                       },
                     },
                     { separator: true },
@@ -276,8 +318,9 @@ export function PostgresSidebar({
                       label: 'Refresh',
                       icon: <RefreshCw className="h-3.5 w-3.5" />,
                       onClick: () => {
-                        if (selectedDatabase) void fetchTables(selectedDatabase)
-                        onRefresh?.()
+                        if (selectedDatabase)
+                          void fetchTables(selectedDatabase);
+                        onRefresh?.();
                       },
                     },
                     {
@@ -287,16 +330,18 @@ export function PostgresSidebar({
                         toast({
                           message: `${tableRef.schema}.${tableRef.name}`,
                           detail: `Type: ${tableRef.type}`,
-                        })
+                        });
                       },
                     },
-                  ]
+                  ];
                   return (
                     <li key={`${t.schema}.${t.name}`}>
                       <ContextMenu items={items}>
                         <button
                           type="button"
-                          onClick={() => onSelectTable({ schema: t.schema, table: t.name })}
+                          onClick={() =>
+                            onSelectTable({ schema: t.schema, table: t.name })
+                          }
                           className={cn(
                             'flex w-full items-center gap-1.5 rounded-sm px-1.5 py-1 text-left text-xs transition-colors',
                             'hover:bg-muted',
@@ -312,7 +357,7 @@ export function PostgresSidebar({
                         </button>
                       </ContextMenu>
                     </li>
-                  )
+                  );
                 })}
               </ul>
             )}
@@ -320,5 +365,5 @@ export function PostgresSidebar({
         </div>
       </ScrollArea>
     </aside>
-  )
+  );
 }

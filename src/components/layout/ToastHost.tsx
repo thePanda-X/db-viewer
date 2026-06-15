@@ -1,8 +1,15 @@
-import { CheckCircle2, CircleAlert, Info, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { useToastStore, type Toast, type ToastVariant } from '@/state/toastStore'
+import { CheckCircle2, CircleAlert, Info, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  useToastStore,
+  type Toast,
+  type ToastVariant,
+} from '@/state/toastStore';
 
-const VARIANT_STYLES: Record<ToastVariant, { icon: typeof Info; ring: string; iconClass: string }> = {
+const VARIANT_STYLES: Record<
+  ToastVariant,
+  { icon: typeof Info; ring: string; iconClass: string }
+> = {
   info: {
     icon: Info,
     ring: 'border-border bg-background',
@@ -23,11 +30,11 @@ const VARIANT_STYLES: Record<ToastVariant, { icon: typeof Info; ring: string; ic
     ring: 'border-destructive/50 bg-background',
     iconClass: 'text-destructive',
   },
-}
+};
 
 export function ToastHost() {
-  const toasts = useToastStore((s) => s.toasts)
-  const dismiss = useToastStore((s) => s.dismiss)
+  const toasts = useToastStore((s) => s.toasts);
+  const dismiss = useToastStore((s) => s.dismiss);
 
   return (
     <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex flex-col gap-2">
@@ -35,11 +42,17 @@ export function ToastHost() {
         <ToastCard key={t.id} toast={t} onDismiss={() => dismiss(t.id)} />
       ))}
     </div>
-  )
+  );
 }
 
-function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
-  const { icon: Icon, ring, iconClass } = VARIANT_STYLES[toast.variant]
+function ToastCard({
+  toast,
+  onDismiss,
+}: {
+  toast: Toast;
+  onDismiss: () => void;
+}) {
+  const { icon: Icon, ring, iconClass } = VARIANT_STYLES[toast.variant];
   return (
     <div
       role="status"
@@ -51,9 +64,13 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     >
       <Icon className={cn('mt-0.5 h-3.5 w-3.5 shrink-0', iconClass)} />
       <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-foreground">{toast.message}</div>
+        <div className="truncate font-medium text-foreground">
+          {toast.message}
+        </div>
         {toast.detail && (
-          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{toast.detail}</div>
+          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+            {toast.detail}
+          </div>
         )}
       </div>
       <button
@@ -65,5 +82,5 @@ function ToastCard({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         <X className="h-3 w-3" />
       </button>
     </div>
-  )
+  );
 }
