@@ -13,10 +13,11 @@ interface ConnectionsState {
     type: ConnectionType,
     name: string,
     config: Connection['config'],
+    folderId?: string,
   ) => Promise<Connection>;
   update: (
     id: string,
-    patch: { name?: string; config?: Connection['config'] },
+    patch: { name?: string; config?: Connection['config']; folderId?: string | null },
   ) => Promise<void>;
   remove: (id: string) => Promise<void>;
 }
@@ -40,13 +41,14 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
     }
   },
 
-  add: async (type, name, config) => {
+  add: async (type, name, config, folderId) => {
     const now = new Date().toISOString();
     const conn = {
       id: newId(),
       type,
       name,
       config,
+      ...(folderId ? { folderId } : null),
       createdAt: now,
       updatedAt: now,
     } as Connection;
@@ -63,6 +65,7 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
         ...c,
         ...(patch.name !== undefined ? { name: patch.name } : null),
         ...(patch.config !== undefined ? { config: patch.config } : null),
+        ...(patch.folderId !== undefined ? { folderId: patch.folderId ?? undefined } : null),
         updatedAt: new Date().toISOString(),
       } as Connection;
       return merged;

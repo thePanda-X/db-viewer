@@ -18,13 +18,15 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useState } from 'react';
+import { FolderPicker } from '@/components/home/FolderPicker';
 
 interface ConnectionFormProps {
   type: ConnectionType;
-  initialValues?: { name: string; config: Connection['config'] };
+  initialValues?: { name: string; config: Connection['config']; folderId?: string };
   onSubmit: (values: {
     name: string;
     config: Connection['config'];
+    folderId?: string;
   }) => Promise<void> | void;
   onBack?: () => void;
   submitLabel?: string;
@@ -41,6 +43,9 @@ export function ConnectionForm({
   const Icon = def.icon;
   const schema = buildFlatFormSchema(type);
   const [browsing, setBrowsing] = useState(false);
+  const [folderId, setFolderId] = useState<string | undefined>(
+    initialValues?.folderId,
+  );
 
   const defaults: FlatFormValues = (() => {
     const base: FlatFormValues = { name: initialValues?.name ?? '' };
@@ -73,6 +78,7 @@ export function ConnectionForm({
     await onSubmit({
       name: values.name as string,
       config: config as unknown as Connection['config'],
+      folderId,
     });
   });
 
@@ -108,6 +114,11 @@ export function ConnectionForm({
           <span className="text-xs text-muted-foreground">
             — {def.description}
           </span>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Folder</label>
+          <FolderPicker value={folderId} onChange={setFolderId} />
         </div>
 
         <div className="grid grid-cols-2 gap-x-3 gap-y-3">
