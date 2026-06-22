@@ -31,6 +31,8 @@ interface TabsState {
   closeTabsForConnections: (ids: string[]) => void;
   /** Update tab title/type for a connection that was edited */
   syncConnection: (conn: Connection) => void;
+  /** Close tabs for connections not present in the given set */
+  cleanupStale: (presentIds: Set<string>) => void;
 }
 
 function buildRelatedRowId(
@@ -148,6 +150,25 @@ export const useTabsStore = create<TabsState>()(
             : t,
         );
         set({ tabs: next });
+      },
+
+      cleanupStale: (presentIds) => {
+        const { tabs, activeTabId } = get();
+        const stale = tabs.filter(
+          (t) =>
+            t.id !== HOME_TAB_ID &&
+            t.connectionId !== HOME_TAB_ID &&
+            !presentIds.has(t.connectionId),
+        );
+        if (stale.length === 0) return;
+        const staleIds = new Set(stale.map((t) => t.id));
+        const next = tabs.filter((t) => !staleIds.has(t.id));
+        let nextActive = activeTabId;
+        if (staleIds.has(activeTabId)) {
+          const fallback = next[next.length - 1];
+          nextActive = fallback?.id ?? HOME_TAB_ID;
+        }
+        set({ tabs: next, activeTabId: nextActive });
       },
     }),
     {
