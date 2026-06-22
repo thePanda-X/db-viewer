@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { MoreHorizontal, Pencil, Play, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Pencil, Play, Trash2, FolderInput } from 'lucide-react';
 import type { Connection } from '@/types/connection';
 import { getConnectionTypeDef } from '@/data/connectionTypes';
 import { useTabsStore } from '@/state/tabsStore';
 import { useConnectionsStore } from '@/state/connectionsStore';
+import { useFoldersStore } from '@/state/foldersStore';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -25,6 +29,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { ConnectionDialog } from '@/components/connection-dialog/ConnectionDialog';
+import { toast } from '@/state/toastStore';
 
 interface ConnectionCardProps {
   connection: Connection;
@@ -35,6 +40,8 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const openConnection = useTabsStore((s) => s.openConnection);
   const remove = useConnectionsStore((s) => s.remove);
+  const updateConnection = useConnectionsStore((s) => s.update);
+  const folders = useFoldersStore((s) => s.folders);
 
   const def = getConnectionTypeDef(connection.type);
   const Icon = def.icon;
@@ -42,6 +49,14 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
 
   const handleConnect = () => {
     openConnection(connection);
+  };
+
+  const handleMoveToFolder = async (folderId: string | undefined) => {
+    await updateConnection(connection.id, { folderId: folderId ?? null });
+    const folderName = folderId
+      ? folders.find((f) => f.id === folderId)?.name
+      : 'Unsorted';
+    toast({ message: `Moved to "${folderName}"`, variant: 'info' });
   };
 
   return (
@@ -84,6 +99,37 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
                 <Pencil className="mr-2 h-3.5 w-3.5" />
                 Edit
               </DropdownMenuItem>
+              {folders.length > 0 && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <FolderInput className="mr-2 h-3.5 w-3.5" />
+                    Move to
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {connection.folderId && (
+                      <DropdownMenuItem
+                        onClick={() => handleMoveToFolder(undefined)}
+                      >
+                        Unsorted
+                      </DropdownMenuItem>
+                    )}
+                    {folders
+                      .filter((f) => f.id !== connection.folderId)
+                      .map((f) => (
+                        <DropdownMenuItem
+                          key={f.id}
+                          onClick={() => handleMoveToFolder(f.id)}
+                        >
+                          <span
+                            className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: f.color }}
+                          />
+                          {f.name}
+                        </DropdownMenuItem>
+                      ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => setDeleteOpen(true)}

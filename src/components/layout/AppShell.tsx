@@ -1,13 +1,17 @@
 import { Database } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TabStrip } from './TabStrip';
 import { TabContent } from './TabContent';
 import { ConnectionDialog } from '@/components/connection-dialog/ConnectionDialog';
 import { HotkeyProvider, useHotkey, useRefreshBusStore } from '@/lib/hotkeys';
 import { useTabsStore } from '@/state/tabsStore';
+import { useConnectionsStore } from '@/state/connectionsStore';
+import { useFoldersStore } from '@/state/foldersStore';
 import { HOME_TAB_ID } from '@/types/tab';
 import { ShortcutsDialog } from '@/components/help/ShortcutsDialog';
 import { ToastHost } from './ToastHost';
+import { Sidebar, type FolderFilter } from '@/components/sidebar/Sidebar';
+import { ResizableSidebar } from '@/components/ui/resizable-sidebar';
 
 function GlobalHotkeys({
   onNewConnection,
@@ -120,6 +124,17 @@ function ordinalSuffix(n: number): string {
 export function AppShell() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [folderFilter, setFolderFilter] = useState<FolderFilter>('all');
+  const activeTabId = useTabsStore((s) => s.activeTabId);
+  const loadConnections = useConnectionsStore((s) => s.load);
+  const loadFolders = useFoldersStore((s) => s.load);
+
+  const isHome = activeTabId === HOME_TAB_ID;
+
+  useEffect(() => {
+    loadConnections();
+    loadFolders();
+  }, [loadConnections, loadFolders]);
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -136,7 +151,29 @@ export function AppShell() {
       </header>
       <TabStrip />
       <main className="flex-1 overflow-hidden">
-        <TabContent onCreateClick={() => setDialogOpen(true)} />
+        {isHome ? (
+          <div className="flex h-full">
+            <ResizableSidebar
+              defaultWidth={200}
+              minWidth={160}
+              maxWidth={320}
+              storageKey="db-vwr:sidebar-width"
+            >
+              <Sidebar
+                selectedFilter={folderFilter}
+                onSelectFilter={setFolderFilter}
+              />
+            </ResizableSidebar>
+            <div className="flex-1 overflow-hidden">
+              <TabContent
+                onCreateClick={() => setDialogOpen(true)}
+                folderFilter={folderFilter}
+              />
+            </div>
+          </div>
+        ) : (
+          <TabContent onCreateClick={() => setDialogOpen(true)} />
+        )}
       </main>
       <ConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />

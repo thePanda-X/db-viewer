@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { listConnections, setConnections } from './connections';
+import { listFolders, setFolders } from './folders';
 import {
   deleteRows as pgDeleteRows,
   disconnect as pgDisconnect,
@@ -369,6 +370,12 @@ app.whenReady().then(() => {
 
   register('connections:save', (connections: unknown[]) =>
     setConnections(connections),
+  );
+
+  register('folders:list', () => listFolders());
+
+  register('folders:save', (folders: unknown[]) =>
+    setFolders(folders),
   );
 
   register(

@@ -6,12 +6,14 @@ import { toast } from '@/state/toastStore';
 import { Button } from '@/components/ui/button';
 import { ConnectionGrid } from './ConnectionGrid';
 import { EmptyConnections } from './EmptyConnections';
+import type { FolderFilter } from '@/components/sidebar/Sidebar';
 
 interface HomeTabProps {
   onCreateClick?: () => void;
+  folderFilter?: FolderFilter;
 }
 
-export function HomeTab({ onCreateClick }: HomeTabProps) {
+export function HomeTab({ onCreateClick, folderFilter }: HomeTabProps) {
   const connections = useConnectionsStore((s) => s.connections);
   const loading = useConnectionsStore((s) => s.loading);
   const load = useConnectionsStore((s) => s.load);
@@ -57,7 +59,7 @@ export function HomeTab({ onCreateClick }: HomeTabProps) {
         ) : connections.length === 0 ? (
           <EmptyConnections onCreateClick={onCreateClick} />
         ) : (
-          <ConnectionGrid />
+          <ConnectionGrid folderFilter={folderFilter} />
         )}
       </div>
     </div>
