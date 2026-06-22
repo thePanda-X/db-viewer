@@ -13,9 +13,18 @@ import { useState, useEffect } from 'react';
 import type { Folder } from '@/types/folder';
 
 const FOLDER_COLORS = [
-  '#ef4444', '#f97316', '#f59e0b', '#eab308',
-  '#22c55e', '#10b981', '#06b6d4', '#3b82f6',
-  '#6366f1', '#8b5cf6', '#d946ef', '#ec4899',
+  '#ef4444',
+  '#f97316',
+  '#f59e0b',
+  '#eab308',
+  '#22c55e',
+  '#10b981',
+  '#06b6d4',
+  '#3b82f6',
+  '#6366f1',
+  '#8b5cf6',
+  '#d946ef',
+  '#ec4899',
 ];
 
 interface FolderDialogProps {

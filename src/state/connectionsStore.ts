@@ -17,7 +17,11 @@ interface ConnectionsState {
   ) => Promise<Connection>;
   update: (
     id: string,
-    patch: { name?: string; config?: Connection['config']; folderId?: string | null },
+    patch: {
+      name?: string;
+      config?: Connection['config'];
+      folderId?: string | null;
+    },
   ) => Promise<void>;
   remove: (id: string) => Promise<void>;
 }
@@ -65,7 +69,9 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
         ...c,
         ...(patch.name !== undefined ? { name: patch.name } : null),
         ...(patch.config !== undefined ? { config: patch.config } : null),
-        ...(patch.folderId !== undefined ? { folderId: patch.folderId ?? undefined } : null),
+        ...(patch.folderId !== undefined
+          ? { folderId: patch.folderId ?? undefined }
+          : null),
         updatedAt: new Date().toISOString(),
       } as Connection;
       return merged;

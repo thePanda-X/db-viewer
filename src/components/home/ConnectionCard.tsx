@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { MoreHorizontal, Pencil, Play, Trash2, FolderInput } from 'lucide-react';
+import {
+  MoreHorizontal,
+  Pencil,
+  Play,
+  Trash2,
+  FolderInput,
+} from 'lucide-react';
 import type { Connection } from '@/types/connection';
 import { getConnectionTypeDef } from '@/data/connectionTypes';
 import { useTabsStore } from '@/state/tabsStore';

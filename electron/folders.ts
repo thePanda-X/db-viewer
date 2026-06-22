@@ -73,9 +73,7 @@ export async function listFolders(): Promise<Folder[]> {
   return data.folders;
 }
 
-export async function setFolders(
-  folders: unknown[],
-): Promise<Folder[]> {
+export async function setFolders(folders: unknown[]): Promise<Folder[]> {
   const validFolders = parseFolders(folders);
   const data: FoldersFile = {
     version: FILE_VERSION,
