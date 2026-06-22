@@ -9,7 +9,10 @@ interface FoldersState {
   error: string | null;
   load: () => Promise<void>;
   add: (name: string, color: string) => Promise<Folder>;
-  update: (id: string, patch: { name?: string; color?: string }) => Promise<void>;
+  update: (
+    id: string,
+    patch: { name?: string; color?: string },
+  ) => Promise<void>;
   remove: (id: string) => Promise<void>;
 }
 

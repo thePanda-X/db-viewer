@@ -74,8 +74,18 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
       onSelectFilter('all');
     }
     setDeleteTarget(undefined);
-    toast({ message: `Folder "${deleteTarget.name}" deleted`, variant: 'info' });
-  }, [deleteTarget, connections, updateConnection, removeFolder, selectedFilter, onSelectFilter]);
+    toast({
+      message: `Folder "${deleteTarget.name}" deleted`,
+      variant: 'info',
+    });
+  }, [
+    deleteTarget,
+    connections,
+    updateConnection,
+    removeFolder,
+    selectedFilter,
+    onSelectFilter,
+  ]);
 
   const handleSave = useCallback(
     async (name: string, color: string) => {
@@ -112,9 +122,7 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
           <button
             onClick={() => onSelectFilter('all')}
             className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent/50 ${
-              selectedFilter === 'all'
-                ? 'bg-accent text-accent-foreground'
-                : ''
+              selectedFilter === 'all' ? 'bg-accent text-accent-foreground' : ''
             }`}
           >
             <Database className="h-3.5 w-3.5 text-muted-foreground" />
@@ -167,7 +175,10 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
         onSave={handleSave}
       />
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(undefined)}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={() => setDeleteTarget(undefined)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete folder?</AlertDialogTitle>

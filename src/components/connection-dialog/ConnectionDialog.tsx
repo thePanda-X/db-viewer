@@ -59,7 +59,12 @@ export function ConnectionDialog({
     folderId?: string;
   }) => {
     if (!selectedType) return;
-    const created = await add(selectedType, values.name, values.config, values.folderId);
+    const created = await add(
+      selectedType,
+      values.name,
+      values.config,
+      values.folderId,
+    );
     onOpenChange(false);
     openConnection(created);
   };

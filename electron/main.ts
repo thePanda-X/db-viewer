@@ -374,9 +374,7 @@ app.whenReady().then(() => {
 
   register('folders:list', () => listFolders());
 
-  register('folders:save', (folders: unknown[]) =>
-    setFolders(folders),
-  );
+  register('folders:save', (folders: unknown[]) => setFolders(folders));
 
   register(
     'dialog:openFile',

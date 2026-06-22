@@ -22,7 +22,11 @@ import { FolderPicker } from '@/components/home/FolderPicker';
 
 interface ConnectionFormProps {
   type: ConnectionType;
-  initialValues?: { name: string; config: Connection['config']; folderId?: string };
+  initialValues?: {
+    name: string;
+    config: Connection['config'];
+    folderId?: string;
+  };
   onSubmit: (values: {
     name: string;
     config: Connection['config'];
