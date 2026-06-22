@@ -4,6 +4,7 @@ import type { Connection } from '../src/types/connection';
 const baseConnectionSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(64),
+  folderId: z.string().optional(),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),
 });

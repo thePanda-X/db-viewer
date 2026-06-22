@@ -56,9 +56,15 @@ export function ConnectionDialog({
   const handleCreate = async (values: {
     name: string;
     config: Connection['config'];
+    folderId?: string;
   }) => {
     if (!selectedType) return;
-    const created = await add(selectedType, values.name, values.config);
+    const created = await add(
+      selectedType,
+      values.name,
+      values.config,
+      values.folderId,
+    );
     onOpenChange(false);
     openConnection(created);
   };
@@ -66,9 +72,14 @@ export function ConnectionDialog({
   const handleUpdate = async (values: {
     name: string;
     config: Connection['config'];
+    folderId?: string;
   }) => {
     if (!connection) return;
-    await update(connection.id, { name: values.name, config: values.config });
+    await update(connection.id, {
+      name: values.name,
+      config: values.config,
+      folderId: values.folderId,
+    });
     onOpenChange(false);
   };
 
@@ -104,6 +115,7 @@ export function ConnectionDialog({
                   initialValues: {
                     name: connection.name,
                     config: connection.config,
+                    folderId: connection.folderId,
                   },
                 }
               : {

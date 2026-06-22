@@ -10,6 +10,7 @@ export interface BaseConnection {
   id: string;
   type: ConnectionType;
   name: string;
+  folderId?: string;
   createdAt: string;
   updatedAt: string;
 }
