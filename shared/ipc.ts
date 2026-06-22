@@ -1,5 +1,6 @@
 export const IPC_CHANNELS = {
   connections: ['list', 'save'],
+  folders: ['list', 'save'],
   dialog: ['openFile'],
   postgres: [
     'query',
