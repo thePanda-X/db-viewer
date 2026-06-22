@@ -5,6 +5,9 @@ import {
   DropdownMenuItem,
   DropdownMenuPortal,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from './dropdown-menu';
 
@@ -15,12 +18,64 @@ export interface ContextMenuItem {
   separator?: boolean;
   destructive?: boolean;
   disabled?: boolean;
+  children?: ContextMenuItem[];
 }
 
 interface ContextMenuProps {
   items: ContextMenuItem[];
   children: ReactNode;
   className?: string;
+}
+
+function renderItem(
+  item: ContextMenuItem,
+  key: number | string,
+  onClose: () => void,
+) {
+  if (item.separator) {
+    return <DropdownMenuSeparator key={key} />;
+  }
+
+  if (item.children && item.children.length > 0) {
+    return (
+      <DropdownMenuSub key={key}>
+        <DropdownMenuSubTrigger disabled={item.disabled}>
+          {item.icon && (
+            <span className="mr-2 flex h-3.5 w-3.5 items-center justify-center">
+              {item.icon}
+            </span>
+          )}
+          {item.label}
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent>
+          {item.children.map((child, i) => renderItem(child, i, onClose))}
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
+    );
+  }
+
+  return (
+    <DropdownMenuItem
+      key={key}
+      disabled={item.disabled}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+        item.onClick?.();
+      }}
+      className={
+        item.destructive ? 'text-destructive focus:text-destructive' : ''
+      }
+    >
+      {item.icon && (
+        <span className="mr-2 flex h-3.5 w-3.5 items-center justify-center">
+          {item.icon}
+        </span>
+      )}
+      {item.label}
+    </DropdownMenuItem>
+  );
 }
 
 export function ContextMenu({ items, children, className }: ContextMenuProps) {
@@ -63,35 +118,7 @@ export function ContextMenu({ items, children, className }: ContextMenuProps) {
           className="min-w-[140px]"
           onCloseAutoFocus={(e) => e.preventDefault()}
         >
-          {items.map((item, i) => (
-            <span key={i}>
-              {item.separator ? (
-                <DropdownMenuSeparator />
-              ) : (
-                <DropdownMenuItem
-                  disabled={item.disabled}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setOpen(false);
-                    item.onClick?.();
-                  }}
-                  className={
-                    item.destructive
-                      ? 'text-destructive focus:text-destructive'
-                      : ''
-                  }
-                >
-                  {item.icon && (
-                    <span className="mr-2 flex h-3.5 w-3.5 items-center justify-center">
-                      {item.icon}
-                    </span>
-                  )}
-                  {item.label}
-                </DropdownMenuItem>
-              )}
-            </span>
-          ))}
+          {items.map((item, i) => renderItem(item, i, () => setOpen(false)))}
         </DropdownMenuContent>
       </DropdownMenuPortal>
     </DropdownMenu>

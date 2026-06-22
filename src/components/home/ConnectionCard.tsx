@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   MoreHorizontal,
   Pencil,
@@ -24,6 +24,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
+import { ContextMenu } from '@/components/ui/context-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,121 +54,179 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
   const Icon = def.icon;
   const subtitle = def.subtitle(connection.config as never);
 
-  const handleConnect = () => {
+  const handleConnect = useCallback(() => {
     openConnection(connection);
-  };
+  }, [openConnection, connection]);
 
-  const handleMoveToFolder = async (folderId: string | undefined) => {
-    await updateConnection(connection.id, { folderId: folderId ?? null });
-    const folderName = folderId
-      ? folders.find((f) => f.id === folderId)?.name
-      : 'Unsorted';
-    toast({ message: `Moved to "${folderName}"`, variant: 'info' });
-  };
+  const handleMoveToFolder = useCallback(
+    async (folderId: string | undefined) => {
+      await updateConnection(connection.id, { folderId: folderId ?? null });
+      const folderName = folderId
+        ? folders.find((f) => f.id === folderId)?.name
+        : 'Unsorted';
+      toast({ message: `Moved to "${folderName}"`, variant: 'info' });
+    },
+    [updateConnection, connection.id, folders],
+  );
+
+  const contextMenuItems = useMemo(
+    () => [
+      {
+        label: 'Connect',
+        icon: <Play className="h-3.5 w-3.5" />,
+        onClick: handleConnect,
+      },
+      {
+        label: 'Edit',
+        icon: <Pencil className="h-3.5 w-3.5" />,
+        onClick: () => setEditOpen(true),
+      },
+      ...(folders.length > 0
+        ? [
+            {
+              label: 'Move to',
+              icon: <FolderInput className="h-3.5 w-3.5" />,
+              children: [
+                ...(connection.folderId
+                  ? [
+                      {
+                        label: 'Unsorted',
+                        onClick: () => handleMoveToFolder(undefined),
+                      },
+                    ]
+                  : []),
+                ...folders
+                  .filter((f) => f.id !== connection.folderId)
+                  .map((f) => ({
+                    label: f.name,
+                    icon: (
+                      <span
+                        className="inline-block h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: f.color }}
+                      />
+                    ),
+                    onClick: () => handleMoveToFolder(f.id),
+                  })),
+              ],
+            },
+          ]
+        : []),
+      { separator: true },
+      {
+        label: 'Delete',
+        icon: <Trash2 className="h-3.5 w-3.5" />,
+        onClick: () => setDeleteOpen(true),
+        destructive: true,
+      },
+    ],
+    [folders, connection.folderId, handleConnect, handleMoveToFolder],
+  );
 
   return (
     <>
-      <Card className="group flex flex-col gap-3 p-4 transition-colors hover:border-foreground/20">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
-              <Icon className={`h-5 w-5 ${def.brandColor}`} />
+      <ContextMenu items={contextMenuItems}>
+        <Card className="group flex flex-col gap-3 p-4 transition-colors hover:border-foreground/20">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
+                <Icon className={`h-5 w-5 ${def.brandColor}`} />
+              </div>
+              <div className="min-w-0">
+                <h3 className="truncate text-sm font-semibold tracking-tight">
+                  {connection.name}
+                </h3>
+                <Badge
+                  variant="secondary"
+                  className="mt-1 px-1.5 py-0 text-[10px] font-normal"
+                >
+                  {def.label}
+                </Badge>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h3 className="truncate text-sm font-semibold tracking-tight">
-                {connection.name}
-              </h3>
-              <Badge
-                variant="secondary"
-                className="mt-1 px-1.5 py-0 text-[10px] font-normal"
-              >
-                {def.label}
-              </Badge>
-            </div>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
-              >
-                <MoreHorizontal className="h-3.5 w-3.5" />
-                <span className="sr-only">Connection actions</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-36">
-              <DropdownMenuItem onClick={handleConnect}>
-                <Play className="mr-2 h-3.5 w-3.5" />
-                Connect
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setEditOpen(true)}>
-                <Pencil className="mr-2 h-3.5 w-3.5" />
-                Edit
-              </DropdownMenuItem>
-              {folders.length > 0 && (
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <FolderInput className="mr-2 h-3.5 w-3.5" />
-                    Move to
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent>
-                    {connection.folderId && (
-                      <DropdownMenuItem
-                        onClick={() => handleMoveToFolder(undefined)}
-                      >
-                        Unsorted
-                      </DropdownMenuItem>
-                    )}
-                    {folders
-                      .filter((f) => f.id !== connection.folderId)
-                      .map((f) => (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                >
+                  <MoreHorizontal className="h-3.5 w-3.5" />
+                  <span className="sr-only">Connection actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-36">
+                <DropdownMenuItem onClick={handleConnect}>
+                  <Play className="mr-2 h-3.5 w-3.5" />
+                  Connect
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setEditOpen(true)}>
+                  <Pencil className="mr-2 h-3.5 w-3.5" />
+                  Edit
+                </DropdownMenuItem>
+                {folders.length > 0 && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <FolderInput className="mr-2 h-3.5 w-3.5" />
+                      Move to
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {connection.folderId && (
                         <DropdownMenuItem
-                          key={f.id}
-                          onClick={() => handleMoveToFolder(f.id)}
+                          onClick={() => handleMoveToFolder(undefined)}
                         >
-                          <span
-                            className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
-                            style={{ backgroundColor: f.color }}
-                          />
-                          {f.name}
+                          Unsorted
                         </DropdownMenuItem>
-                      ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setDeleteOpen(true)}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="mr-2 h-3.5 w-3.5" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <p
-          className="line-clamp-1 font-mono text-xs text-muted-foreground"
-          title={subtitle}
-        >
-          {subtitle}
-        </p>
-        <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
-            Saved
-          </span>
-          <Button
-            size="sm"
-            variant="default"
-            className="h-7"
-            onClick={handleConnect}
+                      )}
+                      {folders
+                        .filter((f) => f.id !== connection.folderId)
+                        .map((f) => (
+                          <DropdownMenuItem
+                            key={f.id}
+                            onClick={() => handleMoveToFolder(f.id)}
+                          >
+                            <span
+                              className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
+                              style={{ backgroundColor: f.color }}
+                            />
+                            {f.name}
+                          </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => setDeleteOpen(true)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <p
+            className="line-clamp-1 font-mono text-xs text-muted-foreground"
+            title={subtitle}
           >
-            <Play className="mr-1 h-3 w-3" />
-            Connect
-          </Button>
-        </div>
-      </Card>
+            {subtitle}
+          </p>
+          <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
+              Saved
+            </span>
+            <Button
+              size="sm"
+              variant="default"
+              className="h-7"
+              onClick={handleConnect}
+            >
+              <Play className="mr-1 h-3 w-3" />
+              Connect
+            </Button>
+          </div>
+        </Card>
+      </ContextMenu>
 
       <ConnectionDialog
         open={editOpen}
