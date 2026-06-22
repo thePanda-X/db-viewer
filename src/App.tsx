@@ -7,9 +7,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 export default function App() {
   const load = useConnectionsStore((s) => s.load);
   const connections = useConnectionsStore((s) => s.connections);
-  const closeTabsForConnections = useTabsStore(
-    (s) => s.closeTabsForConnections,
-  );
+  const cleanupStale = useTabsStore((s) => s.cleanupStale);
   const syncConnection = useTabsStore((s) => s.syncConnection);
 
   useEffect(() => {
@@ -18,19 +16,8 @@ export default function App() {
 
   useEffect(() => {
     const presentIds = new Set(connections.map((c) => c.id));
-    const tabs = useTabsStore.getState().tabs;
-    const stale = tabs
-      .filter(
-        (t) =>
-          t.id !== 'home' &&
-          t.connectionId !== 'home' &&
-          !presentIds.has(t.connectionId),
-      )
-      .map((t) => t.connectionId);
-    if (stale.length > 0) {
-      closeTabsForConnections(stale);
-    }
-  }, [connections, closeTabsForConnections]);
+    cleanupStale(presentIds);
+  }, [connections, cleanupStale]);
 
   useEffect(() => {
     const unsub = useConnectionsStore.subscribe((state, prev) => {
