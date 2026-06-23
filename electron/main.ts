@@ -271,6 +271,12 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 
   registerHandler({
+    channel: 'app:version',
+    handler: () => app.getVersion(),
+    errorMode: 'raw',
+  });
+
+  registerHandler({
     channel: 'connections:list',
     handler: () => listConnections(),
     errorMode: 'raw',
