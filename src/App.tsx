@@ -3,6 +3,7 @@ import { useConnectionsStore } from '@/state/connectionsStore';
 import { useTabsStore } from '@/state/tabsStore';
 import { AppShell } from '@/components/layout/AppShell';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { UpdateManager } from '@/components/layout/UpdateManager';
 
 export default function App() {
   const load = useConnectionsStore((s) => s.load);
@@ -35,6 +36,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AppShell />
+      <UpdateManager />
     </ErrorBoundary>
   );
 }

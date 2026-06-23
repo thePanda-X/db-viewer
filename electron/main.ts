@@ -30,12 +30,28 @@ let win: BrowserWindow | null;
 let updateCheckInProgress = false;
 let manualUpdateCheck = false;
 
+type UpdaterStatus =
+  | { type: 'checking'; manual: boolean }
+  | { type: 'available'; currentVersion: string; version: string }
+  | { type: 'not-available'; currentVersion: string; manual: boolean }
+  | { type: 'downloading'; version?: string }
+  | { type: 'downloaded'; version: string }
+  | { type: 'error'; message: string; manual: boolean };
+
+let latestUpdaterStatus: UpdaterStatus | null = null;
+
+function sendUpdaterStatus(status: UpdaterStatus) {
+  latestUpdaterStatus = status;
+  win?.webContents.send('updater:status', status);
+}
+
 async function checkForUpdates(manual = false) {
   if (VITE_DEV_SERVER_URL || !app.isPackaged || updateCheckInProgress) {
-    if (manual && win) {
-      await dialog.showMessageBox(win, {
-        type: 'info',
-        message: 'Updates are only available in the packaged app.',
+    if (manual) {
+      sendUpdaterStatus({
+        type: 'not-available',
+        currentVersion: app.getVersion(),
+        manual,
       });
     }
     return;
@@ -43,19 +59,18 @@ async function checkForUpdates(manual = false) {
 
   updateCheckInProgress = true;
   manualUpdateCheck = manual;
+  sendUpdaterStatus({ type: 'checking', manual });
 
   try {
     await autoUpdater.checkForUpdates();
   } catch (err) {
     console.error('[updater] failed to check for updates', err);
     manualUpdateCheck = false;
-    if (manual) {
-      await dialog.showMessageBox({
-        type: 'error',
-        message: 'Unable to check for updates.',
-        detail: err instanceof Error ? err.message : String(err),
-      });
-    }
+    sendUpdaterStatus({
+      type: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      manual,
+    });
   } finally {
     updateCheckInProgress = false;
   }
@@ -65,62 +80,41 @@ function setupAutoUpdater() {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  autoUpdater.on('update-available', async (info) => {
+  autoUpdater.on('update-available', (info) => {
     manualUpdateCheck = false;
-    if (!win) return;
-
-    const { response } = await dialog.showMessageBox(win, {
-      type: 'info',
-      buttons: ['Download', 'Later'],
-      defaultId: 0,
-      cancelId: 1,
-      message: `db-vwr ${info.version} is available`,
-      detail: `You are currently using ${app.getVersion()}. Download the update now?`,
-    });
-
-    if (response === 0) {
-      try {
-        await autoUpdater.downloadUpdate();
-      } catch (err) {
-        console.error('[updater] failed to download update', err);
-        await dialog.showMessageBox(win, {
-          type: 'error',
-          message: 'Unable to download the update.',
-          detail: err instanceof Error ? err.message : String(err),
-        });
-      }
-    }
-  });
-
-  autoUpdater.on('update-not-available', async () => {
-    if (!manualUpdateCheck) return;
-    manualUpdateCheck = false;
-
-    await dialog.showMessageBox({
-      type: 'info',
-      message: 'No updates found.',
+    sendUpdaterStatus({
+      type: 'available',
+      currentVersion: app.getVersion(),
+      version: info.version,
     });
   });
 
-  autoUpdater.on('update-downloaded', async (info) => {
-    if (!win) return;
+  autoUpdater.on('update-not-available', () => {
+    const manual = manualUpdateCheck;
+    manualUpdateCheck = false;
 
-    const { response } = await dialog.showMessageBox(win, {
-      type: 'info',
-      buttons: ['Restart and Install', 'Later'],
-      defaultId: 0,
-      cancelId: 1,
-      message: `db-vwr ${info.version} is ready to install`,
-      detail: 'Restart the app now to apply the update?',
+    sendUpdaterStatus({
+      type: 'not-available',
+      currentVersion: app.getVersion(),
+      manual,
     });
+  });
 
-    if (response === 0) {
-      autoUpdater.quitAndInstall(false, true);
-    }
+  autoUpdater.on('update-downloaded', (info) => {
+    sendUpdaterStatus({
+      type: 'downloaded',
+      version: info.version,
+    });
   });
 
   autoUpdater.on('error', (err) => {
     console.error('[updater] error', err);
+    sendUpdaterStatus({
+      type: 'error',
+      message: err instanceof Error ? err.message : String(err),
+      manual: manualUpdateCheck,
+    });
+    manualUpdateCheck = false;
   });
 }
 
@@ -273,6 +267,42 @@ app.whenReady().then(() => {
   registerHandler({
     channel: 'app:version',
     handler: () => app.getVersion(),
+    errorMode: 'raw',
+  });
+
+  registerHandler({
+    channel: 'app:checkForUpdates',
+    handler: (manual?: boolean) => checkForUpdates(Boolean(manual)),
+    errorMode: 'raw',
+  });
+
+  registerHandler({
+    channel: 'app:downloadUpdate',
+    handler: async () => {
+      sendUpdaterStatus({ type: 'downloading' });
+      try {
+        await autoUpdater.downloadUpdate();
+      } catch (err) {
+        console.error('[updater] failed to download update', err);
+        sendUpdaterStatus({
+          type: 'error',
+          message: err instanceof Error ? err.message : String(err),
+          manual: false,
+        });
+      }
+    },
+    errorMode: 'raw',
+  });
+
+  registerHandler({
+    channel: 'app:installUpdate',
+    handler: () => autoUpdater.quitAndInstall(false, true),
+    errorMode: 'raw',
+  });
+
+  registerHandler({
+    channel: 'app:getUpdaterStatus',
+    handler: () => latestUpdaterStatus,
     errorMode: 'raw',
   });
 

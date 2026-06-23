@@ -1,5 +1,11 @@
 export const IPC_CHANNELS = {
-  app: ['version'],
+  app: [
+    'version',
+    'checkForUpdates',
+    'downloadUpdate',
+    'installUpdate',
+    'getUpdaterStatus',
+  ],
   connections: ['list', 'save'],
   folders: ['list', 'save'],
   dialog: ['openFile'],

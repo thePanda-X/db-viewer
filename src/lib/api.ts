@@ -9,6 +9,11 @@ export const api = {
   ...window.api,
   app: {
     version: (): Promise<string> => window.api.app.version(),
+    checkForUpdates: (manual?: boolean): Promise<void> =>
+      window.api.app.checkForUpdates(manual),
+    downloadUpdate: (): Promise<void> => window.api.app.downloadUpdate(),
+    installUpdate: (): Promise<void> => window.api.app.installUpdate(),
+    getUpdaterStatus: () => window.api.app.getUpdaterStatus(),
   },
   connections: {
     list: (): Promise<Connection[]> =>
