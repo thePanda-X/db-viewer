@@ -12,6 +12,7 @@ import { ShortcutsDialog } from '@/components/help/ShortcutsDialog';
 import { ToastHost } from './ToastHost';
 import { Sidebar, type FolderFilter } from '@/components/sidebar/Sidebar';
 import { ResizableSidebar } from '@/components/ui/resizable-sidebar';
+import { api } from '@/lib/api';
 
 function GlobalHotkeys({
   onNewConnection,
@@ -125,6 +126,7 @@ export function AppShell() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [folderFilter, setFolderFilter] = useState<FolderFilter>('all');
+  const [version, setVersion] = useState<string | null>(null);
   const activeTabId = useTabsStore((s) => s.activeTabId);
   const loadConnections = useConnectionsStore((s) => s.load);
   const loadFolders = useFoldersStore((s) => s.load);
@@ -135,6 +137,23 @@ export function AppShell() {
     loadConnections();
     loadFolders();
   }, [loadConnections, loadFolders]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    api.app
+      .version()
+      .then((appVersion) => {
+        if (!cancelled) setVersion(appVersion);
+      })
+      .catch((err) => {
+        console.error('[app] failed to load version', err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -147,6 +166,9 @@ export function AppShell() {
         <div className="flex items-center gap-2">
           <Database className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm font-semibold tracking-tight">db-vwr</span>
+          {version ? (
+            <span className="text-xs text-muted-foreground">v{version}</span>
+          ) : null}
         </div>
       </header>
       <TabStrip />

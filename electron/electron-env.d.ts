@@ -217,6 +217,9 @@ interface RedisCommandResult {
 }
 
 interface ExposedApi {
+  app: {
+    version: () => Promise<string>;
+  };
   connections: {
     list: () => Promise<unknown[]>;
     save: (connections: unknown[]) => Promise<unknown[]>;
