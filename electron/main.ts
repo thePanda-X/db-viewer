@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, Menu, shell } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { listConnections, setConnections } from './connections';
@@ -26,6 +27,102 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   : RENDERER_DIST;
 
 let win: BrowserWindow | null;
+let updateCheckInProgress = false;
+let manualUpdateCheck = false;
+
+async function checkForUpdates(manual = false) {
+  if (VITE_DEV_SERVER_URL || !app.isPackaged || updateCheckInProgress) {
+    if (manual && win) {
+      await dialog.showMessageBox(win, {
+        type: 'info',
+        message: 'Updates are only available in the packaged app.',
+      });
+    }
+    return;
+  }
+
+  updateCheckInProgress = true;
+  manualUpdateCheck = manual;
+
+  try {
+    await autoUpdater.checkForUpdates();
+  } catch (err) {
+    console.error('[updater] failed to check for updates', err);
+    manualUpdateCheck = false;
+    if (manual) {
+      await dialog.showMessageBox({
+        type: 'error',
+        message: 'Unable to check for updates.',
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    }
+  } finally {
+    updateCheckInProgress = false;
+  }
+}
+
+function setupAutoUpdater() {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-available', async (info) => {
+    manualUpdateCheck = false;
+    if (!win) return;
+
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'info',
+      buttons: ['Download', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+      message: `db-vwr ${info.version} is available`,
+      detail: `You are currently using ${app.getVersion()}. Download the update now?`,
+    });
+
+    if (response === 0) {
+      try {
+        await autoUpdater.downloadUpdate();
+      } catch (err) {
+        console.error('[updater] failed to download update', err);
+        await dialog.showMessageBox(win, {
+          type: 'error',
+          message: 'Unable to download the update.',
+          detail: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+  });
+
+  autoUpdater.on('update-not-available', async () => {
+    if (!manualUpdateCheck) return;
+    manualUpdateCheck = false;
+
+    await dialog.showMessageBox({
+      type: 'info',
+      message: 'No updates found.',
+    });
+  });
+
+  autoUpdater.on('update-downloaded', async (info) => {
+    if (!win) return;
+
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'info',
+      buttons: ['Restart and Install', 'Later'],
+      defaultId: 0,
+      cancelId: 1,
+      message: `db-vwr ${info.version} is ready to install`,
+      detail: 'Restart the app now to apply the update?',
+    });
+
+    if (response === 0) {
+      autoUpdater.quitAndInstall(false, true);
+    }
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('[updater] error', err);
+  });
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -107,6 +204,17 @@ app.whenReady().then(() => {
       ],
     },
     {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Check for Updates',
+          click: () => {
+            void checkForUpdates(true);
+          },
+        },
+      ],
+    },
+    {
       label: 'Edit',
       submenu: [
         { role: 'undo' },
@@ -163,6 +271,12 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 
   registerHandler({
+    channel: 'app:version',
+    handler: () => app.getVersion(),
+    errorMode: 'raw',
+  });
+
+  registerHandler({
     channel: 'connections:list',
     handler: () => listConnections(),
     errorMode: 'raw',
@@ -207,5 +321,7 @@ app.whenReady().then(() => {
   registerKafkaHandlers();
   registerRabbitmqHandlers();
 
+  setupAutoUpdater();
   createWindow();
+  void checkForUpdates();
 });

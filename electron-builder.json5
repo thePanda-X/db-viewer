@@ -4,6 +4,13 @@
   appId: 'com.dbvwr.app',
   asar: true,
   productName: 'db-vwr',
+  publish: [
+    {
+      provider: 'github',
+      owner: 'thePanda-X',
+      repo: 'db-viewer',
+    },
+  ],
   directories: {
     output: 'release/${version}',
   },
