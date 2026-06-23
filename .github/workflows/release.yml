@@ -55,7 +55,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: release/**/*.exe
+          path: |
+            release/**/*.exe
+            release/**/*.exe.blockmap
+            release/**/latest.yml
 
   build-linux:
     needs: ci
@@ -81,7 +84,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-installer
-          path: release/**/*.AppImage
+          path: |
+            release/**/*.AppImage
+            release/**/*.AppImage.blockmap
+            release/**/latest-linux.yml
 
   release:
     needs: [build-windows, build-linux]
