@@ -7,6 +7,9 @@ export interface OpenFileOptions {
 
 export const api = {
   ...window.api,
+  app: {
+    version: (): Promise<string> => window.api.app.version(),
+  },
   connections: {
     list: (): Promise<Connection[]> =>
       window.api.connections.list() as Promise<Connection[]>,
