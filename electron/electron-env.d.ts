@@ -216,9 +216,24 @@ interface RedisCommandResult {
   durationMs: number;
 }
 
+type UpdaterStatus =
+  | { type: 'checking'; manual: boolean }
+  | { type: 'available'; currentVersion: string; version: string }
+  | { type: 'not-available'; currentVersion: string; manual: boolean }
+  | { type: 'downloading'; version?: string }
+  | { type: 'downloaded'; version: string }
+  | { type: 'error'; message: string; manual: boolean };
+
 interface ExposedApi {
   app: {
     version: () => Promise<string>;
+    checkForUpdates: (manual?: boolean) => Promise<void>;
+    downloadUpdate: () => Promise<void>;
+    installUpdate: () => Promise<void>;
+    getUpdaterStatus: () => Promise<UpdaterStatus | null>;
+  };
+  updater: {
+    onStatus: (callback: (status: UpdaterStatus) => void) => () => void;
   };
   connections: {
     list: () => Promise<unknown[]>;

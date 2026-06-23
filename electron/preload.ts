@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS, ipcChannel, type IpcNamespace } from '../shared/ipc';
 
+const UPDATE_STATUS_CHANNEL = 'updater:status';
+
 type ApiNamespace<TNamespace extends IpcNamespace> = {
   [TOperation in (typeof IPC_CHANNELS)[TNamespace][number]]: (
     args?: unknown,
@@ -9,6 +11,10 @@ type ApiNamespace<TNamespace extends IpcNamespace> = {
 
 type ExposedApi = {
   [TNamespace in IpcNamespace]: ApiNamespace<TNamespace>;
+} & {
+  updater: {
+    onStatus: (callback: (status: unknown) => void) => () => void;
+  };
 };
 
 type MutableNamespace = Record<string, (args?: unknown) => Promise<unknown>>;
@@ -24,6 +30,16 @@ function createApi(): ExposedApi {
         ipcRenderer.invoke(ipcChannel(namespace, operation), args);
     }
   }
+
+  api.updater = {
+    onStatus: (callback) => {
+      const listener = (_event: Electron.IpcRendererEvent, status: unknown) => {
+        callback(status);
+      };
+      ipcRenderer.on(UPDATE_STATUS_CHANNEL, listener);
+      return () => ipcRenderer.removeListener(UPDATE_STATUS_CHANNEL, listener);
+    },
+  };
 
   return api;
 }
