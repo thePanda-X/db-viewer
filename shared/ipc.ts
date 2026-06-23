@@ -1,4 +1,5 @@
 export const IPC_CHANNELS = {
+  app: ['version'],
   connections: ['list', 'save'],
   folders: ['list', 'save'],
   dialog: ['openFile'],
