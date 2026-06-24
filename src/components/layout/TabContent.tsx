@@ -32,5 +32,5 @@ export function TabContent({ onCreateClick, folderFilter }: TabContentProps) {
     return <TabNotFound tabId={tab.id} />;
   }
 
-  return <ConnectionTab connection={conn} tab={tab} />;
+  return <ConnectionTab key={tab.id} connection={conn} tab={tab} />;
 }

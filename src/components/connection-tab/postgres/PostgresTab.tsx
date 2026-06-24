@@ -81,12 +81,14 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
       setSchema(view.schema);
       setSelectedTable({ schema: view.schema, table: view.table });
     } else {
+      setDatabase(config.database);
+      setSchema(DEFAULT_SCHEMA);
       setSelectedTable(null);
     }
     // We intentionally only re-run this when the tab or the structural view
     // changes — not on every local state update.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab.id, view.kind, view.kind === 'relatedRow' ? view.database : null]);
+  }, [tab.id, view.kind, view.kind !== 'default' ? view.database : null]);
 
   // Mirror local state to the tab view for sidebar-driven changes.
   useEffect(() => {
