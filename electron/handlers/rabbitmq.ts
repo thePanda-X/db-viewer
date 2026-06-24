@@ -10,8 +10,8 @@ import {
   purgeQueue as rmqPurgeQueue,
   deleteQueueFn as rmqDeleteQueue,
 } from '../rabbitmq';
-import type { RabbitMQConfig } from '../../src/types/connection';
-import type { RabbitMQPublishRequest } from '../../src/types/rabbitmq';
+import type { RabbitMQConfig } from '../../shared/types/connection';
+import type { RabbitMQPublishRequest } from '../../shared/types/rabbitmq';
 
 type RabbitMQInvokeArgs = {
   connectionId: string;

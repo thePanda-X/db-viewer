@@ -1,5 +1,5 @@
 import { Kafka, logLevel } from 'kafkajs';
-import type { KafkaConfig } from '../src/types/connection';
+import type { KafkaConfig } from '../shared/types/connection';
 import type {
   KafkaClusterInfo,
   KafkaTopicInfo,
@@ -11,7 +11,7 @@ import type {
   KafkaConsumerGroupPartition,
   KafkaMessage,
   KafkaConsumeResult,
-} from '../src/types/kafka';
+} from '../shared/types/kafka';
 
 const clients = new Map<string, Kafka>();
 

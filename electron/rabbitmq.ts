@@ -1,5 +1,5 @@
 import amqplib from 'amqplib';
-import type { RabbitMQConfig } from '../src/types/connection';
+import type { RabbitMQConfig } from '../shared/types/connection';
 import type {
   RabbitMQExchangeInfo,
   RabbitMQQueueInfo,
@@ -7,7 +7,7 @@ import type {
   RabbitMQMessageInfo,
   RabbitMQPublishRequest,
   RabbitMQClusterInfo,
-} from '../src/types/rabbitmq';
+} from '../shared/types/rabbitmq';
 
 const models = new Map<string, amqplib.ChannelModel>();
 const channels = new Map<string, amqplib.Channel>();

@@ -124,20 +124,21 @@ interface RedisExposedConfig {
   tls: boolean;
 }
 
-type SqliteQueryRequest = import('../src/types/sqlite').QueryRequest;
-type SqliteQueryResponse = import('../src/types/sqlite').QueryResponse;
-type SqliteTableInfo = import('../src/types/sqlite').TableInfo;
-type SqliteTableMeta = import('../src/types/sqlite').TableMeta;
-type SqliteForeignKey = import('../src/types/sqlite').ForeignKey;
+type SqliteQueryRequest = import('../shared/types/sqlite').QueryRequest;
+type SqliteQueryResponse = import('../shared/types/sqlite').QueryResponse;
+type SqliteTableInfo = import('../shared/types/sqlite').TableInfo;
+type SqliteTableMeta = import('../shared/types/sqlite').TableMeta;
+type SqliteForeignKey = import('../shared/types/sqlite').ForeignKey;
 type SqliteSaveChangesRequest =
-  import('../src/types/sqlite').SaveChangesRequest;
+  import('../shared/types/sqlite').SaveChangesRequest;
 type SqliteSaveChangesResponse =
-  import('../src/types/sqlite').SaveChangesResponse;
-type SqliteDeleteRowsRequest = import('../src/types/sqlite').DeleteRowsRequest;
+  import('../shared/types/sqlite').SaveChangesResponse;
+type SqliteDeleteRowsRequest = import('../shared/types/sqlite').DeleteRowsRequest;
 type SqliteDeleteRowsResponse =
-  import('../src/types/sqlite').DeleteRowsResponse;
-type SqliteInsertRowRequest = import('../src/types/sqlite').InsertRowRequest;
-type SqliteInsertRowResponse = import('../src/types/sqlite').InsertRowResponse;
+  import('../shared/types/sqlite').DeleteRowsResponse;
+type SqliteInsertRowRequest = import('../shared/types/sqlite').InsertRowRequest;
+type SqliteInsertRowResponse =
+  import('../shared/types/sqlite').InsertRowResponse;
 
 interface OpenSearchExposedConfig {
   host: string;
@@ -148,19 +149,19 @@ interface OpenSearchExposedConfig {
 }
 
 type OpenSearchClusterInfo =
-  import('../src/types/opensearch').OpenSearchClusterInfo;
+  import('../shared/types/opensearch').OpenSearchClusterInfo;
 type OpenSearchIndexInfo =
-  import('../src/types/opensearch').OpenSearchIndexInfo;
+  import('../shared/types/opensearch').OpenSearchIndexInfo;
 type OpenSearchIndexMeta =
-  import('../src/types/opensearch').OpenSearchIndexMeta;
+  import('../shared/types/opensearch').OpenSearchIndexMeta;
 type OpenSearchRawRequest =
-  import('../src/types/opensearch').OpenSearchRawRequest;
+  import('../shared/types/opensearch').OpenSearchRawRequest;
 type OpenSearchRawResponse =
-  import('../src/types/opensearch').OpenSearchRawResponse;
+  import('../shared/types/opensearch').OpenSearchRawResponse;
 type OpenSearchSearchRequest =
-  import('../src/types/opensearch').OpenSearchSearchRequest;
+  import('../shared/types/opensearch').OpenSearchSearchRequest;
 type OpenSearchSearchResult =
-  import('../src/types/opensearch').OpenSearchSearchResult;
+  import('../shared/types/opensearch').OpenSearchSearchResult;
 
 interface RabbitMQExposedConfig {
   host: string;
@@ -173,12 +174,13 @@ interface RabbitMQExposedConfig {
 }
 
 type RabbitMQExchangeInfo =
-  import('../src/types/rabbitmq').RabbitMQExchangeInfo;
-type RabbitMQQueueInfo = import('../src/types/rabbitmq').RabbitMQQueueInfo;
-type RabbitMQBindingInfo = import('../src/types/rabbitmq').RabbitMQBindingInfo;
-type RabbitMQMessageInfo = import('../src/types/rabbitmq').RabbitMQMessageInfo;
+  import('../shared/types/rabbitmq').RabbitMQExchangeInfo;
+type RabbitMQQueueInfo = import('../shared/types/rabbitmq').RabbitMQQueueInfo;
+type RabbitMQBindingInfo =
+  import('../shared/types/rabbitmq').RabbitMQBindingInfo;
+type RabbitMQMessageInfo = import('../shared/types/rabbitmq').RabbitMQMessageInfo;
 type RabbitMQPublishRequest =
-  import('../src/types/rabbitmq').RabbitMQPublishRequest;
+  import('../shared/types/rabbitmq').RabbitMQPublishRequest;
 
 type RedisKeyType =
   | 'string'
@@ -675,11 +677,11 @@ interface KafkaExposedConfig {
   tls: boolean;
 }
 
-type KafkaClusterInfo = import('../src/types/kafka').KafkaClusterInfo;
-type KafkaTopicInfo = import('../src/types/kafka').KafkaTopicInfo;
-type KafkaTopicMeta = import('../src/types/kafka').KafkaTopicMeta;
+type KafkaClusterInfo = import('../shared/types/kafka').KafkaClusterInfo;
+type KafkaTopicInfo = import('../shared/types/kafka').KafkaTopicInfo;
+type KafkaTopicMeta = import('../shared/types/kafka').KafkaTopicMeta;
 type KafkaConsumerGroupInfo =
-  import('../src/types/kafka').KafkaConsumerGroupInfo;
+  import('../shared/types/kafka').KafkaConsumerGroupInfo;
 type KafkaConsumerGroupDetail =
-  import('../src/types/kafka').KafkaConsumerGroupDetail;
-type KafkaConsumeResult = import('../src/types/kafka').KafkaConsumeResult;
+  import('../shared/types/kafka').KafkaConsumerGroupDetail;
+type KafkaConsumeResult = import('../shared/types/kafka').KafkaConsumeResult;

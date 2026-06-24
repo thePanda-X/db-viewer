@@ -10,11 +10,11 @@ import {
   searchDocuments as opensearchSearchDocuments,
   updateDocument as opensearchUpdateDocument,
 } from '../opensearch';
-import type { OpenSearchConfig } from '../../src/types/connection';
+import type { OpenSearchConfig } from '../../shared/types/connection';
 import type {
   OpenSearchRawRequest,
   OpenSearchSearchRequest,
-} from '../../src/types/opensearch';
+} from '../../shared/types/opensearch';
 
 type OpenSearchInvokeArgs = {
   connectionId: string;

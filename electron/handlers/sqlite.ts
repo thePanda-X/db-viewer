@@ -18,7 +18,7 @@ import type {
   QueryResponse as SqliteQueryResponse,
   SaveChangesRequest as SqliteSaveChangesRequest,
   SaveChangesResponse as SqliteSaveChangesResponse,
-} from '../../src/types/sqlite';
+} from '../../shared/types/sqlite';
 import type { SqlDeleteRowsResponse } from '../../shared/types/sql';
 
 export function registerSqliteHandlers(): void {

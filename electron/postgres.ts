@@ -15,7 +15,7 @@ import type {
   SaveChangesResponse,
   TableInfo,
   TableMeta,
-} from '../src/types/postgres';
+} from '../shared/types/postgres';
 import type {
   SqlDeleteRowsResponse,
   SqlLookupRowsResponse,

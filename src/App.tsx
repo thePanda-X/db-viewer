@@ -1,19 +1,22 @@
 import { useEffect } from 'react';
 import { useConnectionsStore } from '@/state/connectionsStore';
+import { useFoldersStore } from '@/state/foldersStore';
 import { useTabsStore } from '@/state/tabsStore';
 import { AppShell } from '@/components/layout/AppShell';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { UpdateManager } from '@/components/layout/UpdateManager';
 
 export default function App() {
-  const load = useConnectionsStore((s) => s.load);
+  const loadConnections = useConnectionsStore((s) => s.load);
+  const loadFolders = useFoldersStore((s) => s.load);
   const connections = useConnectionsStore((s) => s.connections);
   const cleanupStale = useTabsStore((s) => s.cleanupStale);
   const syncConnection = useTabsStore((s) => s.syncConnection);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    void loadConnections();
+    void loadFolders();
+  }, [loadConnections, loadFolders]);
 
   useEffect(() => {
     const presentIds = new Set(connections.map((c) => c.id));

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Folder } from '../src/types/folder';
+import type { Folder } from './types/folder';
 
 export const folderSchema = z.object({
   id: z.string().min(1),

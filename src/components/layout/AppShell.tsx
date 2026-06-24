@@ -5,8 +5,6 @@ import { TabContent } from './TabContent';
 import { ConnectionDialog } from '@/components/connection-dialog/ConnectionDialog';
 import { HotkeyProvider, useHotkey, useRefreshBusStore } from '@/lib/hotkeys';
 import { useTabsStore } from '@/state/tabsStore';
-import { useConnectionsStore } from '@/state/connectionsStore';
-import { useFoldersStore } from '@/state/foldersStore';
 import { HOME_TAB_ID } from '@/types/tab';
 import { ShortcutsDialog } from '@/components/help/ShortcutsDialog';
 import { ToastHost } from './ToastHost';
@@ -128,15 +126,8 @@ export function AppShell() {
   const [folderFilter, setFolderFilter] = useState<FolderFilter>('all');
   const [version, setVersion] = useState<string | null>(null);
   const activeTabId = useTabsStore((s) => s.activeTabId);
-  const loadConnections = useConnectionsStore((s) => s.load);
-  const loadFolders = useFoldersStore((s) => s.load);
 
   const isHome = activeTabId === HOME_TAB_ID;
-
-  useEffect(() => {
-    loadConnections();
-    loadFolders();
-  }, [loadConnections, loadFolders]);
 
   useEffect(() => {
     let cancelled = false;

@@ -2,7 +2,7 @@ import { app } from 'electron';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { parseFolders } from '../shared/folderSchema';
-import type { Folder } from '../src/types/folder';
+import type { Folder } from '../shared/types/folder';
 
 const FILE_VERSION = 1;
 

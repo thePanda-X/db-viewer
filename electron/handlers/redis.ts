@@ -19,8 +19,8 @@ import {
   setTtl as redisSetTtl,
   setZsetMember as redisSetZsetMember,
 } from '../redis';
-import type { RedisKeyType } from '../../src/types/redis';
-import type { RedisConfig } from '../../src/types/connection';
+import type { RedisKeyType } from '../../shared/types/redis';
+import type { RedisConfig } from '../../shared/types/connection';
 
 type RedisInvokeArgs = {
   connectionId: string;

@@ -11,7 +11,7 @@ import type {
   SaveChangesResponse,
   TableInfo,
   TableMeta,
-} from '../src/types/sqlite';
+} from '../shared/types/sqlite';
 import type {
   SqlDeleteRowsResponse,
   SqlLookupRowsResponse,
