@@ -1,5 +1,5 @@
 import { Client } from '@opensearch-project/opensearch';
-import type { OpenSearchConfig } from '../src/types/connection';
+import type { OpenSearchConfig } from '../shared/types/connection';
 import type {
   OpenSearchClusterInfo,
   OpenSearchDocumentHit,
@@ -9,7 +9,7 @@ import type {
   OpenSearchRawResponse,
   OpenSearchSearchRequest,
   OpenSearchSearchResult,
-} from '../src/types/opensearch';
+} from '../shared/types/opensearch';
 
 const clients = new Map<string, Client>();
 

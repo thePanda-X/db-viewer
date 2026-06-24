@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Connection } from '../src/types/connection';
+import type { Connection } from './types/connection';
 
 const baseConnectionSchema = z.object({
   id: z.string().min(1),

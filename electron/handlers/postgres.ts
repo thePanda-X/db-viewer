@@ -21,7 +21,7 @@ import type {
   QueryResponse,
   SaveChangesRequest,
   SaveChangesResponse,
-} from '../../src/types/postgres';
+} from '../../shared/types/postgres';
 import type { SqlDeleteRowsResponse } from '../../shared/types/sql';
 
 export function registerPostgresHandlers(): void {

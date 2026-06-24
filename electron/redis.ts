@@ -1,11 +1,11 @@
 import Redis from 'ioredis';
-import type { RedisConfig } from '../src/types/connection';
+import type { RedisConfig } from '../shared/types/connection';
 import type {
   RedisKeyValue,
   RedisKeyMeta,
   RedisCommandResult,
   RedisCommandReply,
-} from '../src/types/redis';
+} from '../shared/types/redis';
 
 const clients = new Map<string, Redis>();
 

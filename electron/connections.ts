@@ -2,7 +2,7 @@ import { app } from 'electron';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { parseConnections } from '../shared/connectionSchema';
-import type { Connection } from '../src/types/connection';
+import type { Connection } from '../shared/types/connection';
 
 const FILE_VERSION = 1;
 

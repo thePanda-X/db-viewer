@@ -8,7 +8,7 @@ import {
   consumeMessages as kafkaConsumeMessages,
   disconnect as kafkaDisconnect,
 } from '../kafka';
-import type { KafkaConfig } from '../../src/types/connection';
+import type { KafkaConfig } from '../../shared/types/connection';
 
 type KafkaInvokeArgs = {
   connectionId: string;
