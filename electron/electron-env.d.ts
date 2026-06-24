@@ -133,7 +133,8 @@ type SqliteSaveChangesRequest =
   import('../shared/types/sqlite').SaveChangesRequest;
 type SqliteSaveChangesResponse =
   import('../shared/types/sqlite').SaveChangesResponse;
-type SqliteDeleteRowsRequest = import('../shared/types/sqlite').DeleteRowsRequest;
+type SqliteDeleteRowsRequest =
+  import('../shared/types/sqlite').DeleteRowsRequest;
 type SqliteDeleteRowsResponse =
   import('../shared/types/sqlite').DeleteRowsResponse;
 type SqliteInsertRowRequest = import('../shared/types/sqlite').InsertRowRequest;
@@ -178,7 +179,8 @@ type RabbitMQExchangeInfo =
 type RabbitMQQueueInfo = import('../shared/types/rabbitmq').RabbitMQQueueInfo;
 type RabbitMQBindingInfo =
   import('../shared/types/rabbitmq').RabbitMQBindingInfo;
-type RabbitMQMessageInfo = import('../shared/types/rabbitmq').RabbitMQMessageInfo;
+type RabbitMQMessageInfo =
+  import('../shared/types/rabbitmq').RabbitMQMessageInfo;
 type RabbitMQPublishRequest =
   import('../shared/types/rabbitmq').RabbitMQPublishRequest;
 
