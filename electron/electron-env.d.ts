@@ -267,6 +267,7 @@ type UpdaterStatus =
 interface ExposedApi {
   app: {
     version: () => Promise<string>;
+    getChangelog: () => Promise<string>;
     checkForUpdates: (manual?: boolean) => Promise<void>;
     downloadUpdate: () => Promise<void>;
     installUpdate: () => Promise<void>;
@@ -274,6 +275,9 @@ interface ExposedApi {
   };
   updater: {
     onStatus: (callback: (status: UpdaterStatus) => void) => () => void;
+  };
+  changelog: {
+    onShow: (callback: () => void) => () => void;
   };
   connections: {
     list: () => Promise<unknown[]>;

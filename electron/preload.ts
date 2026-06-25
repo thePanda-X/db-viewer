@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { IPC_CHANNELS, ipcChannel, type IpcNamespace } from '../shared/ipc';
 
 const UPDATE_STATUS_CHANNEL = 'updater:status';
+const SHOW_CHANGELOG_CHANNEL = 'app:showChangelog';
 
 type ApiNamespace<TNamespace extends IpcNamespace> = {
   [TOperation in (typeof IPC_CHANNELS)[TNamespace][number]]: (
@@ -14,6 +15,9 @@ type ExposedApi = {
 } & {
   updater: {
     onStatus: (callback: (status: unknown) => void) => () => void;
+  };
+  changelog: {
+    onShow: (callback: () => void) => () => void;
   };
 };
 
@@ -38,6 +42,16 @@ function createApi(): ExposedApi {
       };
       ipcRenderer.on(UPDATE_STATUS_CHANNEL, listener);
       return () => ipcRenderer.removeListener(UPDATE_STATUS_CHANNEL, listener);
+    },
+  };
+
+  api.changelog = {
+    onShow: (callback) => {
+      const listener = () => {
+        callback();
+      };
+      ipcRenderer.on(SHOW_CHANGELOG_CHANNEL, listener);
+      return () => ipcRenderer.removeListener(SHOW_CHANGELOG_CHANNEL, listener);
     },
   };
 

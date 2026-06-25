@@ -1,6 +1,7 @@
 export const IPC_CHANNELS = {
   app: [
     'version',
+    'getChangelog',
     'checkForUpdates',
     'downloadUpdate',
     'installUpdate',

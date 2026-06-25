@@ -1,4 +1,4 @@
-import { Database } from 'lucide-react';
+import { Database, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { TabStrip } from './TabStrip';
 import { TabContent } from './TabContent';
@@ -7,9 +7,11 @@ import { HotkeyProvider, useHotkey, useRefreshBusStore } from '@/lib/hotkeys';
 import { useTabsStore } from '@/state/tabsStore';
 import { HOME_TAB_ID } from '@/types/tab';
 import { ShortcutsDialog } from '@/components/help/ShortcutsDialog';
+import { ChangelogDialog } from '@/components/help/ChangelogDialog';
 import { ToastHost } from './ToastHost';
 import { Sidebar, type FolderFilter } from '@/components/sidebar/Sidebar';
 import { ResizableSidebar } from '@/components/ui/resizable-sidebar';
+import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 
 function GlobalHotkeys({
@@ -123,6 +125,8 @@ function ordinalSuffix(n: number): string {
 export function AppShell() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [changelogOpen, setChangelogOpen] = useState(false);
+  const [previousVersion, setPreviousVersion] = useState<string | null>(null);
   const [folderFilter, setFolderFilter] = useState<FolderFilter>('all');
   const [version, setVersion] = useState<string | null>(null);
   const activeTabId = useTabsStore((s) => s.activeTabId);
@@ -135,7 +139,16 @@ export function AppShell() {
     api.app
       .version()
       .then((appVersion) => {
-        if (!cancelled) setVersion(appVersion);
+        if (cancelled) return;
+
+        setVersion(appVersion);
+
+        const storedVersion = localStorage.getItem('db-vwr:last-seen-version');
+        if (storedVersion && storedVersion !== appVersion) {
+          setPreviousVersion(storedVersion);
+          setChangelogOpen(true);
+        }
+        localStorage.setItem('db-vwr:last-seen-version', appVersion);
       })
       .catch((err) => {
         console.error('[app] failed to load version', err);
@@ -144,6 +157,13 @@ export function AppShell() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    return window.api.changelog.onShow(() => {
+      setPreviousVersion(null);
+      setChangelogOpen(true);
+    });
   }, []);
 
   return (
@@ -161,6 +181,18 @@ export function AppShell() {
             <span className="text-xs text-muted-foreground">v{version}</span>
           ) : null}
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto gap-2"
+          onClick={() => {
+            setPreviousVersion(null);
+            setChangelogOpen(true);
+          }}
+        >
+          <FileText className="h-4 w-4" />
+          Changelog
+        </Button>
       </header>
       <TabStrip />
       <main className="flex-1 overflow-hidden">
@@ -190,6 +222,12 @@ export function AppShell() {
       </main>
       <ConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+      <ChangelogDialog
+        open={changelogOpen}
+        onOpenChange={setChangelogOpen}
+        previousVersion={previousVersion}
+        currentVersion={version}
+      />
       <ToastHost />
     </div>
   );

@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, Menu, shell } from 'electron';
 import { autoUpdater } from 'electron-updater';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { listConnections, setConnections } from './connections';
@@ -74,6 +75,14 @@ async function checkForUpdates(manual = false) {
   } finally {
     updateCheckInProgress = false;
   }
+}
+
+async function getChangelog() {
+  const changelogPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'CHANGELOG.md')
+    : path.join(process.env.APP_ROOT, 'CHANGELOG.md');
+
+  return readFile(changelogPath, 'utf8');
 }
 
 function setupAutoUpdater() {
@@ -206,6 +215,12 @@ app.whenReady().then(() => {
             void checkForUpdates(true);
           },
         },
+        {
+          label: 'View Changelog',
+          click: () => {
+            win?.webContents.send('app:showChangelog');
+          },
+        },
       ],
     },
     {
@@ -267,6 +282,12 @@ app.whenReady().then(() => {
   registerHandler({
     channel: 'app:version',
     handler: () => app.getVersion(),
+    errorMode: 'raw',
+  });
+
+  registerHandler({
+    channel: 'app:getChangelog',
+    handler: () => getChangelog(),
     errorMode: 'raw',
   });
 

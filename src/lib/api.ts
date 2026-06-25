@@ -13,6 +13,7 @@ export const api = {
   ...window.api,
   app: {
     version: (): Promise<string> => window.api.app.version(),
+    getChangelog: (): Promise<string> => window.api.app.getChangelog(),
     checkForUpdates: (manual?: boolean): Promise<void> =>
       window.api.app.checkForUpdates(manual),
     downloadUpdate: (): Promise<void> => window.api.app.downloadUpdate(),
