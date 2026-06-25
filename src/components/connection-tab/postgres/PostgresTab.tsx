@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Database, Loader2 } from 'lucide-react';
+import { ArrowLeft, Database, FileDown, FileUp, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +55,9 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
   const [customError, setCustomError] = useState<string | null>(null);
   const [customRunning, setCustomRunning] = useState(false);
   const [lastCustomSql, setLastCustomSql] = useState<string | null>(null);
+  const [exportRunning, setExportRunning] = useState(false);
+  const [importRunning, setImportRunning] = useState(false);
+  const [importFilePath, setImportFilePath] = useState<string | null>(null);
   const runSeq = useRef(0);
   const hasPendingChanges = pendingChanges > 0;
   const showCustomResults =
@@ -363,6 +366,71 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
     setCustomRunning(false);
   }, []);
 
+  const handleExportDatabase = useCallback(async () => {
+    const filePath = await api.dialog.saveFile({
+      defaultPath: `${database}.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (!filePath) return;
+    setExportRunning(true);
+    try {
+      const result = await api.postgres.exportDatabase({
+        connectionId: connection.id,
+        config,
+        request: { database, filePath },
+      });
+      toast({
+        message: `Exported ${database}`,
+        detail: `${result.tables} table${result.tables === 1 ? '' : 's'}, ${result.rows} row${result.rows === 1 ? '' : 's'}`,
+      });
+    } catch (err) {
+      toast({
+        message: `Export failed for ${database}`,
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setExportRunning(false);
+    }
+  }, [connection.id, config, database]);
+
+  const handleChooseImportFile = useCallback(async () => {
+    const filePath = await api.dialog.openFile({
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (!filePath) return;
+    guarded(() => setImportFilePath(filePath));
+  }, [guarded]);
+
+  const confirmImportDatabase = useCallback(async () => {
+    if (!importFilePath) return;
+    setImportRunning(true);
+    try {
+      const result = await api.postgres.importDatabase({
+        connectionId: connection.id,
+        config,
+        request: { database, filePath: importFilePath },
+      });
+      runSeq.current++;
+      setSelectedTable(null);
+      setCustomResult(null);
+      setCustomError(null);
+      setCustomRunning(false);
+      sidebarRefreshRef.current.current?.();
+      toast({
+        message: `Imported ${result.database}`,
+        detail: `${result.tables} table${result.tables === 1 ? '' : 's'}, ${result.rows} row${result.rows === 1 ? '' : 's'}`,
+      });
+      setImportFilePath(null);
+    } catch (err) {
+      toast({
+        message: `Import failed for ${database}`,
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setImportRunning(false);
+    }
+  }, [connection.id, config, database, importFilePath]);
+
   const headerTable = isPinned
     ? view.kind === 'relatedRow'
       ? { schema: view.schema, table: view.table }
@@ -450,10 +518,44 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
               Open in sidebar
             </Button>
           )}
+          {!isPinned && (
+            <div className="ml-auto flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-[11px] text-muted-foreground"
+                onClick={() => void handleExportDatabase()}
+                disabled={exportRunning || importRunning}
+                title="Export database to JSON"
+              >
+                {exportRunning ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <FileDown className="mr-1 h-3 w-3" />
+                )}
+                Export JSON
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-[11px] text-muted-foreground"
+                onClick={() => void handleChooseImportFile()}
+                disabled={exportRunning || importRunning}
+                title="Import database from JSON"
+              >
+                {importRunning ? (
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                ) : (
+                  <FileUp className="mr-1 h-3 w-3" />
+                )}
+                Import JSON
+              </Button>
+            </div>
+          )}
           {hasPendingChanges && (
             <Badge
               variant="outline"
-              className="ml-auto border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+              className="border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300"
             >
               {pendingChanges} unsaved change{pendingChanges === 1 ? '' : 's'}
             </Badge>
@@ -541,6 +643,38 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
             <AlertDialogCancel>Stay here</AlertDialogCancel>
             <AlertDialogAction onClick={confirmPendingAction}>
               Discard & continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={importFilePath !== null}
+        onOpenChange={(open) => {
+          if (!open && !importRunning) setImportFilePath(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Drop and recreate {database}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Importing this JSON will terminate active connections, drop the
+              selected database, recreate it, and load the exported schema and
+              data. The original database name inside the JSON is ignored.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={importRunning}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmImportDatabase();
+              }}
+              disabled={importRunning}
+            >
+              {importRunning ? 'Importing...' : 'Drop & import'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-06-25
+
+### Added
+
+- PostgreSQL database export to portable JSON using the existing `pg` driver.
+- PostgreSQL database import from JSON with destructive drop-and-recreate behavior for the selected database.
+- PostgreSQL export metadata for schemas, extensions, enums, domains, sequences, tables, constraints, indexes, views, and typed row data.
+
+### Fixed
+
+- Recreate PostgreSQL extensions before importing tables so UUID defaults such as `uuid_generate_v4()` can be restored.
+- Apply PostgreSQL primary, unique, check, and exclusion constraints before foreign keys during import.
+
 ## [1.2.3] - 2026-06-25
 
 ### Changed
@@ -49,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RabbitMQ exchange, queue, and binding browsing with message publishing and queue management.
 - Platform-specific installer builds for Windows, macOS, and Linux.
 
+[1.3.0]: https://github.com/thePanda-X/db-viewer/compare/v1.2.3...v1.3.0
 [1.2.3]: https://github.com/thePanda-X/db-viewer/compare/v1.2.2...v1.2.3
 [1.2.1]: https://github.com/thePanda-X/db-viewer/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/thePanda-X/db-viewer/compare/v1.1.0...v1.2.0
