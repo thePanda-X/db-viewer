@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent,
+} from 'react';
 import {
   Copy,
   Download,
@@ -108,14 +114,17 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
   const [deleteTarget, setDeleteTarget] =
     useState<OpenSearchDocumentHit | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [deleteIndexTarget, setDeleteIndexTarget] = useState<string | null>(
+  const [deleteIndexTarget, setDeleteIndexTarget] = useState<string[] | null>(
     null,
   );
   const [deletingIndex, setDeletingIndex] = useState(false);
   const [exportRunning, setExportRunning] = useState(false);
-  const [selectedExportIndices, setSelectedExportIndices] = useState<
-    Set<string>
-  >(new Set());
+  const [selectedIndices, setSelectedIndices] = useState<Set<string>>(
+    new Set(),
+  );
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<string | null>(
+    null,
+  );
   const [importFilePath, setImportFilePath] = useState<string | null>(null);
   const [importRunning, setImportRunning] = useState(false);
 
@@ -222,12 +231,15 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
 
   useEffect(() => {
     const available = new Set(indices.map((index) => index.name));
-    setSelectedExportIndices((current) => {
+    setSelectedIndices((current) => {
       const next = new Set(
         Array.from(current).filter((index) => available.has(index)),
       );
       return next.size === current.size ? current : next;
     });
+    setLastSelectedIndex((current) =>
+      current && available.has(current) ? current : null,
+    );
   }, [indices]);
 
   useEffect(() => {
@@ -240,15 +252,15 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
     () => indices.find((index) => index.name === activeIndex) ?? null,
     [activeIndex, indices],
   );
-  const selectedExportNames = useMemo(
+  const selectedIndexNames = useMemo(
     () =>
       indices
         .map((index) => index.name)
-        .filter((name) => selectedExportIndices.has(name)),
-    [indices, selectedExportIndices],
+        .filter((name) => selectedIndices.has(name)),
+    [indices, selectedIndices],
   );
-  const allExportIndicesSelected =
-    indices.length > 0 && selectedExportNames.length === indices.length;
+  const allIndicesSelected =
+    indices.length > 0 && selectedIndexNames.length === indices.length;
   const totalPages = Math.max(
     1,
     Math.ceil((searchResult?.total ?? 0) / PAGE_SIZE),
@@ -321,28 +333,42 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
   };
 
   const confirmDeleteIndex = async () => {
-    if (!deleteIndexTarget) return;
+    if (!deleteIndexTarget || deleteIndexTarget.length === 0) return;
     setDeletingIndex(true);
-    const res = await api.opensearch.deleteIndex({
-      connectionId: connection.id,
-      config,
-      index: deleteIndexTarget,
-    });
+    let failed: string | null = null;
+    for (const index of deleteIndexTarget) {
+      const res = await api.opensearch.deleteIndex({
+        connectionId: connection.id,
+        config,
+        index,
+      });
+      if (!res.ok) {
+        failed = `${index}: ${res.error}`;
+        break;
+      }
+    }
     setDeletingIndex(false);
-    if (!res.ok) {
+    if (failed) {
       toast({
-        message: 'Delete index failed',
-        detail: res.error,
+        message: 'Delete indices failed',
+        detail: failed,
         variant: 'error',
       });
       return;
     }
     toast({
-      message: 'Index deleted',
-      detail: deleteIndexTarget,
+      message: `Deleted ${deleteIndexTarget.length} index${deleteIndexTarget.length === 1 ? '' : 'es'}`,
+      detail: deleteIndexTarget.join(', '),
       variant: 'success',
     });
-    if (activeIndex === deleteIndexTarget) setActiveIndex(null);
+    if (activeIndex && deleteIndexTarget.includes(activeIndex)) {
+      setActiveIndex(null);
+    }
+    setSelectedIndices((current) => {
+      const next = new Set(current);
+      for (const index of deleteIndexTarget) next.delete(index);
+      return next;
+    });
     setDeleteIndexTarget(null);
     void refreshIndices();
   };
@@ -382,19 +408,52 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
     }
   };
 
-  const toggleExportIndex = (index: string, checked: boolean) => {
-    setSelectedExportIndices((current) => {
+  const toggleIndexSelection = (index: string, checked: boolean) => {
+    setSelectedIndices((current) => {
       const next = new Set(current);
       if (checked) next.add(index);
       else next.delete(index);
       return next;
     });
+    setLastSelectedIndex(index);
   };
 
-  const toggleAllExportIndices = (checked: boolean) => {
-    setSelectedExportIndices(
+  const toggleAllIndices = (checked: boolean) => {
+    setSelectedIndices(
       checked ? new Set(indices.map((index) => index.name)) : new Set(),
     );
+    setLastSelectedIndex(null);
+  };
+
+  const selectionForAction = (index: string): string[] =>
+    selectedIndices.has(index) && selectedIndexNames.length > 0
+      ? selectedIndexNames
+      : [index];
+
+  const handleIndexRowClick = (
+    event: MouseEvent<HTMLDivElement>,
+    index: string,
+  ) => {
+    setActiveIndex(index);
+    if (event.shiftKey && lastSelectedIndex) {
+      const names = indices.map((item) => item.name);
+      const start = names.indexOf(lastSelectedIndex);
+      const end = names.indexOf(index);
+      if (start !== -1 && end !== -1) {
+        const [from, to] = start < end ? [start, end] : [end, start];
+        setSelectedIndices((current) => {
+          const next = new Set(current);
+          for (const name of names.slice(from, to + 1)) next.add(name);
+          return next;
+        });
+        return;
+      }
+    }
+    if (event.ctrlKey || event.metaKey) {
+      toggleIndexSelection(index, !selectedIndices.has(index));
+      return;
+    }
+    setLastSelectedIndex(index);
   };
 
   const handleChooseImportFile = async () => {
@@ -485,16 +544,16 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
             <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <label className="flex items-center gap-2">
                 <Checkbox
-                  checked={allExportIndicesSelected}
+                  checked={allIndicesSelected}
                   onCheckedChange={(checked) =>
-                    toggleAllExportIndices(checked === true)
+                    toggleAllIndices(checked === true)
                   }
                   disabled={indices.length === 0}
                 />
-                Select indices to export
+                Select indices
               </label>
               <span>
-                {selectedExportNames.length}/{indices.length}
+                {selectedIndexNames.length}/{indices.length}
               </span>
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -502,15 +561,15 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => void handleExportIndices(selectedExportNames)}
-                disabled={exportRunning || selectedExportNames.length === 0}
+                onClick={() => void handleExportIndices(selectedIndexNames)}
+                disabled={exportRunning || selectedIndexNames.length === 0}
               >
                 {exportRunning ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Download className="h-3.5 w-3.5" />
                 )}
-                Export {selectedExportNames.length || ''}
+                Export {selectedIndexNames.length || ''}
               </Button>
               <Button
                 type="button"
@@ -542,6 +601,7 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
                 </div>
               ) : null}
               {indices.map((index) => {
+                const actionIndices = selectionForAction(index.name);
                 const menuItems: ContextMenuItem[] = [
                   {
                     label: 'Open',
@@ -575,9 +635,12 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
                   },
                   { separator: true },
                   {
-                    label: 'Export Index',
+                    label:
+                      actionIndices.length === 1
+                        ? 'Export Index'
+                        : `Export ${actionIndices.length} Indices`,
                     icon: <Download className="h-3.5 w-3.5" />,
-                    onClick: () => void handleExportIndices([index.name]),
+                    onClick: () => void handleExportIndices(actionIndices),
                   },
                   {
                     label: 'Refresh',
@@ -595,13 +658,16 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
                   },
                   { separator: true },
                   {
-                    label: 'Delete Index',
+                    label:
+                      actionIndices.length === 1
+                        ? 'Delete Index'
+                        : `Delete ${actionIndices.length} Indices`,
                     icon: <Trash2 className="h-3.5 w-3.5" />,
                     destructive: true,
-                    onClick: () => setDeleteIndexTarget(index.name),
+                    onClick: () => setDeleteIndexTarget(actionIndices),
                   },
                 ];
-                const selectedForExport = selectedExportIndices.has(index.name);
+                const selected = selectedIndices.has(index.name);
                 return (
                   <ContextMenu key={index.name} items={menuItems}>
                     <div
@@ -611,8 +677,13 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
                         'mb-1 flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent',
                         activeIndex === index.name &&
                           'bg-accent text-accent-foreground',
+                        selected &&
+                          activeIndex !== index.name &&
+                          'bg-accent/60 text-accent-foreground',
                       )}
-                      onClick={() => setActiveIndex(index.name)}
+                      onClick={(event) =>
+                        handleIndexRowClick(event, index.name)
+                      }
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
                           event.preventDefault();
@@ -621,11 +692,11 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
                       }}
                     >
                       <Checkbox
-                        checked={selectedForExport}
-                        aria-label={`Select ${index.name} for export`}
+                        checked={selected}
+                        aria-label={`Select ${index.name}`}
                         onClick={(event) => event.stopPropagation()}
                         onCheckedChange={(checked) =>
-                          toggleExportIndex(index.name, checked === true)
+                          toggleIndexSelection(index.name, checked === true)
                         }
                       />
                       <span
@@ -768,7 +839,7 @@ function healthColor(health: string): string {
 
 function DocumentsView(props: {
   activeIndex: string | null;
-  deleteIndexTarget: string | null;
+  deleteIndexTarget: string[] | null;
   deleteTarget: OpenSearchDocumentHit | null;
   deleting: boolean;
   deletingIndex: boolean;
@@ -979,12 +1050,18 @@ function DocumentsView(props: {
 
       {props.deleteIndexTarget ? (
         <Card className="fixed left-1/2 top-1/2 z-50 w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 p-5 shadow-2xl">
-          <h2 className="text-base font-semibold">Delete index?</h2>
-          <p className="mt-2 break-all text-sm text-muted-foreground">
-            {props.deleteIndexTarget}
+          <h2 className="text-base font-semibold">
+            Delete {props.deleteIndexTarget.length === 1 ? 'index' : 'indices'}?
+          </h2>
+          <p className="mt-2 max-h-24 overflow-auto break-all text-sm text-muted-foreground">
+            {props.deleteIndexTarget.join(', ')}
           </p>
           <p className="mt-1 text-xs text-destructive">
-            All documents in this index will be permanently removed.
+            All documents in{' '}
+            {props.deleteIndexTarget.length === 1
+              ? 'this index'
+              : 'these indices'}{' '}
+            will be permanently removed.
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <Button
