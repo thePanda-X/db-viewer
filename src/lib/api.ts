@@ -5,6 +5,10 @@ export interface OpenFileOptions {
   filters?: Array<{ name: string; extensions: string[] }>;
 }
 
+export interface SaveFileOptions extends OpenFileOptions {
+  defaultPath?: string;
+}
+
 export const api = {
   ...window.api,
   app: {

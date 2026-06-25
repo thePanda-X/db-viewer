@@ -344,6 +344,23 @@ app.whenReady().then(() => {
     errorMode: 'raw',
   });
 
+  registerHandler({
+    channel: 'dialog:saveFile',
+    handler: async (options?: {
+      defaultPath?: string;
+      filters?: Electron.FileFilter[];
+    }) => {
+      if (!win) return null;
+      const result = await dialog.showSaveDialog(win, {
+        defaultPath: options?.defaultPath,
+        filters: options?.filters,
+      });
+      if (result.canceled || !result.filePath) return null;
+      return result.filePath;
+    },
+    errorMode: 'raw',
+  });
+
   registerPostgresHandlers();
   registerSqliteHandlers();
   registerRedisHandlers();
