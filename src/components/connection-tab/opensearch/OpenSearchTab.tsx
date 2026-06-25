@@ -1,6 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type MouseEvent,
+} from 'react';
 import {
   Copy,
+  Download,
   Eye,
   FileJson,
   Info,
@@ -10,11 +17,13 @@ import {
   Server,
   Settings,
   Trash2,
+  Upload,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -105,10 +114,19 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
   const [deleteTarget, setDeleteTarget] =
     useState<OpenSearchDocumentHit | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [deleteIndexTarget, setDeleteIndexTarget] = useState<string | null>(
+  const [deleteIndexTarget, setDeleteIndexTarget] = useState<string[] | null>(
     null,
   );
   const [deletingIndex, setDeletingIndex] = useState(false);
+  const [exportRunning, setExportRunning] = useState(false);
+  const [selectedIndices, setSelectedIndices] = useState<Set<string>>(
+    new Set(),
+  );
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<string | null>(
+    null,
+  );
+  const [importFilePath, setImportFilePath] = useState<string | null>(null);
+  const [importRunning, setImportRunning] = useState(false);
 
   const refreshIndices = useCallback(async () => {
     setLoadingIndices(true);
@@ -212,6 +230,19 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
   }, [refreshMeta, view]);
 
   useEffect(() => {
+    const available = new Set(indices.map((index) => index.name));
+    setSelectedIndices((current) => {
+      const next = new Set(
+        Array.from(current).filter((index) => available.has(index)),
+      );
+      return next.size === current.size ? current : next;
+    });
+    setLastSelectedIndex((current) =>
+      current && available.has(current) ? current : null,
+    );
+  }, [indices]);
+
+  useEffect(() => {
     return () => {
       void api.opensearch.disconnect({ connectionId: connection.id });
     };
@@ -221,6 +252,15 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
     () => indices.find((index) => index.name === activeIndex) ?? null,
     [activeIndex, indices],
   );
+  const selectedIndexNames = useMemo(
+    () =>
+      indices
+        .map((index) => index.name)
+        .filter((name) => selectedIndices.has(name)),
+    [indices, selectedIndices],
+  );
+  const allIndicesSelected =
+    indices.length > 0 && selectedIndexNames.length === indices.length;
   const totalPages = Math.max(
     1,
     Math.ceil((searchResult?.total ?? 0) / PAGE_SIZE),
@@ -293,31 +333,209 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
   };
 
   const confirmDeleteIndex = async () => {
-    if (!deleteIndexTarget) return;
+    if (!deleteIndexTarget || deleteIndexTarget.length === 0) return;
     setDeletingIndex(true);
-    const res = await api.opensearch.deleteIndex({
-      connectionId: connection.id,
-      config,
-      index: deleteIndexTarget,
-    });
+    let failed: string | null = null;
+    for (const index of deleteIndexTarget) {
+      const res = await api.opensearch.deleteIndex({
+        connectionId: connection.id,
+        config,
+        index,
+      });
+      if (!res.ok) {
+        failed = `${index}: ${res.error}`;
+        break;
+      }
+    }
     setDeletingIndex(false);
-    if (!res.ok) {
+    if (failed) {
       toast({
-        message: 'Delete index failed',
-        detail: res.error,
+        message: 'Delete indices failed',
+        detail: failed,
         variant: 'error',
       });
       return;
     }
     toast({
-      message: 'Index deleted',
-      detail: deleteIndexTarget,
+      message: `Deleted ${deleteIndexTarget.length} index${deleteIndexTarget.length === 1 ? '' : 'es'}`,
+      detail: deleteIndexTarget.join(', '),
       variant: 'success',
     });
-    if (activeIndex === deleteIndexTarget) setActiveIndex(null);
+    if (activeIndex && deleteIndexTarget.includes(activeIndex)) {
+      setActiveIndex(null);
+    }
+    setSelectedIndices((current) => {
+      const next = new Set(current);
+      for (const index of deleteIndexTarget) next.delete(index);
+      return next;
+    });
     setDeleteIndexTarget(null);
     void refreshIndices();
   };
+
+  const handleExportIndices = async (indexNames: string[]) => {
+    const names = Array.from(new Set(indexNames)).filter(Boolean);
+    if (names.length === 0) return;
+    const defaultPath =
+      names.length === 1
+        ? `${names[0]}.json`
+        : `${connection.name}-opensearch.json`;
+    const filePath = await api.dialog.saveFile({
+      defaultPath,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (!filePath) return;
+    setExportRunning(true);
+    try {
+      const result = await api.opensearch.exportIndices({
+        connectionId: connection.id,
+        config,
+        request: { indices: names, filePath },
+      });
+      toast({
+        message: `Exported ${result.indices} index${result.indices === 1 ? '' : 'es'}`,
+        detail: `${result.documents} document${result.documents === 1 ? '' : 's'}`,
+        variant: 'success',
+      });
+    } catch (err) {
+      toast({
+        message: 'OpenSearch export failed',
+        detail: err instanceof Error ? err.message : String(err),
+        variant: 'error',
+      });
+    } finally {
+      setExportRunning(false);
+    }
+  };
+
+  const toggleIndexSelection = (index: string, checked: boolean) => {
+    setSelectedIndices((current) => {
+      const next = new Set(current);
+      if (checked) next.add(index);
+      else next.delete(index);
+      return next;
+    });
+    setLastSelectedIndex(index);
+  };
+
+  const toggleAllIndices = (checked: boolean) => {
+    setSelectedIndices(
+      checked ? new Set(indices.map((index) => index.name)) : new Set(),
+    );
+    setLastSelectedIndex(null);
+  };
+
+  const selectionForAction = (index: string): string[] =>
+    selectedIndices.has(index) && selectedIndexNames.length > 0
+      ? selectedIndexNames
+      : [index];
+
+  const handleIndexRowClick = (
+    event: MouseEvent<HTMLDivElement>,
+    index: string,
+  ) => {
+    setActiveIndex(index);
+    if (event.shiftKey && lastSelectedIndex) {
+      const names = indices.map((item) => item.name);
+      const start = names.indexOf(lastSelectedIndex);
+      const end = names.indexOf(index);
+      if (start !== -1 && end !== -1) {
+        const [from, to] = start < end ? [start, end] : [end, start];
+        setSelectedIndices((current) => {
+          const next = new Set(current);
+          for (const name of names.slice(from, to + 1)) next.add(name);
+          return next;
+        });
+        return;
+      }
+    }
+    if (event.ctrlKey || event.metaKey) {
+      toggleIndexSelection(index, !selectedIndices.has(index));
+      return;
+    }
+    setLastSelectedIndex(index);
+  };
+
+  const handleChooseImportFile = async () => {
+    const filePath = await api.dialog.openFile({
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (filePath) setImportFilePath(filePath);
+  };
+
+  const confirmImportIndices = async () => {
+    if (!importFilePath) return;
+    setImportRunning(true);
+    try {
+      const result = await api.opensearch.importIndices({
+        connectionId: connection.id,
+        config,
+        request: { filePath: importFilePath, overwrite: true },
+      });
+      toast({
+        message: `Imported ${result.indices} index${result.indices === 1 ? '' : 'es'}`,
+        detail: `${result.documents} document${result.documents === 1 ? '' : 's'}`,
+        variant: 'success',
+      });
+      setImportFilePath(null);
+      void refreshIndices();
+      void refreshDocuments();
+    } catch (err) {
+      toast({
+        message: 'OpenSearch import failed',
+        detail: err instanceof Error ? err.message : String(err),
+        variant: 'error',
+      });
+    } finally {
+      setImportRunning(false);
+    }
+  };
+
+  const sidebarMenuItems: ContextMenuItem[] = [
+    {
+      label: 'Import Indices',
+      icon: <Upload className="h-3.5 w-3.5" />,
+      onClick: () => void handleChooseImportFile(),
+      disabled: importRunning,
+    },
+    {
+      label:
+        selectedIndexNames.length === 0
+          ? 'Export Selected'
+          : `Export ${selectedIndexNames.length} Selected`,
+      icon: <Download className="h-3.5 w-3.5" />,
+      onClick: () => void handleExportIndices(selectedIndexNames),
+      disabled: exportRunning || selectedIndexNames.length === 0,
+    },
+    {
+      label:
+        selectedIndexNames.length === 0
+          ? 'Delete Selected'
+          : `Delete ${selectedIndexNames.length} Selected`,
+      icon: <Trash2 className="h-3.5 w-3.5" />,
+      onClick: () => setDeleteIndexTarget(selectedIndexNames),
+      disabled: selectedIndexNames.length === 0,
+      destructive: true,
+    },
+    { separator: true },
+    {
+      label: allIndicesSelected ? 'All Indices Selected' : 'Select All Indices',
+      onClick: () => toggleAllIndices(true),
+      disabled: indices.length === 0 || allIndicesSelected,
+    },
+    {
+      label: 'Clear Selection',
+      onClick: () => toggleAllIndices(false),
+      disabled: selectedIndexNames.length === 0,
+    },
+    { separator: true },
+    {
+      label: 'Refresh',
+      icon: <RefreshCw className="h-3.5 w-3.5" />,
+      onClick: () => void refreshIndices(),
+      disabled: loadingIndices,
+    },
+  ];
 
   return (
     <div className="flex h-full min-h-0 bg-background">
@@ -328,149 +546,199 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
         defaultWidth={290}
         className="border-r bg-muted/20"
       >
-        <div className="flex h-full min-h-0 flex-col">
-          <div className="space-y-3 p-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Server className="h-4 w-4 text-emerald-500" />
-                  <span className="truncate">{connection.name}</span>
+        <ContextMenu items={sidebarMenuItems} className="h-full min-h-0">
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="space-y-3 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Server className="h-4 w-4 text-emerald-500" />
+                    <span className="truncate">{connection.name}</span>
+                  </div>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                    {cluster
+                      ? `${cluster.clusterName} / ${cluster.version}`
+                      : `${config.host}:${config.port}`}
+                  </p>
                 </div>
-                <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {cluster
-                    ? `${cluster.clusterName} / ${cluster.version}`
-                    : `${config.host}:${config.port}`}
-                </p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => void refreshIndices()}
+                  disabled={loadingIndices}
+                >
+                  {loadingIndices ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => void refreshIndices()}
-                disabled={loadingIndices}
-              >
-                {loadingIndices ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-              </Button>
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={includeSystem}
+                    onCheckedChange={(checked) =>
+                      setIncludeSystem(checked === true)
+                    }
+                  />
+                  Show system indices
+                </label>
+                {cluster?.status ? (
+                  <Badge variant="secondary">{cluster.status}</Badge>
+                ) : null}
+              </div>
             </div>
-            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-              <label className="flex items-center gap-2">
-                <input
-                  checked={includeSystem}
-                  onChange={(e) => setIncludeSystem(e.target.checked)}
-                  type="checkbox"
-                />
-                Show system indices
-              </label>
-              {cluster?.status ? (
-                <Badge variant="secondary">{cluster.status}</Badge>
-              ) : null}
-            </div>
-          </div>
-          <Separator />
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="p-2">
-              {indicesError ? (
-                <div className="rounded-md border border-destructive/40 p-3 text-xs text-destructive">
-                  {indicesError}
-                </div>
-              ) : null}
-              {!indicesError && loadingIndices ? (
-                <div className="p-3 text-xs text-muted-foreground">
-                  Loading indices...
-                </div>
-              ) : null}
-              {!loadingIndices && indices.length === 0 ? (
-                <div className="p-3 text-xs text-muted-foreground">
-                  No indices found.
-                </div>
-              ) : null}
-              {indices.map((index) => {
-                const menuItems: ContextMenuItem[] = [
-                  {
-                    label: 'Open',
-                    icon: <Search className="h-3.5 w-3.5" />,
-                    onClick: () => setActiveIndex(index.name),
-                  },
-                  {
-                    label: 'Copy Index Name',
-                    icon: <Copy className="h-3.5 w-3.5" />,
-                    onClick: () => {
-                      void navigator.clipboard.writeText(index.name);
-                      toast({ message: 'Copied index name' });
+            <Separator />
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="p-2">
+                {indicesError ? (
+                  <div className="rounded-md border border-destructive/40 p-3 text-xs text-destructive">
+                    {indicesError}
+                  </div>
+                ) : null}
+                {!indicesError && loadingIndices ? (
+                  <div className="p-3 text-xs text-muted-foreground">
+                    Loading indices...
+                  </div>
+                ) : null}
+                {!loadingIndices && indices.length === 0 ? (
+                  <div className="p-3 text-xs text-muted-foreground">
+                    No indices found.
+                  </div>
+                ) : null}
+                {indices.map((index) => {
+                  const actionIndices = selectionForAction(index.name);
+                  const menuItems: ContextMenuItem[] = [
+                    {
+                      label: 'Open',
+                      icon: <Search className="h-3.5 w-3.5" />,
+                      onClick: () => setActiveIndex(index.name),
                     },
-                  },
-                  { separator: true },
-                  {
-                    label: 'View Mappings',
-                    icon: <Eye className="h-3.5 w-3.5" />,
-                    onClick: () => {
-                      setActiveIndex(index.name);
-                      setView('mappings');
+                    {
+                      label: 'Copy Index Name',
+                      icon: <Copy className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        void navigator.clipboard.writeText(index.name);
+                        toast({ message: 'Copied index name' });
+                      },
                     },
-                  },
-                  {
-                    label: 'View Settings',
-                    icon: <Settings className="h-3.5 w-3.5" />,
-                    onClick: () => {
-                      setActiveIndex(index.name);
-                      setView('settings');
+                    { separator: true },
+                    {
+                      label: 'View Mappings',
+                      icon: <Eye className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        setActiveIndex(index.name);
+                        setView('mappings');
+                      },
                     },
-                  },
-                  { separator: true },
-                  {
-                    label: 'Refresh',
-                    icon: <RefreshCw className="h-3.5 w-3.5" />,
-                    onClick: () => void refreshIndices(),
-                  },
-                  {
-                    label: 'Properties',
-                    icon: <Info className="h-3.5 w-3.5" />,
-                    onClick: () =>
-                      toast({
-                        message: index.name,
-                        detail: `${index.docsCount ?? 0} docs | ${index.storeSize ?? '0b'} | Health: ${index.health}`,
-                      }),
-                  },
-                  { separator: true },
-                  {
-                    label: 'Delete Index',
-                    icon: <Trash2 className="h-3.5 w-3.5" />,
-                    destructive: true,
-                    onClick: () => setDeleteIndexTarget(index.name),
-                  },
-                ];
-                return (
-                  <ContextMenu key={index.name} items={menuItems}>
-                    <button
-                      className={cn(
-                        'mb-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent',
-                        activeIndex === index.name &&
-                          'bg-accent text-accent-foreground',
-                      )}
-                      onClick={() => setActiveIndex(index.name)}
-                    >
-                      <span
+                    {
+                      label: 'View Settings',
+                      icon: <Settings className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        setActiveIndex(index.name);
+                        setView('settings');
+                      },
+                    },
+                    { separator: true },
+                    {
+                      label:
+                        actionIndices.length === 1
+                          ? 'Export Index'
+                          : `Export ${actionIndices.length} Indices`,
+                      icon: <Download className="h-3.5 w-3.5" />,
+                      onClick: () => void handleExportIndices(actionIndices),
+                    },
+                    {
+                      label: 'Refresh',
+                      icon: <RefreshCw className="h-3.5 w-3.5" />,
+                      onClick: () => void refreshIndices(),
+                    },
+                    {
+                      label: 'Properties',
+                      icon: <Info className="h-3.5 w-3.5" />,
+                      onClick: () =>
+                        toast({
+                          message: index.name,
+                          detail: `${index.docsCount ?? 0} docs | ${index.storeSize ?? '0b'} | Health: ${index.health}`,
+                        }),
+                    },
+                    { separator: true },
+                    {
+                      label:
+                        actionIndices.length === 1
+                          ? 'Delete Index'
+                          : `Delete ${actionIndices.length} Indices`,
+                      icon: <Trash2 className="h-3.5 w-3.5" />,
+                      destructive: true,
+                      onClick: () => setDeleteIndexTarget(actionIndices),
+                    },
+                    { separator: true },
+                    {
+                      label: allIndicesSelected
+                        ? 'All Indices Selected'
+                        : 'Select All Indices',
+                      onClick: () => toggleAllIndices(true),
+                      disabled: indices.length === 0 || allIndicesSelected,
+                    },
+                    {
+                      label: 'Clear Selection',
+                      onClick: () => toggleAllIndices(false),
+                      disabled: selectedIndexNames.length === 0,
+                    },
+                  ];
+                  const selected = selectedIndices.has(index.name);
+                  return (
+                    <ContextMenu key={index.name} items={menuItems}>
+                      <div
+                        role="button"
+                        tabIndex={0}
                         className={cn(
-                          'h-2 w-2 rounded-full',
-                          healthColor(index.health),
+                          'mb-1 flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent',
+                          activeIndex === index.name &&
+                            'bg-accent text-accent-foreground',
+                          selected &&
+                            activeIndex !== index.name &&
+                            'bg-accent/60 text-accent-foreground',
                         )}
-                      />
-                      <span className="min-w-0 flex-1 truncate">
-                        {index.name}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {index.docsCount ?? '0'}
-                      </span>
-                    </button>
-                  </ContextMenu>
-                );
-              })}
-            </div>
-          </ScrollArea>
-        </div>
+                        onClick={(event) =>
+                          handleIndexRowClick(event, index.name)
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            setActiveIndex(index.name);
+                          }
+                        }}
+                      >
+                        <Checkbox
+                          checked={selected}
+                          aria-label={`Select ${index.name}`}
+                          onClick={(event) => event.stopPropagation()}
+                          onCheckedChange={(checked) =>
+                            toggleIndexSelection(index.name, checked === true)
+                          }
+                        />
+                        <span
+                          className={cn(
+                            'h-2 w-2 rounded-full',
+                            healthColor(index.health),
+                          )}
+                        />
+                        <span className="min-w-0 flex-1 truncate">
+                          {index.name}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {index.docsCount ?? '0'}
+                        </span>
+                      </div>
+                    </ContextMenu>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </div>
+        </ContextMenu>
       </ResizableSidebar>
 
       <main className="flex min-w-0 flex-1 flex-col">
@@ -555,6 +823,30 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
           )}
         </div>
       </main>
+
+      {importFilePath ? (
+        <Card className="fixed left-1/2 top-1/2 z-50 w-[min(460px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 p-5 shadow-2xl">
+          <h2 className="text-base font-semibold">Import OpenSearch export?</h2>
+          <p className="mt-2 break-all text-sm text-muted-foreground">
+            {importFilePath}
+          </p>
+          <p className="mt-2 text-xs text-destructive">
+            Existing indices with the same names will be deleted and recreated.
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setImportFilePath(null)}
+              disabled={importRunning}
+            >
+              Cancel
+            </Button>
+            <Button onClick={confirmImportIndices} disabled={importRunning}>
+              {importRunning ? 'Importing...' : 'Import and overwrite'}
+            </Button>
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }
@@ -568,7 +860,7 @@ function healthColor(health: string): string {
 
 function DocumentsView(props: {
   activeIndex: string | null;
-  deleteIndexTarget: string | null;
+  deleteIndexTarget: string[] | null;
   deleteTarget: OpenSearchDocumentHit | null;
   deleting: boolean;
   deletingIndex: boolean;
@@ -779,12 +1071,18 @@ function DocumentsView(props: {
 
       {props.deleteIndexTarget ? (
         <Card className="fixed left-1/2 top-1/2 z-50 w-[min(420px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 p-5 shadow-2xl">
-          <h2 className="text-base font-semibold">Delete index?</h2>
-          <p className="mt-2 break-all text-sm text-muted-foreground">
-            {props.deleteIndexTarget}
+          <h2 className="text-base font-semibold">
+            Delete {props.deleteIndexTarget.length === 1 ? 'index' : 'indices'}?
+          </h2>
+          <p className="mt-2 max-h-24 overflow-auto break-all text-sm text-muted-foreground">
+            {props.deleteIndexTarget.join(', ')}
           </p>
           <p className="mt-1 text-xs text-destructive">
-            All documents in this index will be permanently removed.
+            All documents in{' '}
+            {props.deleteIndexTarget.length === 1
+              ? 'this index'
+              : 'these indices'}{' '}
+            will be permanently removed.
           </p>
           <div className="mt-5 flex justify-end gap-2">
             <Button

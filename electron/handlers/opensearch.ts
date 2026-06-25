@@ -4,7 +4,9 @@ import {
   deleteIndex as opensearchDeleteIndex,
   disconnect as opensearchDisconnect,
   executeRequest as opensearchExecuteRequest,
+  exportIndices as opensearchExportIndices,
   getIndexMeta as opensearchGetIndexMeta,
+  importIndices as opensearchImportIndices,
   listIndices as opensearchListIndices,
   ping as opensearchPing,
   searchDocuments as opensearchSearchDocuments,
@@ -12,6 +14,8 @@ import {
 } from '../opensearch';
 import type { OpenSearchConfig } from '../../shared/types/connection';
 import type {
+  OpenSearchExportIndicesRequest,
+  OpenSearchImportIndicesRequest,
   OpenSearchRawRequest,
   OpenSearchSearchRequest,
 } from '../../shared/types/opensearch';
@@ -123,6 +127,22 @@ export function registerOpensearchHandlers(): void {
     handler: (args: OpenSearchInvokeArgs & { index: string }) =>
       opensearchDeleteIndex(args.connectionId, args.config, args.index),
     errorMode: 'okOnly',
+  });
+
+  registerHandler({
+    channel: 'opensearch:exportIndices',
+    handler: (
+      args: OpenSearchInvokeArgs & { request: OpenSearchExportIndicesRequest },
+    ) => opensearchExportIndices(args.connectionId, args.config, args.request),
+    errorMode: 'raw',
+  });
+
+  registerHandler({
+    channel: 'opensearch:importIndices',
+    handler: (
+      args: OpenSearchInvokeArgs & { request: OpenSearchImportIndicesRequest },
+    ) => opensearchImportIndices(args.connectionId, args.config, args.request),
+    errorMode: 'raw',
   });
 
   registerHandler({
