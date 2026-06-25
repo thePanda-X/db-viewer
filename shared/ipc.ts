@@ -65,6 +65,8 @@ export const IPC_CHANNELS = {
     'updateDocument',
     'deleteDocument',
     'deleteIndex',
+    'exportIndices',
+    'importIndices',
     'executeRequest',
     'disconnect',
   ],
