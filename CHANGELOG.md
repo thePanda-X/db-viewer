@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-06-25
+
+### Added
+
+- OpenSearch multi-index export to JSON with mappings, settings, aliases, and documents.
+- OpenSearch JSON import with destructive index overwrite and restored mappings/data.
+- OpenSearch index multi-select with checkbox, Ctrl/Cmd-click, Shift-click, and context-menu actions for export and delete.
+
+### Changed
+
+- Moved OpenSearch import/export and bulk selection actions into sidebar and index context menus to reduce sidebar clutter.
+
 ## [1.3.0] - 2026-06-25
 
 ### Added
@@ -62,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RabbitMQ exchange, queue, and binding browsing with message publishing and queue management.
 - Platform-specific installer builds for Windows, macOS, and Linux.
 
+[1.4.0]: https://github.com/thePanda-X/db-viewer/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/thePanda-X/db-viewer/compare/v1.2.3...v1.3.0
 [1.2.3]: https://github.com/thePanda-X/db-viewer/compare/v1.2.2...v1.2.3
 [1.2.1]: https://github.com/thePanda-X/db-viewer/compare/v1.2.0...v1.2.1
