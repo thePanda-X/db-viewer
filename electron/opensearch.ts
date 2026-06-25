@@ -1,10 +1,15 @@
 import { Client } from '@opensearch-project/opensearch';
+import fs from 'node:fs/promises';
 import type { OpenSearchConfig } from '../shared/types/connection';
 import type {
   OpenSearchClusterInfo,
   OpenSearchDocumentHit,
+  OpenSearchExportIndicesRequest,
+  OpenSearchExportIndicesResponse,
   OpenSearchIndexInfo,
   OpenSearchIndexMeta,
+  OpenSearchImportIndicesRequest,
+  OpenSearchImportIndicesResponse,
   OpenSearchRawRequest,
   OpenSearchRawResponse,
   OpenSearchSearchRequest,
@@ -12,6 +17,30 @@ import type {
 } from '../shared/types/opensearch';
 
 const clients = new Map<string, Client>();
+const EXPORT_FORMAT = 'db-vwr.opensearch.export';
+const EXPORT_VERSION = 1;
+const EXPORT_BATCH_SIZE = 500;
+
+interface OpenSearchExportDocument {
+  id: string;
+  source: unknown;
+  routing?: string;
+}
+
+interface OpenSearchExportIndex {
+  name: string;
+  settings: unknown;
+  mappings: unknown;
+  aliases: unknown;
+  documents: OpenSearchExportDocument[];
+}
+
+interface OpenSearchIndicesExport {
+  format: typeof EXPORT_FORMAT;
+  version: typeof EXPORT_VERSION;
+  exportedAt: string;
+  indices: OpenSearchExportIndex[];
+}
 
 function nodeUrl(config: OpenSearchConfig): string {
   const protocol = config.ssl ? 'https' : 'http';
@@ -49,6 +78,124 @@ function getClient(connectionId: string, config: OpenSearchConfig): Client {
 function bodyOf<T>(response: unknown): T {
   const maybe = response as { body?: T };
   return maybe.body ?? (response as T);
+}
+
+function assertOpenSearchExport(value: unknown): OpenSearchIndicesExport {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    (value as { format?: unknown }).format !== EXPORT_FORMAT ||
+    (value as { version?: unknown }).version !== EXPORT_VERSION ||
+    !Array.isArray((value as { indices?: unknown }).indices)
+  ) {
+    throw new Error('File is not a db-vwr OpenSearch export JSON');
+  }
+  return value as OpenSearchIndicesExport;
+}
+
+function indexRecordValue(value: unknown, index: string): unknown {
+  if (!value || typeof value !== 'object') return {};
+  return (value as Record<string, unknown>)[index] ?? {};
+}
+
+function stripReadOnlySettings(settings: unknown): Record<string, unknown> {
+  const indexSettings =
+    settings && typeof settings === 'object'
+      ? { ...(settings as Record<string, unknown>) }
+      : {};
+  delete indexSettings.uuid;
+  delete indexSettings.version;
+  delete indexSettings.provided_name;
+  delete indexSettings.creation_date;
+  return indexSettings;
+}
+
+function createIndexBody(
+  indexExport: OpenSearchExportIndex,
+): Record<string, unknown> {
+  const rawSettings = indexRecordValue(
+    indexExport.settings,
+    indexExport.name,
+  ) as {
+    settings?: { index?: unknown };
+  };
+  const rawMappings = indexRecordValue(
+    indexExport.mappings,
+    indexExport.name,
+  ) as {
+    mappings?: unknown;
+  };
+  const rawAliases = indexRecordValue(
+    indexExport.aliases,
+    indexExport.name,
+  ) as {
+    aliases?: unknown;
+  };
+  const body: Record<string, unknown> = {};
+  const settings = stripReadOnlySettings(rawSettings.settings?.index);
+  if (Object.keys(settings).length > 0) body.settings = settings;
+  if (rawMappings.mappings && Object.keys(rawMappings.mappings).length > 0) {
+    body.mappings = rawMappings.mappings;
+  }
+  if (rawAliases.aliases && Object.keys(rawAliases.aliases).length > 0) {
+    body.aliases = rawAliases.aliases;
+  }
+  return body;
+}
+
+async function indexExists(client: Client, index: string): Promise<boolean> {
+  const res = await client.indices.exists({ index });
+  const maybe = res as { body?: boolean; statusCode?: number };
+  if (typeof maybe.body === 'boolean') return maybe.body;
+  return maybe.statusCode === 200;
+}
+
+async function exportIndexDocuments(
+  client: Client,
+  index: string,
+): Promise<OpenSearchExportDocument[]> {
+  const documents: OpenSearchExportDocument[] = [];
+  let searchRes = await client.search({
+    index,
+    scroll: '2m',
+    size: EXPORT_BATCH_SIZE,
+    body: { query: { match_all: {} }, sort: ['_doc'] },
+  });
+  let body = bodyOf<{
+    _scroll_id?: string;
+    hits?: {
+      hits?: Array<{
+        _id?: string;
+        _source?: unknown;
+        _routing?: string;
+      }>;
+    };
+  }>(searchRes);
+  let scrollId = body._scroll_id;
+  let hits = body.hits?.hits ?? [];
+
+  try {
+    while (hits.length > 0) {
+      for (const hit of hits) {
+        documents.push({
+          id: hit._id ?? '',
+          source: hit._source ?? null,
+          routing: hit._routing,
+        });
+      }
+      if (!scrollId) break;
+      searchRes = await client.scroll({ scroll_id: scrollId, scroll: '2m' });
+      body = bodyOf(searchRes);
+      scrollId = body._scroll_id ?? scrollId;
+      hits = body.hits?.hits ?? [];
+    }
+  } finally {
+    if (scrollId) {
+      await client.clearScroll({ scroll_id: scrollId }).catch(() => undefined);
+    }
+  }
+
+  return documents;
 }
 
 export async function ping(
@@ -204,6 +351,108 @@ export async function deleteIndex(
 ): Promise<void> {
   const client = getClient(connectionId, config);
   await client.indices.delete({ index });
+}
+
+export async function exportIndices(
+  connectionId: string,
+  config: OpenSearchConfig,
+  request: OpenSearchExportIndicesRequest,
+): Promise<OpenSearchExportIndicesResponse> {
+  const client = getClient(connectionId, config);
+  const indexNames = Array.from(
+    new Set(request.indices.map((item) => item.trim())),
+  ).filter(Boolean);
+  if (indexNames.length === 0)
+    throw new Error('Select at least one index to export');
+
+  const exported: OpenSearchExportIndex[] = [];
+  let documentCount = 0;
+  for (const index of indexNames) {
+    const [mappingRes, settingsRes, aliasesRes] = await Promise.all([
+      client.indices.getMapping({ index }),
+      client.indices.getSettings({ index }),
+      client.indices.getAlias({ index }).catch(() => ({ body: {} })),
+    ]);
+    const documents = await exportIndexDocuments(client, index);
+    documentCount += documents.length;
+    exported.push({
+      name: index,
+      mappings: bodyOf(mappingRes),
+      settings: bodyOf(settingsRes),
+      aliases: bodyOf(aliasesRes),
+      documents,
+    });
+  }
+
+  const payload: OpenSearchIndicesExport = {
+    format: EXPORT_FORMAT,
+    version: EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    indices: exported,
+  };
+  await fs.writeFile(
+    request.filePath,
+    JSON.stringify(payload, null, 2),
+    'utf8',
+  );
+  return {
+    ok: true,
+    filePath: request.filePath,
+    indices: exported.length,
+    documents: documentCount,
+  };
+}
+
+export async function importIndices(
+  connectionId: string,
+  config: OpenSearchConfig,
+  request: OpenSearchImportIndicesRequest,
+): Promise<OpenSearchImportIndicesResponse> {
+  const client = getClient(connectionId, config);
+  const parsed = assertOpenSearchExport(
+    JSON.parse(await fs.readFile(request.filePath, 'utf8')),
+  );
+  let documentCount = 0;
+
+  for (const indexExport of parsed.indices) {
+    const exists = await indexExists(client, indexExport.name);
+    if (exists) {
+      if (!request.overwrite) {
+        throw new Error(`Index already exists: ${indexExport.name}`);
+      }
+      await client.indices.delete({ index: indexExport.name });
+    }
+
+    await client.indices.create({
+      index: indexExport.name,
+      body: createIndexBody(indexExport),
+    });
+
+    for (let i = 0; i < indexExport.documents.length; i += EXPORT_BATCH_SIZE) {
+      const batch = indexExport.documents.slice(i, i + EXPORT_BATCH_SIZE);
+      if (batch.length === 0) continue;
+      const body = batch.flatMap((doc) => [
+        {
+          index: {
+            _index: indexExport.name,
+            _id: doc.id,
+            ...(doc.routing ? { routing: doc.routing } : {}),
+          },
+        },
+        doc.source,
+      ]) as Record<string, unknown>[];
+      const bulkRes = await client.bulk({ refresh: false, body });
+      const bulkBody = bodyOf<{ errors?: boolean; items?: unknown[] }>(bulkRes);
+      if (bulkBody.errors) {
+        throw new Error(`Bulk import failed for index ${indexExport.name}`);
+      }
+      documentCount += batch.length;
+    }
+
+    await client.indices.refresh({ index: indexExport.name });
+  }
+
+  return { ok: true, indices: parsed.indices.length, documents: documentCount };
 }
 
 export async function executeRequest(
