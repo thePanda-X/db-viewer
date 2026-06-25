@@ -113,6 +113,9 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
   );
   const [deletingIndex, setDeletingIndex] = useState(false);
   const [exportRunning, setExportRunning] = useState(false);
+  const [selectedExportIndices, setSelectedExportIndices] = useState<
+    Set<string>
+  >(new Set());
   const [importFilePath, setImportFilePath] = useState<string | null>(null);
   const [importRunning, setImportRunning] = useState(false);
 
@@ -218,6 +221,16 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
   }, [refreshMeta, view]);
 
   useEffect(() => {
+    const available = new Set(indices.map((index) => index.name));
+    setSelectedExportIndices((current) => {
+      const next = new Set(
+        Array.from(current).filter((index) => available.has(index)),
+      );
+      return next.size === current.size ? current : next;
+    });
+  }, [indices]);
+
+  useEffect(() => {
     return () => {
       void api.opensearch.disconnect({ connectionId: connection.id });
     };
@@ -227,6 +240,15 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
     () => indices.find((index) => index.name === activeIndex) ?? null,
     [activeIndex, indices],
   );
+  const selectedExportNames = useMemo(
+    () =>
+      indices
+        .map((index) => index.name)
+        .filter((name) => selectedExportIndices.has(name)),
+    [indices, selectedExportIndices],
+  );
+  const allExportIndicesSelected =
+    indices.length > 0 && selectedExportNames.length === indices.length;
   const totalPages = Math.max(
     1,
     Math.ceil((searchResult?.total ?? 0) / PAGE_SIZE),
@@ -360,6 +382,21 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
     }
   };
 
+  const toggleExportIndex = (index: string, checked: boolean) => {
+    setSelectedExportIndices((current) => {
+      const next = new Set(current);
+      if (checked) next.add(index);
+      else next.delete(index);
+      return next;
+    });
+  };
+
+  const toggleAllExportIndices = (checked: boolean) => {
+    setSelectedExportIndices(
+      checked ? new Set(indices.map((index) => index.name)) : new Set(),
+    );
+  };
+
   const handleChooseImportFile = async () => {
     const filePath = await api.dialog.openFile({
       filters: [{ name: 'JSON', extensions: ['json'] }],
@@ -445,22 +482,35 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
                 <Badge variant="secondary">{cluster.status}</Badge>
               ) : null}
             </div>
+            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <label className="flex items-center gap-2">
+                <Checkbox
+                  checked={allExportIndicesSelected}
+                  onCheckedChange={(checked) =>
+                    toggleAllExportIndices(checked === true)
+                  }
+                  disabled={indices.length === 0}
+                />
+                Select indices to export
+              </label>
+              <span>
+                {selectedExportNames.length}/{indices.length}
+              </span>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() =>
-                  void handleExportIndices(indices.map((item) => item.name))
-                }
-                disabled={exportRunning || indices.length === 0}
+                onClick={() => void handleExportIndices(selectedExportNames)}
+                disabled={exportRunning || selectedExportNames.length === 0}
               >
                 {exportRunning ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Download className="h-3.5 w-3.5" />
                 )}
-                Export
+                Export {selectedExportNames.length || ''}
               </Button>
               <Button
                 type="button"
@@ -551,16 +601,33 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
                     onClick: () => setDeleteIndexTarget(index.name),
                   },
                 ];
+                const selectedForExport = selectedExportIndices.has(index.name);
                 return (
                   <ContextMenu key={index.name} items={menuItems}>
-                    <button
+                    <div
+                      role="button"
+                      tabIndex={0}
                       className={cn(
-                        'mb-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent',
+                        'mb-1 flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent',
                         activeIndex === index.name &&
                           'bg-accent text-accent-foreground',
                       )}
                       onClick={() => setActiveIndex(index.name)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setActiveIndex(index.name);
+                        }
+                      }}
                     >
+                      <Checkbox
+                        checked={selectedForExport}
+                        aria-label={`Select ${index.name} for export`}
+                        onClick={(event) => event.stopPropagation()}
+                        onCheckedChange={(checked) =>
+                          toggleExportIndex(index.name, checked === true)
+                        }
+                      />
                       <span
                         className={cn(
                           'h-2 w-2 rounded-full',
@@ -573,7 +640,7 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
                       <span className="text-[10px] text-muted-foreground">
                         {index.docsCount ?? '0'}
                       </span>
-                    </button>
+                    </div>
                   </ContextMenu>
                 );
               })}
