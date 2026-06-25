@@ -4,6 +4,7 @@ import {
   Pencil,
   Play,
   Trash2,
+  Folder,
   FolderInput,
 } from 'lucide-react';
 import type { Connection } from '@/types/connection';
@@ -100,9 +101,9 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
                   .map((f) => ({
                     label: f.name,
                     icon: (
-                      <span
-                        className="inline-block h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: f.color }}
+                      <Folder
+                        className="h-3.5 w-3.5 shrink-0"
+                        style={{ color: f.color }}
                       />
                     ),
                     onClick: () => handleMoveToFolder(f.id),
@@ -184,9 +185,9 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
                             key={f.id}
                             onClick={() => handleMoveToFolder(f.id)}
                           >
-                            <span
-                              className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
-                              style={{ backgroundColor: f.color }}
+                            <Folder
+                              className="mr-2 h-3.5 w-3.5 shrink-0"
+                              style={{ color: f.color }}
                             />
                             {f.name}
                           </DropdownMenuItem>

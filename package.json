@@ -5,7 +5,7 @@
     "email": "alex.asensi90@gmail.com"
   },
   "private": true,
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Multi-database desktop viewer for PostgreSQL, SQLite, Redis, OpenSearch, Kafka, and RabbitMQ",
   "license": "Apache-2.0",
   "type": "module",
