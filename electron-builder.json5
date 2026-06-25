@@ -15,6 +15,7 @@
     output: 'release/${version}',
   },
   files: ['dist', 'dist-electron'],
+  extraResources: ['CHANGELOG.md'],
   icon: 'public/icon.png',
   mac: {
     target: ['dmg'],
