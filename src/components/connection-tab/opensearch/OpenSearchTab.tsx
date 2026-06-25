@@ -491,6 +491,52 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
     }
   };
 
+  const sidebarMenuItems: ContextMenuItem[] = [
+    {
+      label: 'Import Indices',
+      icon: <Upload className="h-3.5 w-3.5" />,
+      onClick: () => void handleChooseImportFile(),
+      disabled: importRunning,
+    },
+    {
+      label:
+        selectedIndexNames.length === 0
+          ? 'Export Selected'
+          : `Export ${selectedIndexNames.length} Selected`,
+      icon: <Download className="h-3.5 w-3.5" />,
+      onClick: () => void handleExportIndices(selectedIndexNames),
+      disabled: exportRunning || selectedIndexNames.length === 0,
+    },
+    {
+      label:
+        selectedIndexNames.length === 0
+          ? 'Delete Selected'
+          : `Delete ${selectedIndexNames.length} Selected`,
+      icon: <Trash2 className="h-3.5 w-3.5" />,
+      onClick: () => setDeleteIndexTarget(selectedIndexNames),
+      disabled: selectedIndexNames.length === 0,
+      destructive: true,
+    },
+    { separator: true },
+    {
+      label: allIndicesSelected ? 'All Indices Selected' : 'Select All Indices',
+      onClick: () => toggleAllIndices(true),
+      disabled: indices.length === 0 || allIndicesSelected,
+    },
+    {
+      label: 'Clear Selection',
+      onClick: () => toggleAllIndices(false),
+      disabled: selectedIndexNames.length === 0,
+    },
+    { separator: true },
+    {
+      label: 'Refresh',
+      icon: <RefreshCw className="h-3.5 w-3.5" />,
+      onClick: () => void refreshIndices(),
+      disabled: loadingIndices,
+    },
+  ];
+
   return (
     <div className="flex h-full min-h-0 bg-background">
       <ResizableSidebar
@@ -500,224 +546,199 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
         defaultWidth={290}
         className="border-r bg-muted/20"
       >
-        <div className="flex h-full min-h-0 flex-col">
-          <div className="space-y-3 p-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Server className="h-4 w-4 text-emerald-500" />
-                  <span className="truncate">{connection.name}</span>
+        <ContextMenu items={sidebarMenuItems} className="h-full min-h-0">
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="space-y-3 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Server className="h-4 w-4 text-emerald-500" />
+                    <span className="truncate">{connection.name}</span>
+                  </div>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">
+                    {cluster
+                      ? `${cluster.clusterName} / ${cluster.version}`
+                      : `${config.host}:${config.port}`}
+                  </p>
                 </div>
-                <p className="mt-1 truncate text-xs text-muted-foreground">
-                  {cluster
-                    ? `${cluster.clusterName} / ${cluster.version}`
-                    : `${config.host}:${config.port}`}
-                </p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => void refreshIndices()}
+                  disabled={loadingIndices}
+                >
+                  {loadingIndices ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                </Button>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => void refreshIndices()}
-                disabled={loadingIndices}
-              >
-                {loadingIndices ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-              </Button>
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={includeSystem}
+                    onCheckedChange={(checked) =>
+                      setIncludeSystem(checked === true)
+                    }
+                  />
+                  Show system indices
+                </label>
+                {cluster?.status ? (
+                  <Badge variant="secondary">{cluster.status}</Badge>
+                ) : null}
+              </div>
             </div>
-            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-              <label className="flex items-center gap-2">
-                <Checkbox
-                  checked={includeSystem}
-                  onCheckedChange={(checked) =>
-                    setIncludeSystem(checked === true)
-                  }
-                />
-                Show system indices
-              </label>
-              {cluster?.status ? (
-                <Badge variant="secondary">{cluster.status}</Badge>
-              ) : null}
-            </div>
-            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-              <label className="flex items-center gap-2">
-                <Checkbox
-                  checked={allIndicesSelected}
-                  onCheckedChange={(checked) =>
-                    toggleAllIndices(checked === true)
-                  }
-                  disabled={indices.length === 0}
-                />
-                Select indices
-              </label>
-              <span>
-                {selectedIndexNames.length}/{indices.length}
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void handleExportIndices(selectedIndexNames)}
-                disabled={exportRunning || selectedIndexNames.length === 0}
-              >
-                {exportRunning ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Download className="h-3.5 w-3.5" />
-                )}
-                Export {selectedIndexNames.length || ''}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => void handleChooseImportFile()}
-                disabled={importRunning}
-              >
-                <Upload className="h-3.5 w-3.5" /> Import
-              </Button>
-            </div>
-          </div>
-          <Separator />
-          <ScrollArea className="min-h-0 flex-1">
-            <div className="p-2">
-              {indicesError ? (
-                <div className="rounded-md border border-destructive/40 p-3 text-xs text-destructive">
-                  {indicesError}
-                </div>
-              ) : null}
-              {!indicesError && loadingIndices ? (
-                <div className="p-3 text-xs text-muted-foreground">
-                  Loading indices...
-                </div>
-              ) : null}
-              {!loadingIndices && indices.length === 0 ? (
-                <div className="p-3 text-xs text-muted-foreground">
-                  No indices found.
-                </div>
-              ) : null}
-              {indices.map((index) => {
-                const actionIndices = selectionForAction(index.name);
-                const menuItems: ContextMenuItem[] = [
-                  {
-                    label: 'Open',
-                    icon: <Search className="h-3.5 w-3.5" />,
-                    onClick: () => setActiveIndex(index.name),
-                  },
-                  {
-                    label: 'Copy Index Name',
-                    icon: <Copy className="h-3.5 w-3.5" />,
-                    onClick: () => {
-                      void navigator.clipboard.writeText(index.name);
-                      toast({ message: 'Copied index name' });
+            <Separator />
+            <ScrollArea className="min-h-0 flex-1">
+              <div className="p-2">
+                {indicesError ? (
+                  <div className="rounded-md border border-destructive/40 p-3 text-xs text-destructive">
+                    {indicesError}
+                  </div>
+                ) : null}
+                {!indicesError && loadingIndices ? (
+                  <div className="p-3 text-xs text-muted-foreground">
+                    Loading indices...
+                  </div>
+                ) : null}
+                {!loadingIndices && indices.length === 0 ? (
+                  <div className="p-3 text-xs text-muted-foreground">
+                    No indices found.
+                  </div>
+                ) : null}
+                {indices.map((index) => {
+                  const actionIndices = selectionForAction(index.name);
+                  const menuItems: ContextMenuItem[] = [
+                    {
+                      label: 'Open',
+                      icon: <Search className="h-3.5 w-3.5" />,
+                      onClick: () => setActiveIndex(index.name),
                     },
-                  },
-                  { separator: true },
-                  {
-                    label: 'View Mappings',
-                    icon: <Eye className="h-3.5 w-3.5" />,
-                    onClick: () => {
-                      setActiveIndex(index.name);
-                      setView('mappings');
+                    {
+                      label: 'Copy Index Name',
+                      icon: <Copy className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        void navigator.clipboard.writeText(index.name);
+                        toast({ message: 'Copied index name' });
+                      },
                     },
-                  },
-                  {
-                    label: 'View Settings',
-                    icon: <Settings className="h-3.5 w-3.5" />,
-                    onClick: () => {
-                      setActiveIndex(index.name);
-                      setView('settings');
+                    { separator: true },
+                    {
+                      label: 'View Mappings',
+                      icon: <Eye className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        setActiveIndex(index.name);
+                        setView('mappings');
+                      },
                     },
-                  },
-                  { separator: true },
-                  {
-                    label:
-                      actionIndices.length === 1
-                        ? 'Export Index'
-                        : `Export ${actionIndices.length} Indices`,
-                    icon: <Download className="h-3.5 w-3.5" />,
-                    onClick: () => void handleExportIndices(actionIndices),
-                  },
-                  {
-                    label: 'Refresh',
-                    icon: <RefreshCw className="h-3.5 w-3.5" />,
-                    onClick: () => void refreshIndices(),
-                  },
-                  {
-                    label: 'Properties',
-                    icon: <Info className="h-3.5 w-3.5" />,
-                    onClick: () =>
-                      toast({
-                        message: index.name,
-                        detail: `${index.docsCount ?? 0} docs | ${index.storeSize ?? '0b'} | Health: ${index.health}`,
-                      }),
-                  },
-                  { separator: true },
-                  {
-                    label:
-                      actionIndices.length === 1
-                        ? 'Delete Index'
-                        : `Delete ${actionIndices.length} Indices`,
-                    icon: <Trash2 className="h-3.5 w-3.5" />,
-                    destructive: true,
-                    onClick: () => setDeleteIndexTarget(actionIndices),
-                  },
-                ];
-                const selected = selectedIndices.has(index.name);
-                return (
-                  <ContextMenu key={index.name} items={menuItems}>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      className={cn(
-                        'mb-1 flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent',
-                        activeIndex === index.name &&
-                          'bg-accent text-accent-foreground',
-                        selected &&
-                          activeIndex !== index.name &&
-                          'bg-accent/60 text-accent-foreground',
-                      )}
-                      onClick={(event) =>
-                        handleIndexRowClick(event, index.name)
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setActiveIndex(index.name);
-                        }
-                      }}
-                    >
-                      <Checkbox
-                        checked={selected}
-                        aria-label={`Select ${index.name}`}
-                        onClick={(event) => event.stopPropagation()}
-                        onCheckedChange={(checked) =>
-                          toggleIndexSelection(index.name, checked === true)
-                        }
-                      />
-                      <span
+                    {
+                      label: 'View Settings',
+                      icon: <Settings className="h-3.5 w-3.5" />,
+                      onClick: () => {
+                        setActiveIndex(index.name);
+                        setView('settings');
+                      },
+                    },
+                    { separator: true },
+                    {
+                      label:
+                        actionIndices.length === 1
+                          ? 'Export Index'
+                          : `Export ${actionIndices.length} Indices`,
+                      icon: <Download className="h-3.5 w-3.5" />,
+                      onClick: () => void handleExportIndices(actionIndices),
+                    },
+                    {
+                      label: 'Refresh',
+                      icon: <RefreshCw className="h-3.5 w-3.5" />,
+                      onClick: () => void refreshIndices(),
+                    },
+                    {
+                      label: 'Properties',
+                      icon: <Info className="h-3.5 w-3.5" />,
+                      onClick: () =>
+                        toast({
+                          message: index.name,
+                          detail: `${index.docsCount ?? 0} docs | ${index.storeSize ?? '0b'} | Health: ${index.health}`,
+                        }),
+                    },
+                    { separator: true },
+                    {
+                      label:
+                        actionIndices.length === 1
+                          ? 'Delete Index'
+                          : `Delete ${actionIndices.length} Indices`,
+                      icon: <Trash2 className="h-3.5 w-3.5" />,
+                      destructive: true,
+                      onClick: () => setDeleteIndexTarget(actionIndices),
+                    },
+                    { separator: true },
+                    {
+                      label: allIndicesSelected
+                        ? 'All Indices Selected'
+                        : 'Select All Indices',
+                      onClick: () => toggleAllIndices(true),
+                      disabled: indices.length === 0 || allIndicesSelected,
+                    },
+                    {
+                      label: 'Clear Selection',
+                      onClick: () => toggleAllIndices(false),
+                      disabled: selectedIndexNames.length === 0,
+                    },
+                  ];
+                  const selected = selectedIndices.has(index.name);
+                  return (
+                    <ContextMenu key={index.name} items={menuItems}>
+                      <div
+                        role="button"
+                        tabIndex={0}
                         className={cn(
-                          'h-2 w-2 rounded-full',
-                          healthColor(index.health),
+                          'mb-1 flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left text-sm hover:bg-accent',
+                          activeIndex === index.name &&
+                            'bg-accent text-accent-foreground',
+                          selected &&
+                            activeIndex !== index.name &&
+                            'bg-accent/60 text-accent-foreground',
                         )}
-                      />
-                      <span className="min-w-0 flex-1 truncate">
-                        {index.name}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {index.docsCount ?? '0'}
-                      </span>
-                    </div>
-                  </ContextMenu>
-                );
-              })}
-            </div>
-          </ScrollArea>
-        </div>
+                        onClick={(event) =>
+                          handleIndexRowClick(event, index.name)
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            setActiveIndex(index.name);
+                          }
+                        }}
+                      >
+                        <Checkbox
+                          checked={selected}
+                          aria-label={`Select ${index.name}`}
+                          onClick={(event) => event.stopPropagation()}
+                          onCheckedChange={(checked) =>
+                            toggleIndexSelection(index.name, checked === true)
+                          }
+                        />
+                        <span
+                          className={cn(
+                            'h-2 w-2 rounded-full',
+                            healthColor(index.health),
+                          )}
+                        />
+                        <span className="min-w-0 flex-1 truncate">
+                          {index.name}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {index.docsCount ?? '0'}
+                        </span>
+                      </div>
+                    </ContextMenu>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          </div>
+        </ContextMenu>
       </ResizableSidebar>
 
       <main className="flex min-w-0 flex-1 flex-col">
