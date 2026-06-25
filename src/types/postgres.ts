@@ -108,6 +108,30 @@ export interface SaveChangesRequest {
 
 export type SaveChangesResponse = SqlSaveChangesResponse;
 
+export interface ExportDatabaseRequest {
+  database: string;
+  filePath: string;
+}
+
+export interface ExportDatabaseResponse {
+  ok: true;
+  filePath: string;
+  tables: number;
+  rows: number;
+}
+
+export interface ImportDatabaseRequest {
+  database: string;
+  filePath: string;
+}
+
+export interface ImportDatabaseResponse {
+  ok: true;
+  database: string;
+  tables: number;
+  rows: number;
+}
+
 export function editableKindFor(udtName: string): EditableColumnKind {
   switch (udtName) {
     case 'bool':

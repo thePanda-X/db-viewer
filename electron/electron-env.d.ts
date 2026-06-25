@@ -11,6 +11,10 @@ interface OpenFileOptions {
   filters?: Array<{ name: string; extensions: string[] }>;
 }
 
+interface SaveFileOptions extends OpenFileOptions {
+  defaultPath?: string;
+}
+
 interface PostgresExposedConfig {
   host: string;
   port: number;
@@ -115,6 +119,30 @@ interface PostgresInsertRowRequest {
 type PostgresInsertRowResponse =
   | { ok: true; inserted: number }
   | { ok: false; error: string };
+
+interface PostgresExportDatabaseRequest {
+  database: string;
+  filePath: string;
+}
+
+interface PostgresExportDatabaseResponse {
+  ok: true;
+  filePath: string;
+  tables: number;
+  rows: number;
+}
+
+interface PostgresImportDatabaseRequest {
+  database: string;
+  filePath: string;
+}
+
+interface PostgresImportDatabaseResponse {
+  ok: true;
+  database: string;
+  tables: number;
+  rows: number;
+}
 
 interface RedisExposedConfig {
   host: string;
@@ -249,6 +277,7 @@ interface ExposedApi {
   };
   dialog: {
     openFile: (options?: OpenFileOptions) => Promise<string | null>;
+    saveFile: (options?: SaveFileOptions) => Promise<string | null>;
   };
   postgres: {
     query: (args: {
@@ -327,6 +356,16 @@ interface ExposedApi {
       config: PostgresExposedConfig;
       request: PostgresDeleteRowsRequest;
     }) => Promise<PostgresDeleteRowsResponse>;
+    exportDatabase: (args: {
+      connectionId: string;
+      config: PostgresExposedConfig;
+      request: PostgresExportDatabaseRequest;
+    }) => Promise<PostgresExportDatabaseResponse>;
+    importDatabase: (args: {
+      connectionId: string;
+      config: PostgresExposedConfig;
+      request: PostgresImportDatabaseRequest;
+    }) => Promise<PostgresImportDatabaseResponse>;
     disconnect: (args: {
       connectionId: string;
       database?: string;

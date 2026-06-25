@@ -8,7 +8,7 @@ export const IPC_CHANNELS = {
   ],
   connections: ['list', 'save'],
   folders: ['list', 'save'],
-  dialog: ['openFile'],
+  dialog: ['openFile', 'saveFile'],
   postgres: [
     'query',
     'readOnlyQuery',
@@ -21,6 +21,8 @@ export const IPC_CHANNELS = {
     'insertRow',
     'saveChanges',
     'deleteRows',
+    'exportDatabase',
+    'importDatabase',
     'disconnect',
   ],
   sqlite: [
