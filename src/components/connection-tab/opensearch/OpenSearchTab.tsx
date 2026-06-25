@@ -17,6 +17,7 @@ import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -432,10 +433,11 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
             </div>
             <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <label className="flex items-center gap-2">
-                <input
+                <Checkbox
                   checked={includeSystem}
-                  onChange={(e) => setIncludeSystem(e.target.checked)}
-                  type="checkbox"
+                  onCheckedChange={(checked) =>
+                    setIncludeSystem(checked === true)
+                  }
                 />
                 Show system indices
               </label>
