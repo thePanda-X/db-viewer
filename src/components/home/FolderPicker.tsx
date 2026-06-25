@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FolderPlus } from 'lucide-react';
+import { Folder, FolderPlus } from 'lucide-react';
 import { useFoldersStore } from '@/state/foldersStore';
 import {
   Select,
@@ -63,9 +63,9 @@ export function FolderPicker({ value, onChange }: FolderPickerProps) {
           {folders.map((f) => (
             <SelectItem key={f.id} value={f.id}>
               <span className="flex items-center gap-2">
-                <span
-                  className="inline-block h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: f.color }}
+                <Folder
+                  className="h-3.5 w-3.5 shrink-0"
+                  style={{ color: f.color }}
                 />
                 {f.name}
               </span>

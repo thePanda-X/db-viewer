@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-06-25
+
+### Changed
+
+- Render connection groups as folder icons using each folder's saved color.
+- Improved folder color picker ordering and layout for a cleaner palette.
+
 ## [1.2.1] - 2026-06-23
 
 ### Added
@@ -42,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RabbitMQ exchange, queue, and binding browsing with message publishing and queue management.
 - Platform-specific installer builds for Windows, macOS, and Linux.
 
+[1.2.3]: https://github.com/thePanda-X/db-viewer/compare/v1.2.2...v1.2.3
 [1.2.1]: https://github.com/thePanda-X/db-viewer/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/thePanda-X/db-viewer/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/thePanda-X/db-viewer/compare/v1.0.0...v1.1.0

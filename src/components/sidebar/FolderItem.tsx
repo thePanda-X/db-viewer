@@ -1,3 +1,4 @@
+import { Folder as FolderIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Folder } from '@/types/folder';
 import { FolderContextMenu } from './FolderContextMenu';
@@ -27,9 +28,9 @@ export function FolderItem({
         selected && 'bg-accent text-accent-foreground',
       )}
     >
-      <span
-        className="h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ backgroundColor: folder.color }}
+      <FolderIcon
+        className="h-3.5 w-3.5 shrink-0"
+        style={{ color: folder.color }}
       />
       <span className="truncate flex-1">{folder.name}</span>
       <span className="text-xs text-muted-foreground tabular-nums">
