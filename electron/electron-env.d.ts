@@ -183,6 +183,14 @@ type OpenSearchIndexInfo =
   import('../shared/types/opensearch').OpenSearchIndexInfo;
 type OpenSearchIndexMeta =
   import('../shared/types/opensearch').OpenSearchIndexMeta;
+type OpenSearchExportIndicesRequest =
+  import('../shared/types/opensearch').OpenSearchExportIndicesRequest;
+type OpenSearchExportIndicesResponse =
+  import('../shared/types/opensearch').OpenSearchExportIndicesResponse;
+type OpenSearchImportIndicesRequest =
+  import('../shared/types/opensearch').OpenSearchImportIndicesRequest;
+type OpenSearchImportIndicesResponse =
+  import('../shared/types/opensearch').OpenSearchImportIndicesResponse;
 type OpenSearchRawRequest =
   import('../shared/types/opensearch').OpenSearchRawRequest;
 type OpenSearchRawResponse =
@@ -586,6 +594,16 @@ interface ExposedApi {
       config: OpenSearchExposedConfig;
       index: string;
     }) => Promise<{ ok: true } | { ok: false; error: string }>;
+    exportIndices: (args: {
+      connectionId: string;
+      config: OpenSearchExposedConfig;
+      request: OpenSearchExportIndicesRequest;
+    }) => Promise<OpenSearchExportIndicesResponse>;
+    importIndices: (args: {
+      connectionId: string;
+      config: OpenSearchExposedConfig;
+      request: OpenSearchImportIndicesRequest;
+    }) => Promise<OpenSearchImportIndicesResponse>;
     executeRequest: (args: {
       connectionId: string;
       config: OpenSearchExposedConfig;

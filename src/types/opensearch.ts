@@ -58,6 +58,29 @@ export interface OpenSearchRawResponse {
   durationMs: number;
 }
 
+export interface OpenSearchExportIndicesRequest {
+  indices: string[];
+  filePath: string;
+}
+
+export interface OpenSearchExportIndicesResponse {
+  ok: true;
+  filePath: string;
+  indices: number;
+  documents: number;
+}
+
+export interface OpenSearchImportIndicesRequest {
+  filePath: string;
+  overwrite: boolean;
+}
+
+export interface OpenSearchImportIndicesResponse {
+  ok: true;
+  indices: number;
+  documents: number;
+}
+
 export type OpenSearchResponse<T> =
   | { ok: true; result: T }
   | { ok: false; error: string };

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Copy,
+  Download,
   Eye,
   FileJson,
   Info,
@@ -10,6 +11,7 @@ import {
   Server,
   Settings,
   Trash2,
+  Upload,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
@@ -109,6 +111,9 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
     null,
   );
   const [deletingIndex, setDeletingIndex] = useState(false);
+  const [exportRunning, setExportRunning] = useState(false);
+  const [importFilePath, setImportFilePath] = useState<string | null>(null);
+  const [importRunning, setImportRunning] = useState(false);
 
   const refreshIndices = useCallback(async () => {
     setLoadingIndices(true);
@@ -319,6 +324,76 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
     void refreshIndices();
   };
 
+  const handleExportIndices = async (indexNames: string[]) => {
+    const names = Array.from(new Set(indexNames)).filter(Boolean);
+    if (names.length === 0) return;
+    const defaultPath =
+      names.length === 1
+        ? `${names[0]}.json`
+        : `${connection.name}-opensearch.json`;
+    const filePath = await api.dialog.saveFile({
+      defaultPath,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (!filePath) return;
+    setExportRunning(true);
+    try {
+      const result = await api.opensearch.exportIndices({
+        connectionId: connection.id,
+        config,
+        request: { indices: names, filePath },
+      });
+      toast({
+        message: `Exported ${result.indices} index${result.indices === 1 ? '' : 'es'}`,
+        detail: `${result.documents} document${result.documents === 1 ? '' : 's'}`,
+        variant: 'success',
+      });
+    } catch (err) {
+      toast({
+        message: 'OpenSearch export failed',
+        detail: err instanceof Error ? err.message : String(err),
+        variant: 'error',
+      });
+    } finally {
+      setExportRunning(false);
+    }
+  };
+
+  const handleChooseImportFile = async () => {
+    const filePath = await api.dialog.openFile({
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (filePath) setImportFilePath(filePath);
+  };
+
+  const confirmImportIndices = async () => {
+    if (!importFilePath) return;
+    setImportRunning(true);
+    try {
+      const result = await api.opensearch.importIndices({
+        connectionId: connection.id,
+        config,
+        request: { filePath: importFilePath, overwrite: true },
+      });
+      toast({
+        message: `Imported ${result.indices} index${result.indices === 1 ? '' : 'es'}`,
+        detail: `${result.documents} document${result.documents === 1 ? '' : 's'}`,
+        variant: 'success',
+      });
+      setImportFilePath(null);
+      void refreshIndices();
+      void refreshDocuments();
+    } catch (err) {
+      toast({
+        message: 'OpenSearch import failed',
+        detail: err instanceof Error ? err.message : String(err),
+        variant: 'error',
+      });
+    } finally {
+      setImportRunning(false);
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 bg-background">
       <ResizableSidebar
@@ -367,6 +442,33 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
               {cluster?.status ? (
                 <Badge variant="secondary">{cluster.status}</Badge>
               ) : null}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  void handleExportIndices(indices.map((item) => item.name))
+                }
+                disabled={exportRunning || indices.length === 0}
+              >
+                {exportRunning ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                Export
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void handleChooseImportFile()}
+                disabled={importRunning}
+              >
+                <Upload className="h-3.5 w-3.5" /> Import
+              </Button>
             </div>
           </div>
           <Separator />
@@ -420,6 +522,11 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
                     },
                   },
                   { separator: true },
+                  {
+                    label: 'Export Index',
+                    icon: <Download className="h-3.5 w-3.5" />,
+                    onClick: () => void handleExportIndices([index.name]),
+                  },
                   {
                     label: 'Refresh',
                     icon: <RefreshCw className="h-3.5 w-3.5" />,
@@ -555,6 +662,30 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
           )}
         </div>
       </main>
+
+      {importFilePath ? (
+        <Card className="fixed left-1/2 top-1/2 z-50 w-[min(460px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 p-5 shadow-2xl">
+          <h2 className="text-base font-semibold">Import OpenSearch export?</h2>
+          <p className="mt-2 break-all text-sm text-muted-foreground">
+            {importFilePath}
+          </p>
+          <p className="mt-2 text-xs text-destructive">
+            Existing indices with the same names will be deleted and recreated.
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setImportFilePath(null)}
+              disabled={importRunning}
+            >
+              Cancel
+            </Button>
+            <Button onClick={confirmImportIndices} disabled={importRunning}>
+              {importRunning ? 'Importing...' : 'Import and overwrite'}
+            </Button>
+          </div>
+        </Card>
+      ) : null}
     </div>
   );
 }
