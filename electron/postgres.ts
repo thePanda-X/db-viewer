@@ -1,10 +1,15 @@
+import fs from 'node:fs/promises';
 import { Pool, types } from 'pg';
 import type pg from 'pg';
 import type {
   ColumnMeta,
   DatabaseInfo,
   DeleteRowsRequest,
+  ExportDatabaseRequest,
+  ExportDatabaseResponse,
   ForeignKey,
+  ImportDatabaseRequest,
+  ImportDatabaseResponse,
   InsertRowRequest,
   InsertRowResponse,
   PostgresConfig,
@@ -682,6 +687,664 @@ function literalize(value: unknown): string {
   if (typeof value === 'object')
     return `'${JSON.stringify(value).replace(/'/g, "''")}'::jsonb`;
   return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+interface PostgresExportColumn {
+  name: string;
+  typeSql: string;
+  udtName: string;
+  nullable: boolean;
+  defaultSql: string | null;
+  identity: '' | 'a' | 'd';
+  generated: '' | 's';
+  generatedSql: string | null;
+}
+
+interface PostgresExportTable {
+  schema: string;
+  name: string;
+  columns: PostgresExportColumn[];
+  rows: Record<string, string | null>[];
+}
+
+interface PostgresExportSequence {
+  schema: string;
+  name: string;
+  create: boolean;
+  dataType: string;
+  startValue: string;
+  minValue: string;
+  maxValue: string;
+  incrementBy: string;
+  cycle: boolean;
+  cacheSize: string;
+  lastValue: string | null;
+  isCalled: boolean | null;
+}
+
+interface PostgresExportConstraint {
+  schema: string;
+  table: string;
+  name: string;
+  type: string;
+  definition: string;
+}
+
+interface PostgresExportIndex {
+  schema: string;
+  table: string;
+  name: string;
+  definition: string;
+}
+
+interface PostgresExportEnum {
+  schema: string;
+  name: string;
+  values: string[];
+}
+
+interface PostgresExportDomain {
+  schema: string;
+  name: string;
+  baseType: string;
+  nullable: boolean;
+  defaultSql: string | null;
+  checks: string[];
+}
+
+interface PostgresExportView {
+  schema: string;
+  name: string;
+  definition: string;
+}
+
+interface PostgresExportExtension {
+  name: string;
+  schema: string;
+  version: string;
+}
+
+interface PostgresDatabaseExport {
+  format: 'db-vwr.postgres.export';
+  version: 1;
+  exportedAt: string;
+  sourceDatabase: string;
+  schemas: string[];
+  extensions?: PostgresExportExtension[];
+  enums: PostgresExportEnum[];
+  domains: PostgresExportDomain[];
+  sequences: PostgresExportSequence[];
+  tables: PostgresExportTable[];
+  constraints: PostgresExportConstraint[];
+  indexes: PostgresExportIndex[];
+  views: PostgresExportView[];
+}
+
+function quoteIdent(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
+}
+
+function quoteLiteralText(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+function qualifiedIdent(schema: string, name: string): string {
+  return `${quoteIdent(schema)}.${quoteIdent(name)}`;
+}
+
+function assertPostgresExport(value: unknown): PostgresDatabaseExport {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    (value as { format?: unknown }).format !== 'db-vwr.postgres.export' ||
+    (value as { version?: unknown }).version !== 1
+  ) {
+    throw new Error('File is not a db-vwr PostgreSQL export JSON');
+  }
+  return value as PostgresDatabaseExport;
+}
+
+async function queryRows<T extends object>(
+  client: pg.PoolClient,
+  sql: string,
+  params?: unknown[],
+): Promise<T[]> {
+  const result = await client.query(sql, params ?? []);
+  return result.rows as T[];
+}
+
+function createDirectPool(config: PostgresConfig, database: string): pg.Pool {
+  return new Pool({
+    host: config.host,
+    port: config.port,
+    database,
+    user: config.username,
+    password: config.password,
+    ssl: config.ssl ? { rejectUnauthorized: false } : false,
+    max: 1,
+    idleTimeoutMillis: 5_000,
+    connectionTimeoutMillis: 10_000,
+    statement_timeout: 0,
+  });
+}
+
+async function exportSequences(
+  client: pg.PoolClient,
+): Promise<PostgresExportSequence[]> {
+  const sequences = await queryRows<{
+    schema: string;
+    name: string;
+    data_type: string;
+    start_value: string;
+    min_value: string;
+    max_value: string;
+    increment_by: string;
+    cycle: boolean;
+    cache_size: string;
+    is_identity_owned: boolean;
+  }>(
+    client,
+    `SELECT n.nspname AS schema,
+            c.relname AS name,
+            format_type(s.seqtypid, NULL) AS data_type,
+            s.seqstart::text AS start_value,
+            s.seqmin::text AS min_value,
+            s.seqmax::text AS max_value,
+            s.seqincrement::text AS increment_by,
+            s.seqcycle AS cycle,
+            s.seqcache::text AS cache_size,
+            EXISTS (
+              SELECT 1
+                FROM pg_depend d
+               WHERE d.objid = c.oid
+                 AND d.deptype = 'i'
+            ) AS is_identity_owned
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       JOIN pg_sequence s ON s.seqrelid = c.oid
+      WHERE c.relkind = 'S'
+        AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+        AND n.nspname NOT LIKE 'pg_toast%'
+      ORDER BY n.nspname, c.relname`,
+  );
+
+  const out: PostgresExportSequence[] = [];
+  for (const seq of sequences) {
+    const state = await queryRows<{
+      last_value: string;
+      is_called: boolean;
+    }>(
+      client,
+      `SELECT last_value::text, is_called FROM ${qualifiedIdent(seq.schema, seq.name)}`,
+    );
+    out.push({
+      schema: seq.schema,
+      name: seq.name,
+      create: !seq.is_identity_owned,
+      dataType: seq.data_type,
+      startValue: seq.start_value,
+      minValue: seq.min_value,
+      maxValue: seq.max_value,
+      incrementBy: seq.increment_by,
+      cycle: seq.cycle,
+      cacheSize: seq.cache_size,
+      lastValue: state[0]?.last_value ?? null,
+      isCalled: state[0]?.is_called ?? null,
+    });
+  }
+  return out;
+}
+
+async function exportTableRows(
+  client: pg.PoolClient,
+  schema: string,
+  table: string,
+  columns: PostgresExportColumn[],
+): Promise<Record<string, string | null>[]> {
+  if (columns.length === 0) return [];
+  const pairs: string[] = [];
+  for (const col of columns) {
+    if (col.generated) continue;
+    const colIdent = quoteIdent(col.name);
+    const valueSql =
+      col.udtName === 'bytea'
+        ? `CASE WHEN ${colIdent} IS NULL THEN NULL ELSE encode(${colIdent}, 'base64') END`
+        : `CASE WHEN ${colIdent} IS NULL THEN NULL ELSE ${colIdent}::text END`;
+    pairs.push(`${quoteLiteralText(col.name)}, ${valueSql}`);
+  }
+  if (pairs.length === 0) return [];
+  const rows = await queryRows<{ row_data: string }>(
+    client,
+    `SELECT jsonb_build_object(${pairs.join(', ')})::text AS row_data FROM ${qualifiedIdent(schema, table)}`,
+  );
+  return rows.map(
+    (row) => JSON.parse(row.row_data) as Record<string, string | null>,
+  );
+}
+
+export async function exportDatabase(
+  connectionId: string,
+  config: PostgresConfig,
+  req: ExportDatabaseRequest,
+): Promise<ExportDatabaseResponse> {
+  const pool = createDirectPool(config, req.database);
+  let client: pg.PoolClient | null = null;
+  try {
+    client = await pool.connect();
+    const schemas = (
+      await queryRows<{ name: string }>(
+        client,
+        `SELECT nspname AS name
+           FROM pg_namespace
+          WHERE nspname NOT IN ('pg_catalog', 'information_schema')
+            AND nspname NOT LIKE 'pg_toast%'
+          ORDER BY nspname`,
+      )
+    ).map((row) => row.name);
+
+    const extensions = await queryRows<PostgresExportExtension>(
+      client,
+      `SELECT e.extname AS name,
+              n.nspname AS schema,
+              e.extversion AS version
+         FROM pg_extension e
+         JOIN pg_namespace n ON n.oid = e.extnamespace
+        WHERE e.extname <> 'plpgsql'
+        ORDER BY e.extname`,
+    );
+
+    const enums = await queryRows<PostgresExportEnum>(
+      client,
+      `SELECT n.nspname AS schema, t.typname AS name,
+              array_agg(e.enumlabel ORDER BY e.enumsortorder)::text[] AS values
+         FROM pg_type t
+         JOIN pg_namespace n ON n.oid = t.typnamespace
+         JOIN pg_enum e ON e.enumtypid = t.oid
+        WHERE t.typtype = 'e'
+          AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+        GROUP BY n.nspname, t.typname
+        ORDER BY n.nspname, t.typname`,
+    );
+
+    const domains = await queryRows<PostgresExportDomain>(
+      client,
+      `SELECT n.nspname AS schema,
+              t.typname AS name,
+              format_type(t.typbasetype, t.typtypmod) AS "baseType",
+              NOT t.typnotnull AS nullable,
+              t.typdefault AS "defaultSql",
+              COALESCE(array_agg(pg_get_constraintdef(c.oid, true) ORDER BY c.conname) FILTER (WHERE c.oid IS NOT NULL), ARRAY[]::text[]) AS checks
+         FROM pg_type t
+         JOIN pg_namespace n ON n.oid = t.typnamespace
+         LEFT JOIN pg_constraint c ON c.contypid = t.oid
+        WHERE t.typtype = 'd'
+          AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+        GROUP BY n.nspname, t.typname, t.typbasetype, t.typtypmod, t.typnotnull, t.typdefault
+        ORDER BY n.nspname, t.typname`,
+    );
+
+    const tableRefs = await queryRows<{
+      oid: number;
+      schema: string;
+      name: string;
+    }>(
+      client,
+      `SELECT c.oid::int AS oid, n.nspname AS schema, c.relname AS name
+         FROM pg_class c
+         JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relkind IN ('r', 'p')
+          AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+          AND n.nspname NOT LIKE 'pg_toast%'
+        ORDER BY n.nspname, c.relname`,
+    );
+
+    const tables: PostgresExportTable[] = [];
+    let rowCount = 0;
+    for (const tableRef of tableRefs) {
+      const columns = await queryRows<PostgresExportColumn>(
+        client,
+        `SELECT a.attname AS name,
+                format_type(a.atttypid, a.atttypmod) AS "typeSql",
+                t.typname AS "udtName",
+                NOT a.attnotnull AS nullable,
+                pg_get_expr(d.adbin, d.adrelid) AS "defaultSql",
+                a.attidentity AS identity,
+                a.attgenerated AS generated,
+                CASE WHEN a.attgenerated <> '' THEN pg_get_expr(d.adbin, d.adrelid) ELSE NULL END AS "generatedSql"
+           FROM pg_attribute a
+           JOIN pg_type t ON t.oid = a.atttypid
+           LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+          WHERE a.attrelid = $1
+            AND a.attnum > 0
+            AND NOT a.attisdropped
+          ORDER BY a.attnum`,
+        [tableRef.oid],
+      );
+      const rows = await exportTableRows(
+        client,
+        tableRef.schema,
+        tableRef.name,
+        columns,
+      );
+      rowCount += rows.length;
+      tables.push({
+        schema: tableRef.schema,
+        name: tableRef.name,
+        columns,
+        rows,
+      });
+    }
+
+    const constraints = await queryRows<PostgresExportConstraint>(
+      client,
+      `SELECT n.nspname AS schema,
+              cls.relname AS table,
+              con.conname AS name,
+              con.contype AS type,
+              pg_get_constraintdef(con.oid, true) AS definition
+         FROM pg_constraint con
+         JOIN pg_class cls ON cls.oid = con.conrelid
+         JOIN pg_namespace n ON n.oid = cls.relnamespace
+        WHERE con.conrelid <> 0
+          AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+        ORDER BY n.nspname, cls.relname,
+                 CASE con.contype WHEN 'c' THEN 1 WHEN 'p' THEN 2 WHEN 'u' THEN 3 WHEN 'x' THEN 4 WHEN 'f' THEN 5 ELSE 6 END,
+                 con.conname`,
+    );
+
+    const indexes = await queryRows<PostgresExportIndex>(
+      client,
+      `SELECT schemaname AS schema,
+              tablename AS table,
+              indexname AS name,
+              indexdef AS definition
+         FROM pg_indexes i
+        WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+          AND NOT EXISTS (
+            SELECT 1
+              FROM pg_constraint c
+             WHERE c.conname = i.indexname
+               AND c.connamespace = to_regnamespace(i.schemaname)
+          )
+        ORDER BY schemaname, tablename, indexname`,
+    );
+
+    const views = await queryRows<PostgresExportView>(
+      client,
+      `SELECT n.nspname AS schema,
+              c.relname AS name,
+              pg_get_viewdef(c.oid, true) AS definition
+         FROM pg_class c
+         JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE c.relkind = 'v'
+          AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+        ORDER BY n.nspname, c.relname`,
+    );
+
+    const exportJson: PostgresDatabaseExport = {
+      format: 'db-vwr.postgres.export',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      sourceDatabase: req.database,
+      schemas,
+      extensions,
+      enums,
+      domains,
+      sequences: await exportSequences(client),
+      tables,
+      constraints,
+      indexes,
+      views,
+    };
+
+    await fs.writeFile(
+      req.filePath,
+      JSON.stringify(exportJson, null, 2),
+      'utf8',
+    );
+    return {
+      ok: true,
+      filePath: req.filePath,
+      tables: tables.length,
+      rows: rowCount,
+    };
+  } finally {
+    if (client) client.release();
+    await pool.end();
+    dropPool(connectionId, req.database);
+  }
+}
+
+async function recreateDatabase(
+  connectionId: string,
+  config: PostgresConfig,
+  database: string,
+): Promise<void> {
+  dropPool(connectionId, database);
+  const maintenanceDatabase =
+    database === 'postgres' ? 'template1' : 'postgres';
+  const pool = createDirectPool(config, maintenanceDatabase);
+  let client: pg.PoolClient | null = null;
+  try {
+    client = await pool.connect();
+    await client.query(
+      `SELECT pg_terminate_backend(pid)
+         FROM pg_stat_activity
+        WHERE datname = $1
+          AND pid <> pg_backend_pid()`,
+      [database],
+    );
+    await client.query(`DROP DATABASE IF EXISTS ${quoteIdent(database)}`);
+    await client.query(`CREATE DATABASE ${quoteIdent(database)}`);
+  } finally {
+    if (client) client.release();
+    await pool.end();
+  }
+}
+
+function columnDefinition(column: PostgresExportColumn): string {
+  let sql = `${quoteIdent(column.name)} ${column.typeSql}`;
+  if (column.generated && column.generatedSql) {
+    sql += ` GENERATED ALWAYS AS (${column.generatedSql}) STORED`;
+  } else if (column.identity) {
+    sql += ` GENERATED ${column.identity === 'a' ? 'ALWAYS' : 'BY DEFAULT'} AS IDENTITY`;
+  } else if (column.defaultSql) {
+    sql += ` DEFAULT ${column.defaultSql}`;
+  }
+  if (!column.nullable) sql += ' NOT NULL';
+  return sql;
+}
+
+function inferExtensionCandidates(
+  parsed: PostgresDatabaseExport,
+): Array<{ name: string; schema?: string; required: boolean }> {
+  const candidates = new Map<
+    string,
+    { name: string; schema?: string; required: boolean }
+  >();
+  for (const extension of parsed.extensions ?? []) {
+    candidates.set(extension.name, {
+      name: extension.name,
+      schema: extension.schema,
+      required: true,
+    });
+  }
+
+  const sqlFragments: string[] = [];
+  for (const domain of parsed.domains) {
+    if (domain.defaultSql) sqlFragments.push(domain.defaultSql);
+    sqlFragments.push(...domain.checks);
+  }
+  for (const table of parsed.tables) {
+    for (const column of table.columns) {
+      if (column.defaultSql) sqlFragments.push(column.defaultSql);
+      if (column.generatedSql) sqlFragments.push(column.generatedSql);
+    }
+  }
+  const sql = sqlFragments.join('\n').toLowerCase();
+
+  if (/\buuid_generate_v[145]\s*\(/.test(sql)) {
+    candidates.set('uuid-ossp', { name: 'uuid-ossp', required: false });
+  }
+  if (/\bgen_random_uuid\s*\(/.test(sql)) {
+    candidates.set('pgcrypto', { name: 'pgcrypto', required: false });
+  }
+  if (/\buuid_generate_v7\s*\(/.test(sql)) {
+    candidates.set('pg_uuidv7', { name: 'pg_uuidv7', required: false });
+  }
+  if (/\buuidv7\s*\(/.test(sql)) {
+    candidates.set('uuidv7', { name: 'uuidv7', required: false });
+  }
+
+  return Array.from(candidates.values());
+}
+
+async function createExtension(
+  client: pg.PoolClient,
+  extension: { name: string; schema?: string; required: boolean },
+): Promise<void> {
+  const schemaSql = extension.schema
+    ? ` WITH SCHEMA ${quoteIdent(extension.schema)}`
+    : '';
+  try {
+    await client.query(
+      `CREATE EXTENSION IF NOT EXISTS ${quoteIdent(extension.name)}${schemaSql}`,
+    );
+  } catch (err) {
+    if (extension.required) throw err;
+    console.warn(
+      `[postgres] inferred extension ${extension.name} could not be created:`,
+      err,
+    );
+  }
+}
+
+async function importRows(
+  client: pg.PoolClient,
+  table: PostgresExportTable,
+): Promise<number> {
+  const insertColumns = table.columns.filter((column) => !column.generated);
+  if (table.rows.length === 0) return 0;
+  if (insertColumns.length === 0) return 0;
+
+  const colSql = insertColumns
+    .map((column) => quoteIdent(column.name))
+    .join(', ');
+  const casts = insertColumns.map((column, index) => {
+    const param = `$${index + 1}`;
+    return column.udtName === 'bytea'
+      ? `decode(${param}, 'base64')`
+      : `${param}::${column.typeSql}`;
+  });
+  const overriding = insertColumns.some((column) => column.identity)
+    ? ' OVERRIDING SYSTEM VALUE'
+    : '';
+  const sql = `INSERT INTO ${qualifiedIdent(table.schema, table.name)} (${colSql})${overriding} VALUES (${casts.join(', ')})`;
+  for (const row of table.rows) {
+    await client.query(
+      sql,
+      insertColumns.map((column) => row[column.name] ?? null),
+    );
+  }
+  return table.rows.length;
+}
+
+export async function importDatabase(
+  connectionId: string,
+  config: PostgresConfig,
+  req: ImportDatabaseRequest,
+): Promise<ImportDatabaseResponse> {
+  const parsed = assertPostgresExport(
+    JSON.parse(await fs.readFile(req.filePath, 'utf8')),
+  );
+  await recreateDatabase(connectionId, config, req.database);
+
+  const pool = createDirectPool(config, req.database);
+  let client: pg.PoolClient | null = null;
+  let rows = 0;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    for (const schema of parsed.schemas) {
+      await client.query(`CREATE SCHEMA IF NOT EXISTS ${quoteIdent(schema)}`);
+    }
+    for (const extension of inferExtensionCandidates(parsed)) {
+      await createExtension(client, extension);
+    }
+    for (const item of parsed.enums) {
+      await client.query(
+        `CREATE TYPE ${qualifiedIdent(item.schema, item.name)} AS ENUM (${item.values.map(quoteLiteralText).join(', ')})`,
+      );
+    }
+    for (const domain of parsed.domains) {
+      let sql = `CREATE DOMAIN ${qualifiedIdent(domain.schema, domain.name)} AS ${domain.baseType}`;
+      if (domain.defaultSql) sql += ` DEFAULT ${domain.defaultSql}`;
+      if (!domain.nullable) sql += ' NOT NULL';
+      for (const check of domain.checks) sql += ` ${check}`;
+      await client.query(sql);
+    }
+    for (const sequence of parsed.sequences) {
+      if (sequence.create === false) continue;
+      await client.query(
+        `CREATE SEQUENCE ${qualifiedIdent(sequence.schema, sequence.name)} AS ${sequence.dataType} INCREMENT BY ${sequence.incrementBy} MINVALUE ${sequence.minValue} MAXVALUE ${sequence.maxValue} START WITH ${sequence.startValue} CACHE ${sequence.cacheSize}${sequence.cycle ? ' CYCLE' : ''}`,
+      );
+    }
+    for (const table of parsed.tables) {
+      await client.query(
+        `CREATE TABLE ${qualifiedIdent(table.schema, table.name)} (${table.columns.map(columnDefinition).join(', ')})`,
+      );
+    }
+    for (const table of parsed.tables) {
+      rows += await importRows(client, table);
+    }
+    const orderedConstraints = [
+      ...parsed.constraints.filter((constraint) => constraint.type !== 'f'),
+      ...parsed.constraints.filter((constraint) => constraint.type === 'f'),
+    ];
+    for (const constraint of orderedConstraints) {
+      await client.query(
+        `ALTER TABLE ${qualifiedIdent(constraint.schema, constraint.table)} ADD CONSTRAINT ${quoteIdent(constraint.name)} ${constraint.definition}`,
+      );
+    }
+    for (const index of parsed.indexes) {
+      await client.query(index.definition);
+    }
+    for (const sequence of parsed.sequences) {
+      if (sequence.lastValue === null || sequence.isCalled === null) continue;
+      await client.query('SELECT setval($1::regclass, $2::bigint, $3)', [
+        qualifiedIdent(sequence.schema, sequence.name),
+        sequence.lastValue,
+        sequence.isCalled,
+      ]);
+    }
+    for (const view of parsed.views) {
+      await client.query(
+        `CREATE VIEW ${qualifiedIdent(view.schema, view.name)} AS ${view.definition}`,
+      );
+    }
+
+    await client.query('COMMIT');
+    dropPool(connectionId, req.database);
+    return {
+      ok: true,
+      database: req.database,
+      tables: parsed.tables.length,
+      rows,
+    };
+  } catch (err) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackErr) {
+        console.error('[postgres] rollback failed:', rollbackErr);
+      }
+    }
+    throw err;
+  } finally {
+    if (client) client.release();
+    await pool.end();
+  }
 }
 
 export async function saveChanges(

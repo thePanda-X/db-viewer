@@ -2,9 +2,11 @@ import { registerHandler } from '../handlerRegistry';
 import {
   deleteRows as pgDeleteRows,
   disconnect as pgDisconnect,
+  exportDatabase,
   getIncomingTableRelations,
   getTableMeta,
   getTableRelations,
+  importDatabase,
   insertRow as pgInsertRow,
   listDatabases,
   listTables,
@@ -15,6 +17,10 @@ import {
 } from '../postgres';
 import type {
   DeleteRowsRequest,
+  ExportDatabaseRequest,
+  ExportDatabaseResponse,
+  ImportDatabaseRequest,
+  ImportDatabaseResponse,
   InsertRowRequest,
   PostgresConfig,
   QueryRequest,
@@ -187,6 +193,28 @@ export function registerPostgresHandlers(): void {
       request: DeleteRowsRequest;
     }): Promise<SqlDeleteRowsResponse> =>
       pgDeleteRows(args.connectionId, args.config, args.request),
+    errorMode: 'raw',
+  });
+
+  registerHandler({
+    channel: 'postgres:exportDatabase',
+    handler: (args: {
+      connectionId: string;
+      config: PostgresConfig;
+      request: ExportDatabaseRequest;
+    }): Promise<ExportDatabaseResponse> =>
+      exportDatabase(args.connectionId, args.config, args.request),
+    errorMode: 'raw',
+  });
+
+  registerHandler({
+    channel: 'postgres:importDatabase',
+    handler: (args: {
+      connectionId: string;
+      config: PostgresConfig;
+      request: ImportDatabaseRequest;
+    }): Promise<ImportDatabaseResponse> =>
+      importDatabase(args.connectionId, args.config, args.request),
     errorMode: 'raw',
   });
 
