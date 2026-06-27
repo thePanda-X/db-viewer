@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-06-27
+
+### Added
+
+- Light theme options for Linen, Sage, Sky, and Dusk.
+- Searchable theme picker with separated dark and light theme groups.
+
+### Changed
+
+- Reworked theme definitions into a centralized data-driven registry for easier theme creation.
+- Theme colors are now applied from shared token definitions instead of duplicated CSS theme selector blocks.
+
 ## [1.5.0] - 2026-06-27
 
 ### Added
@@ -91,6 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RabbitMQ exchange, queue, and binding browsing with message publishing and queue management.
 - Platform-specific installer builds for Windows, macOS, and Linux.
 
+[1.6.0]: https://github.com/thePanda-X/db-viewer/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/thePanda-X/db-viewer/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/thePanda-X/db-viewer/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/thePanda-X/db-viewer/compare/v1.3.0...v1.4.0
