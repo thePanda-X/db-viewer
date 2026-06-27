@@ -3,6 +3,10 @@ export const THEME_NAMES = [
   'monochrome',
   'rose-pine',
   'one-dark',
+  'linen',
+  'sage',
+  'sky',
+  'dusk',
 ] as const;
 
 export type ThemeName = (typeof THEME_NAMES)[number];
