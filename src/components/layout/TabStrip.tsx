@@ -19,9 +19,9 @@ export function TabStrip() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex h-9 shrink-0 border-b border-border bg-background">
+      <div className="flex h-10 shrink-0 border-b border-border/70 bg-background/70 backdrop-blur-xl">
         <ScrollArea className="w-full">
-          <div className="flex h-9 items-end gap-0.5 px-2">
+          <div className="flex h-10 items-end gap-1 px-2">
             {tabs.map((tab) => {
               const isHome = tab.id === HOME_TAB_ID;
               const isActive = tab.id === activeTabId;
@@ -37,10 +37,10 @@ export function TabStrip() {
                       type="button"
                       onClick={() => setActive(tab.id)}
                       className={cn(
-                        'group relative flex h-8 items-center gap-2 rounded-t-md border-x border-t border-transparent px-3 text-xs transition-colors',
-                        'hover:bg-accent/60',
+                        'group relative flex h-8 items-center gap-2 rounded-t-lg border-x border-t border-transparent px-3 text-xs transition-all duration-200',
+                        'hover:-translate-y-0.5 hover:bg-accent/60',
                         isActive &&
-                          'border-border bg-background text-foreground shadow-[0_1px_0_0_hsl(var(--background))]',
+                          'border-border/80 bg-card text-foreground shadow-sm',
                         !isActive && 'text-muted-foreground',
                       )}
                     >

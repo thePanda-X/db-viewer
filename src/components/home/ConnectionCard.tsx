@@ -126,19 +126,19 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
   return (
     <>
       <ContextMenu items={contextMenuItems}>
-        <Card className="group flex flex-col gap-3 p-4 transition-colors hover:border-foreground/20">
+        <Card className="group flex min-h-44 flex-col gap-4 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:bg-card hover:shadow-md">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted ring-1 ring-border/70 transition-transform duration-300 group-hover:scale-105">
                 <Icon className={`h-5 w-5 ${def.brandColor}`} />
               </div>
               <div className="min-w-0">
-                <h3 className="truncate text-sm font-semibold tracking-tight">
+                <h3 className="truncate text-base font-semibold tracking-[-0.02em]">
                   {connection.name}
                 </h3>
                 <Badge
                   variant="secondary"
-                  className="mt-1 px-1.5 py-0 text-[10px] font-normal"
+                  className="mt-1 rounded-md px-1.5 py-0 text-[10px] font-medium tracking-wide"
                 >
                   {def.label}
                 </Badge>
@@ -212,8 +212,8 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
           >
             {subtitle}
           </p>
-          <div className="mt-auto flex items-center justify-between border-t border-border pt-3">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">
+          <div className="mt-auto flex items-center justify-between border-t border-border/70 pt-3">
+            <span className="text-[10px] font-medium tracking-[0.18em] text-muted-foreground/70">
               Saved
             </span>
             <Button
