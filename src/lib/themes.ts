@@ -23,12 +23,14 @@ export type ThemeColorToken =
 
 type ThemeDefinition = {
   label: string;
+  mode: 'dark' | 'light';
   colors: Record<ThemeColorToken, string>;
 };
 
 export const themes = {
   harbor: {
     label: 'Harbor',
+    mode: 'dark',
     colors: {
       background: '218 30% 7%',
       foreground: '38 24% 93%',
@@ -53,6 +55,7 @@ export const themes = {
   },
   monochrome: {
     label: 'Monochrome',
+    mode: 'dark',
     colors: {
       background: '0 0% 6%',
       foreground: '0 0% 94%',
@@ -77,6 +80,7 @@ export const themes = {
   },
   'rose-pine': {
     label: 'Rosé Pine',
+    mode: 'dark',
     colors: {
       background: '249 22% 12%',
       foreground: '35 31% 87%',
@@ -101,6 +105,7 @@ export const themes = {
   },
   'one-dark': {
     label: 'One Dark',
+    mode: 'dark',
     colors: {
       background: '220 13% 13%',
       foreground: '220 14% 71%',
@@ -125,6 +130,7 @@ export const themes = {
   },
   linen: {
     label: 'Linen',
+    mode: 'light',
     colors: {
       background: '38 44% 96%',
       foreground: '27 22% 17%',
@@ -149,6 +155,7 @@ export const themes = {
   },
   sage: {
     label: 'Sage',
+    mode: 'light',
     colors: {
       background: '92 28% 95%',
       foreground: '145 18% 16%',
@@ -173,6 +180,7 @@ export const themes = {
   },
   sky: {
     label: 'Sky',
+    mode: 'light',
     colors: {
       background: '210 54% 97%',
       foreground: '218 32% 17%',
@@ -197,6 +205,7 @@ export const themes = {
   },
   dusk: {
     label: 'Dusk',
+    mode: 'light',
     colors: {
       background: '260 43% 97%',
       foreground: '264 28% 18%',
@@ -224,4 +233,13 @@ export const themes = {
 export const themeOptions = Object.entries(themes).map(([value, theme]) => ({
   value: value as ThemeName,
   label: theme.label,
+  mode: theme.mode,
 }));
+
+export const darkThemeOptions = themeOptions.filter(
+  (theme) => theme.mode === 'dark',
+);
+
+export const lightThemeOptions = themeOptions.filter(
+  (theme) => theme.mode === 'light',
+);
