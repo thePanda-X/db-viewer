@@ -287,6 +287,10 @@ interface ExposedApi {
     list: () => Promise<unknown[]>;
     save: (folders: unknown[]) => Promise<unknown[]>;
   };
+  settings: {
+    get: () => Promise<unknown>;
+    save: (settings: unknown) => Promise<unknown>;
+  };
   dialog: {
     openFile: (options?: OpenFileOptions) => Promise<string | null>;
     saveFile: (options?: SaveFileOptions) => Promise<string | null>;

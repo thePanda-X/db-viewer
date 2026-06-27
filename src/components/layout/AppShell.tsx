@@ -167,16 +167,20 @@ export function AppShell() {
   }, []);
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex h-full flex-col bg-background/95">
       <HotkeyProvider />
       <GlobalHotkeys
         onNewConnection={() => setDialogOpen(true)}
         onOpenShortcuts={() => setShortcutsOpen(true)}
       />
-      <header className="flex h-12 shrink-0 items-center border-b border-border px-4">
+      <header className="flex h-12 shrink-0 items-center border-b border-border/70 bg-background/80 px-4 backdrop-blur-xl">
         <div className="flex items-center gap-2">
-          <Database className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-semibold tracking-tight">db-vwr</span>
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary ring-1 ring-primary/25">
+            <Database className="h-4 w-4" />
+          </span>
+          <span className="text-sm font-semibold tracking-[-0.02em]">
+            db-vwr
+          </span>
           {version ? (
             <span className="text-xs text-muted-foreground">v{version}</span>
           ) : null}

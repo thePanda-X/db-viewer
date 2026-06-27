@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FolderPlus, Database, Inbox } from 'lucide-react';
+import { FolderPlus, Database, Inbox, Settings } from 'lucide-react';
 import { useConnectionsStore } from '@/state/connectionsStore';
 import { useFoldersStore } from '@/state/foldersStore';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,22 @@ import { FolderItem } from './FolderItem';
 import { FolderDialog } from './FolderDialog';
 import { toast } from '@/state/toastStore';
 import type { Folder } from '@/types/folder';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { THEMES, useTheme, type ThemeName } from '@/lib/themeContext';
 
 export type FolderFilter = 'all' | 'unsorted' | string;
 
@@ -38,6 +54,8 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState<Folder | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<Folder | undefined>();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   const folderCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -101,9 +119,9 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
   );
 
   return (
-    <div className="flex h-full w-full flex-col border-r border-border bg-muted/30">
-      <div className="flex items-center justify-between px-3 py-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+    <aside className="flex h-full w-full flex-col border-r border-border/70 bg-muted/35 backdrop-blur-xl">
+      <div className="flex items-center justify-between px-3 py-3">
+        <span className="text-xs font-semibold tracking-[0.18em] text-muted-foreground">
           Folders
         </span>
         <Button
@@ -121,8 +139,10 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
         <div className="space-y-0.5 px-2 pb-2">
           <button
             onClick={() => onSelectFilter('all')}
-            className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent/50 ${
-              selectedFilter === 'all' ? 'bg-accent text-accent-foreground' : ''
+            className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-200 hover:bg-accent/60 hover:text-accent-foreground ${
+              selectedFilter === 'all'
+                ? 'bg-accent text-accent-foreground shadow-sm'
+                : ''
             }`}
           >
             <Database className="h-3.5 w-3.5 text-muted-foreground" />
@@ -135,9 +155,9 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
           {connections.some((c) => !c.folderId) && (
             <button
               onClick={() => onSelectFilter('unsorted')}
-              className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent/50 ${
+              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-200 hover:bg-accent/60 hover:text-accent-foreground ${
                 selectedFilter === 'unsorted'
-                  ? 'bg-accent text-accent-foreground'
+                  ? 'bg-accent text-accent-foreground shadow-sm'
                   : ''
               }`}
             >
@@ -168,12 +188,54 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
         </div>
       </ScrollArea>
 
+      <div className="border-t border-border/70 p-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-muted-foreground hover:text-accent-foreground"
+          onClick={() => setSettingsOpen(true)}
+        >
+          <Settings className="h-4 w-4" />
+          Settings
+        </Button>
+      </div>
+
       <FolderDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         folder={editingFolder}
         onSave={handleSave}
       />
+
+      <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Settings</DialogTitle>
+            <DialogDescription>
+              Adjust workspace preferences for this device.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2">
+            <Label htmlFor="theme-select">Theme</Label>
+            <Select
+              value={theme}
+              onValueChange={(value) => setTheme(value as ThemeName)}
+            >
+              <SelectTrigger id="theme-select">
+                <SelectValue placeholder="Select theme" />
+              </SelectTrigger>
+              <SelectContent>
+                {THEMES.map((themeOption) => (
+                  <SelectItem key={themeOption.value} value={themeOption.value}>
+                    {themeOption.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={!!deleteTarget}
@@ -201,6 +263,6 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </aside>
   );
 }
