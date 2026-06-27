@@ -9,6 +9,7 @@ export const IPC_CHANNELS = {
   ],
   connections: ['list', 'save'],
   folders: ['list', 'save'],
+  settings: ['get', 'save'],
   dialog: ['openFile', 'saveFile'],
   postgres: [
     'query',

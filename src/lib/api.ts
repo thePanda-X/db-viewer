@@ -1,5 +1,6 @@
 import type { Connection } from '@/types/connection';
 import type { Folder } from '@/types/folder';
+import type { Settings } from '../../shared/types/settings';
 
 export interface OpenFileOptions {
   filters?: Array<{ name: string; extensions: string[] }>;
@@ -31,5 +32,11 @@ export const api = {
       window.api.folders.list() as Promise<Folder[]>,
     save: (folders: Folder[]): Promise<Folder[]> =>
       window.api.folders.save(folders) as Promise<Folder[]>,
+  },
+  settings: {
+    get: (): Promise<Settings> =>
+      window.api.settings.get() as Promise<Settings>,
+    save: (settings: Settings): Promise<Settings> =>
+      window.api.settings.save(settings) as Promise<Settings>,
   },
 };

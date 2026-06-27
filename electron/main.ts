@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { listConnections, setConnections } from './connections';
 import { listFolders, setFolders } from './folders';
+import { getSettings, setSettings } from './settings';
 import { registerHandler } from './handlerRegistry';
 import {
   registerPostgresHandlers,
@@ -348,6 +349,18 @@ app.whenReady().then(() => {
   registerHandler({
     channel: 'folders:save',
     handler: (folders: unknown[]) => setFolders(folders),
+    errorMode: 'raw',
+  });
+
+  registerHandler({
+    channel: 'settings:get',
+    handler: () => getSettings(),
+    errorMode: 'raw',
+  });
+
+  registerHandler({
+    channel: 'settings:save',
+    handler: (settings: unknown) => setSettings(settings),
     errorMode: 'raw',
   });
 
