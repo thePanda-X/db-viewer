@@ -1,6 +1,6 @@
-import type { Settings, ThemeName } from './types/settings';
+import { isThemeName } from './themes';
+import type { Settings } from './types/settings';
 
-const THEMES: ThemeName[] = ['harbor', 'monochrome', 'rose-pine', 'one-dark'];
 export const DEFAULT_SETTINGS: Settings = { theme: 'monochrome' };
 
 export function parseSettings(value: unknown): Settings {
@@ -8,8 +8,8 @@ export function parseSettings(value: unknown): Settings {
 
   const maybeSettings = value as Partial<Settings>;
   return {
-    theme: THEMES.includes(maybeSettings.theme as ThemeName)
-      ? (maybeSettings.theme as ThemeName)
+    theme: isThemeName(maybeSettings.theme)
+      ? maybeSettings.theme
       : DEFAULT_SETTINGS.theme,
   };
 }

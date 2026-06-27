@@ -1,8 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FolderPlus, Database, Inbox, Settings } from 'lucide-react';
+import {
+  Check,
+  ChevronsUpDown,
+  FolderPlus,
+  Database,
+  Inbox,
+  Settings,
+} from 'lucide-react';
 import { useConnectionsStore } from '@/state/connectionsStore';
 import { useFoldersStore } from '@/state/foldersStore';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -28,13 +36,16 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { THEMES, useTheme, type ThemeName } from '@/lib/themeContext';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useTheme, type ThemeName } from '@/lib/themeContext';
+import { darkThemeOptions, lightThemeOptions, themes } from '@/lib/themes';
+import { cn } from '@/lib/utils';
 
 export type FolderFilter = 'all' | 'unsorted' | string;
 
@@ -55,7 +66,17 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
   const [editingFolder, setEditingFolder] = useState<Folder | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<Folder | undefined>();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
+  const [themeSearch, setThemeSearch] = useState('');
   const { theme, setTheme } = useTheme();
+
+  const themeSearchTerm = themeSearch.trim().toLowerCase();
+  const visibleDarkThemes = darkThemeOptions.filter((themeOption) =>
+    themeOption.label.toLowerCase().includes(themeSearchTerm),
+  );
+  const visibleLightThemes = lightThemeOptions.filter((themeOption) =>
+    themeOption.label.toLowerCase().includes(themeSearchTerm),
+  );
 
   const folderCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -218,21 +239,98 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
 
           <div className="space-y-2 py-2">
             <Label htmlFor="theme-select">Theme</Label>
-            <Select
-              value={theme}
-              onValueChange={(value) => setTheme(value as ThemeName)}
+            <DropdownMenu
+              open={themeDropdownOpen}
+              onOpenChange={(open) => {
+                setThemeDropdownOpen(open);
+                if (!open) setThemeSearch('');
+              }}
             >
-              <SelectTrigger id="theme-select">
-                <SelectValue placeholder="Select theme" />
-              </SelectTrigger>
-              <SelectContent>
-                {THEMES.map((themeOption) => (
-                  <SelectItem key={themeOption.value} value={themeOption.value}>
-                    {themeOption.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  id="theme-select"
+                  variant="outline"
+                  className="w-full justify-between bg-background/75 font-normal"
+                >
+                  {themes[theme].label}
+                  <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-80 p-2">
+                <Input
+                  value={themeSearch}
+                  onChange={(event) => setThemeSearch(event.target.value)}
+                  onClick={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                  placeholder="Search themes..."
+                  className="mb-2 h-8"
+                />
+
+                {visibleDarkThemes.length > 0 && (
+                  <>
+                    <DropdownMenuLabel className="px-2 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Dark
+                    </DropdownMenuLabel>
+                    {visibleDarkThemes.map((themeOption) => (
+                      <DropdownMenuItem
+                        key={themeOption.value}
+                        onSelect={() => {
+                          setTheme(themeOption.value as ThemeName);
+                          setThemeDropdownOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            'h-4 w-4',
+                            theme === themeOption.value
+                              ? 'opacity-100'
+                              : 'opacity-0',
+                          )}
+                        />
+                        {themeOption.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
+
+                {visibleDarkThemes.length > 0 &&
+                  visibleLightThemes.length > 0 && <DropdownMenuSeparator />}
+
+                {visibleLightThemes.length > 0 && (
+                  <>
+                    <DropdownMenuLabel className="px-2 py-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Light
+                    </DropdownMenuLabel>
+                    {visibleLightThemes.map((themeOption) => (
+                      <DropdownMenuItem
+                        key={themeOption.value}
+                        onSelect={() => {
+                          setTheme(themeOption.value as ThemeName);
+                          setThemeDropdownOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            'h-4 w-4',
+                            theme === themeOption.value
+                              ? 'opacity-100'
+                              : 'opacity-0',
+                          )}
+                        />
+                        {themeOption.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
+
+                {visibleDarkThemes.length === 0 &&
+                  visibleLightThemes.length === 0 && (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      No themes found.
+                    </div>
+                  )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </DialogContent>
       </Dialog>

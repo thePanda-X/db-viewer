@@ -7,12 +7,14 @@ import {
   type ReactNode,
 } from 'react';
 import { api } from '@/lib/api';
-import { THEMES, ThemeContext, type ThemeName } from '@/lib/themeContext';
+import { ThemeContext, type ThemeName } from '@/lib/themeContext';
+import { themes, type ThemeColorToken } from '@/lib/themes';
+import { isThemeName } from '../../shared/themes';
 
 const DEFAULT_THEME: ThemeName = 'monochrome';
 
-function isThemeName(value: string | null): value is ThemeName {
-  return THEMES.some((theme) => theme.value === value);
+function toCssVariableName(token: ThemeColorToken): string {
+  return `--${token.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)}`;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -34,8 +36,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.add('dark');
+    const selectedTheme = themes[theme];
+
+    root.classList.toggle('dark', selectedTheme.mode === 'dark');
     root.dataset.theme = theme;
+
+    for (const [token, value] of Object.entries(selectedTheme.colors)) {
+      root.style.setProperty(
+        toCssVariableName(token as ThemeColorToken),
+        value,
+      );
+    }
   }, [theme]);
 
   const setTheme = useCallback((nextTheme: ThemeName) => {
