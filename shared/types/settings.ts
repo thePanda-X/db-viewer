@@ -1,4 +1,6 @@
-export type ThemeName = 'harbor' | 'monochrome' | 'rose-pine' | 'one-dark';
+export type { ThemeName } from '../themes';
+
+import type { ThemeName } from '../themes';
 
 export interface Settings {
   theme: ThemeName;
