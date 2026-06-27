@@ -27,13 +27,16 @@ export function HomeTab({ onCreateClick, folderFilter }: HomeTabProps) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-6 flex items-center justify-between">
+      <div className="mx-auto max-w-7xl px-6 py-10">
+        <div className="mb-8 flex items-end justify-between gap-6">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">
+            <p className="mb-2 text-xs font-semibold tracking-[0.2em] text-primary">
+              workspace
+            </p>
+            <h1 className="text-4xl font-semibold tracking-[-0.055em] sm:text-5xl">
               Connections
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-3 max-w-prose text-sm leading-6 text-muted-foreground">
               {connections.length === 0
                 ? 'Get started by creating your first connection.'
                 : `${connections.length} saved ${connections.length === 1 ? 'connection' : 'connections'}.`}
@@ -52,8 +55,13 @@ export function HomeTab({ onCreateClick, folderFilter }: HomeTabProps) {
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="h-32 animate-pulse rounded-xl border border-border bg-card"
-              />
+                className="h-40 animate-pulse rounded-2xl border border-border/60 bg-card/70 p-4"
+              >
+                <div className="h-9 w-9 rounded-lg bg-muted" />
+                <div className="mt-5 h-3 w-2/3 rounded bg-muted" />
+                <div className="mt-3 h-3 w-1/2 rounded bg-muted/70" />
+                <div className="mt-8 h-8 w-full rounded-lg bg-muted/60" />
+              </div>
             ))}
           </div>
         ) : connections.length === 0 ? (
