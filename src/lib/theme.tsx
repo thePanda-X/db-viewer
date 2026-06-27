@@ -38,7 +38,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const root = document.documentElement;
     const selectedTheme = themes[theme];
 
-    root.classList.add('dark');
+    root.classList.toggle('dark', selectedTheme.mode === 'dark');
     root.dataset.theme = theme;
 
     for (const [token, value] of Object.entries(selectedTheme.colors)) {
