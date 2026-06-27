@@ -34,7 +34,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { THEMES, useTheme, type ThemeName } from '@/lib/themeContext';
+import { useTheme, type ThemeName } from '@/lib/themeContext';
+import { themeOptions } from '@/lib/themes';
 
 export type FolderFilter = 'all' | 'unsorted' | string;
 
@@ -226,7 +227,7 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
                 <SelectValue placeholder="Select theme" />
               </SelectTrigger>
               <SelectContent>
-                {THEMES.map((themeOption) => (
+                {themeOptions.map((themeOption) => (
                   <SelectItem key={themeOption.value} value={themeOption.value}>
                     {themeOption.label}
                   </SelectItem>
