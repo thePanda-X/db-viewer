@@ -9,7 +9,7 @@ import {
 import { api } from '@/lib/api';
 import { THEMES, ThemeContext, type ThemeName } from '@/lib/themeContext';
 
-const DEFAULT_THEME: ThemeName = 'harbor';
+const DEFAULT_THEME: ThemeName = 'monochrome';
 
 function isThemeName(value: string | null): value is ThemeName {
   return THEMES.some((theme) => theme.value === value);

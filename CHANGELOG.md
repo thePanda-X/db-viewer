@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-06-27
+
+### Added
+
+- Home sidebar settings dialog with persisted theme selection.
+- Theme options for Monochrome, Harbor, Rosé Pine, and One Dark.
+
+### Changed
+
+- Monochrome is now the default theme for new installs and fresh settings files.
+
 ## [1.4.1] - 2026-06-25
 
 ### Added
@@ -80,6 +91,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - RabbitMQ exchange, queue, and binding browsing with message publishing and queue management.
 - Platform-specific installer builds for Windows, macOS, and Linux.
 
+[1.5.0]: https://github.com/thePanda-X/db-viewer/compare/v1.4.1...v1.5.0
+[1.4.1]: https://github.com/thePanda-X/db-viewer/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/thePanda-X/db-viewer/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/thePanda-X/db-viewer/compare/v1.2.3...v1.3.0
 [1.2.3]: https://github.com/thePanda-X/db-viewer/compare/v1.2.2...v1.2.3
