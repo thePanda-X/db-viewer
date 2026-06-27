@@ -4,8 +4,8 @@ import type { ThemeName } from '../../shared/types/settings';
 export type { ThemeName } from '../../shared/types/settings';
 
 export const THEMES = [
-  { value: 'harbor', label: 'Harbor' },
   { value: 'monochrome', label: 'Monochrome' },
+  { value: 'harbor', label: 'Harbor' },
   { value: 'rose-pine', label: 'Rosé Pine' },
   { value: 'one-dark', label: 'One Dark' },
 ] as const;
