@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { JsonView } from '@/components/ui/json-view';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -278,11 +279,18 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
                     </div>
                     <div className="group relative mt-1">
                       <div className="max-h-20 overflow-auto rounded border border-border/50 bg-muted/30 p-1.5">
-                        <pre className="whitespace-pre-wrap break-all font-mono text-[10px]">
-                          {typeof msg.bodyDecoded === 'string'
-                            ? msg.bodyDecoded
-                            : JSON.stringify(msg.bodyDecoded, null, 2)}
-                        </pre>
+                        {typeof msg.bodyDecoded === 'string' ? (
+                          <JsonView
+                            text={msg.bodyDecoded}
+                            fallback={msg.bodyDecoded}
+                            preClassName="whitespace-pre-wrap break-all font-mono text-[10px]"
+                          />
+                        ) : (
+                          <JsonView
+                            value={msg.bodyDecoded}
+                            preClassName="whitespace-pre-wrap break-all font-mono text-[10px]"
+                          />
+                        )}
                       </div>
                       <button
                         type="button"
@@ -495,9 +503,18 @@ function MessageInspectBody({
           </button>
         </div>
         <ScrollArea className="max-h-[50vh]">
-          <pre className="whitespace-pre-wrap break-all p-3 font-mono text-xs leading-relaxed">
-            {formatted}
-          </pre>
+          {typeof message.bodyDecoded === 'string' ? (
+            <JsonView
+              text={message.bodyDecoded}
+              fallback={formatted}
+              preClassName="whitespace-pre-wrap break-all p-3 font-mono text-xs leading-relaxed"
+            />
+          ) : (
+            <JsonView
+              value={message.bodyDecoded}
+              preClassName="whitespace-pre-wrap break-all p-3 font-mono text-xs leading-relaxed"
+            />
+          )}
         </ScrollArea>
       </div>
     </div>

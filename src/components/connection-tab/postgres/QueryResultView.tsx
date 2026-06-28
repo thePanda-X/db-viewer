@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { JsonView } from '@/components/ui/json-view';
 import { cn } from '@/lib/utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/lib/api';
@@ -54,6 +55,10 @@ function formatCell(value: unknown): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'boolean') return value ? 'true' : 'false';
   return String(value);
+}
+
+function isJsonCell(value: unknown): boolean {
+  return typeof value === 'object' && value !== null;
 }
 
 /**
@@ -235,6 +240,7 @@ export function QueryResultView({
                       const nav = navigationByColumn.get(colName);
                       const isNull = cell === null || cell === undefined;
                       const isEmptyString = !isNull && cell === '';
+                      const display = formatCell(cell);
                       if (nav && !isNull && onNavigateRelation) {
                         return (
                           <TableCell
@@ -252,7 +258,7 @@ export function QueryResultView({
                                         referencedTable: nav.table,
                                         referencedColumn: 'id',
                                         value: cell,
-                                        display: formatCell(cell),
+                                        display,
                                       })
                                     }
                                     className={cn(
@@ -262,9 +268,7 @@ export function QueryResultView({
                                     )}
                                   >
                                     <Link className="h-3 w-3 shrink-0 opacity-60" />
-                                    <span className="truncate">
-                                      {formatCell(cell)}
-                                    </span>
+                                    <span className="truncate">{display}</span>
                                   </button>
                                 </TooltipTrigger>
                                 <TooltipContent side="top" sideOffset={4}>
@@ -291,14 +295,18 @@ export function QueryResultView({
                               ? 'NULL'
                               : isEmptyString
                                 ? '(empty string)'
-                                : formatCell(cell)
+                                : display
                           }
                         >
-                          {isNull
-                            ? 'NULL'
-                            : isEmptyString
-                              ? '(empty)'
-                              : formatCell(cell)}
+                          {isNull ? (
+                            'NULL'
+                          ) : isEmptyString ? (
+                            '(empty)'
+                          ) : isJsonCell(cell) ? (
+                            <JsonView value={cell} fallback={display} inline />
+                          ) : (
+                            display
+                          )}
                         </TableCell>
                       );
                     })}
