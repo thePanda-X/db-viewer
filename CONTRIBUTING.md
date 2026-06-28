@@ -68,11 +68,12 @@ Before opening a pull request, run the relevant checks:
 ```bash
 bun run lint
 bun run typecheck
+bun run test
 bun run format:check
 bun run build
 ```
 
-Tests are not configured yet. If you add test coverage, make sure it can run through `bun run test`.
+Tests run through Vitest. Add or update coverage with `bun run test` when changing stores, utilities, IPC contracts, persistence, or data-source behavior.
 
 ## Commit Guidelines
 

@@ -1,7 +1,1 @@
-export interface Folder {
-  id: string;
-  name: string;
-  color: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type { Folder } from '../../shared/types/folder';

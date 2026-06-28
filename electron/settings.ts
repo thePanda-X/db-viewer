@@ -13,6 +13,7 @@ export interface SettingsFile {
 
 let cache: SettingsFile | null = null;
 let filePath: string | null = null;
+let writeQueue: Promise<void> = Promise.resolve();
 
 function getFilePath(): string {
   if (filePath) return filePath;
@@ -80,6 +81,10 @@ export async function setSettings(settings: unknown): Promise<Settings> {
     version: FILE_VERSION,
     settings: validSettings,
   };
-  await writeToDisk(data);
+  writeQueue = writeQueue.then(
+    () => writeToDisk(data),
+    () => writeToDisk(data),
+  );
+  await writeQueue;
   return validSettings;
 }

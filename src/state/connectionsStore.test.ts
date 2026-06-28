@@ -3,10 +3,17 @@ import type { Connection } from '@/types/connection';
 
 const list = vi.fn();
 const save = vi.fn();
+const sqliteDisconnect = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
     connections: { list, save },
+    postgres: { disconnect: vi.fn() },
+    sqlite: { disconnect: sqliteDisconnect },
+    redis: { disconnect: vi.fn() },
+    opensearch: { disconnect: vi.fn() },
+    kafka: { disconnect: vi.fn() },
+    rabbitmq: { disconnect: vi.fn() },
   },
 }));
 
@@ -43,6 +50,7 @@ describe('useConnectionsStore', () => {
     resetConnectionsStore();
     list.mockReset();
     save.mockReset();
+    sqliteDisconnect.mockReset();
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-06-15T12:00:00.000Z'));
   });
@@ -112,6 +120,7 @@ describe('useConnectionsStore', () => {
       name: 'Updated SQLite',
       config: { filePath: 'updated.db' },
     });
+    expect(sqliteDisconnect).toHaveBeenCalledWith({ connectionId: 'conn-1' });
   });
 
   it('removes a connection', async () => {
@@ -122,6 +131,7 @@ describe('useConnectionsStore', () => {
 
     expect(save).toHaveBeenCalledWith([]);
     expect(useConnectionsStore.getState().connections).toEqual([]);
+    expect(sqliteDisconnect).toHaveBeenCalledWith({ connectionId: 'conn-1' });
   });
 
   it('returns connection type labels', () => {
