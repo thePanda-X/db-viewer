@@ -30,6 +30,29 @@ async function persist(connections: Connection[]): Promise<Connection[]> {
   return api.connections.save(connections);
 }
 
+function disconnectConnection(conn: Connection): void {
+  switch (conn.type) {
+    case 'postgres':
+      void api.postgres.disconnect({ connectionId: conn.id });
+      break;
+    case 'sqlite':
+      void api.sqlite.disconnect({ connectionId: conn.id });
+      break;
+    case 'redis':
+      void api.redis.disconnect({ connectionId: conn.id });
+      break;
+    case 'opensearch':
+      void api.opensearch.disconnect({ connectionId: conn.id });
+      break;
+    case 'kafka':
+      void api.kafka.disconnect({ connectionId: conn.id });
+      break;
+    case 'rabbitmq':
+      void api.rabbitmq.disconnect({ connectionId: conn.id });
+      break;
+  }
+}
+
 export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
   connections: [],
   loading: false,
@@ -63,6 +86,7 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
   },
 
   update: async (id, patch) => {
+    const previous = get().connections.find((c) => c.id === id);
     const next = get().connections.map((c) => {
       if (c.id !== id) return c;
       const merged = {
@@ -78,12 +102,17 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
     });
     const saved = await persist(next);
     set({ connections: saved });
+    if (previous && patch.config !== undefined) {
+      disconnectConnection(previous);
+    }
   },
 
   remove: async (id) => {
+    const previous = get().connections.find((c) => c.id === id);
     const next = get().connections.filter((c) => c.id !== id);
     const saved = await persist(next);
     set({ connections: saved });
+    if (previous) disconnectConnection(previous);
   },
 }));
 

@@ -13,6 +13,7 @@ export interface ConnectionsFile {
 
 let cache: ConnectionsFile | null = null;
 let filePath: string | null = null;
+let writeQueue: Promise<void> = Promise.resolve();
 
 function getFilePath(): string {
   if (filePath) return filePath;
@@ -81,6 +82,10 @@ export async function setConnections(
     version: FILE_VERSION,
     connections: validConnections,
   };
-  await writeToDisk(data);
+  writeQueue = writeQueue.then(
+    () => writeToDisk(data),
+    () => writeToDisk(data),
+  );
+  await writeQueue;
   return validConnections;
 }

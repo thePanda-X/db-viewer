@@ -678,17 +678,6 @@ export async function lookupRows(
   return { columns, rows: res.result.rows };
 }
 
-function literalize(value: unknown): string {
-  if (value === null || value === undefined) return 'NULL';
-  if (typeof value === 'number')
-    return Number.isFinite(value) ? String(value) : 'NULL';
-  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-  if (value instanceof Date) return `'${value.toISOString()}'`;
-  if (typeof value === 'object')
-    return `'${JSON.stringify(value).replace(/'/g, "''")}'::jsonb`;
-  return `'${String(value).replace(/'/g, "''")}'`;
-}
-
 interface PostgresExportColumn {
   name: string;
   typeSql: string;
@@ -1366,14 +1355,21 @@ export async function saveChanges(
       const change = req.updates[i];
       const setEntries = Object.entries(change.changes);
       if (setEntries.length === 0) continue;
+      const params: unknown[] = [];
       const setSql = setEntries
-        .map(([col]) => `${ident(col)} = ${literalize(change.changes[col])}`)
+        .map(([col, value]) => {
+          params.push(value);
+          return `${ident(col)} = $${params.length}`;
+        })
         .join(', ');
       const whereSql = req.primaryKey
-        .map((pk) => `${ident(pk)} = ${literalize(change.original[pk])}`)
+        .map((pk) => {
+          params.push(change.original[pk]);
+          return `${ident(pk)} = $${params.length}`;
+        })
         .join(' AND ');
       const sql = `UPDATE ${tableIdent} SET ${setSql} WHERE ${whereSql} RETURNING 1`;
-      const result = await client.query(sql);
+      const result = await client.query(sql, params);
       if (result.rowCount === 0) {
         await client.query('ROLLBACK');
         return {
@@ -1466,11 +1462,15 @@ export async function deleteRows(
     const tableIdent = `${ident(req.schema)}.${ident(req.table)}`;
 
     for (const row of req.rows) {
+      const params: unknown[] = [];
       const whereSql = req.primaryKey
-        .map((pk) => `${ident(pk)} = ${literalize(row[pk])}`)
+        .map((pk) => {
+          params.push(row[pk]);
+          return `${ident(pk)} = $${params.length}`;
+        })
         .join(' AND ');
       const sql = `DELETE FROM ${tableIdent} WHERE ${whereSql} RETURNING 1`;
-      const result = await client.query(sql);
+      const result = await client.query(sql, params);
       if (result.rowCount === 0) {
         await client.query('ROLLBACK');
         return {

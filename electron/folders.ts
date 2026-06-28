@@ -13,6 +13,7 @@ export interface FoldersFile {
 
 let cache: FoldersFile | null = null;
 let filePath: string | null = null;
+let writeQueue: Promise<void> = Promise.resolve();
 
 function getFilePath(): string {
   if (filePath) return filePath;
@@ -79,6 +80,10 @@ export async function setFolders(folders: unknown[]): Promise<Folder[]> {
     version: FILE_VERSION,
     folders: validFolders,
   };
-  await writeToDisk(data);
+  writeQueue = writeQueue.then(
+    () => writeToDisk(data),
+    () => writeToDisk(data),
+  );
+  await writeQueue;
   return validFolders;
 }
