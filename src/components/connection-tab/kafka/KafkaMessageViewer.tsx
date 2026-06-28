@@ -3,6 +3,7 @@ import { Loader2, MessageSquare } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { JsonView } from '@/components/ui/json-view';
 import {
   Select,
   SelectContent,
@@ -213,9 +214,11 @@ export function KafkaMessageViewer({
                         <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                           Key
                         </div>
-                        <pre className="overflow-auto rounded border bg-muted/30 p-2 font-mono text-xs leading-relaxed">
-                          {tryPretty(msg.key)}
-                        </pre>
+                        <JsonView
+                          text={msg.key}
+                          fallback={msg.key}
+                          preClassName="overflow-auto rounded border bg-muted/30 p-2 font-mono text-xs leading-relaxed"
+                        />
                       </>
                     ) : null}
                     {msg.value !== null ? (
@@ -223,9 +226,11 @@ export function KafkaMessageViewer({
                         <div className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                           Value
                         </div>
-                        <pre className="overflow-auto max-h-48 rounded border bg-muted/30 p-2 font-mono text-xs leading-relaxed">
-                          {tryPretty(msg.value)}
-                        </pre>
+                        <JsonView
+                          text={msg.value}
+                          fallback={msg.value}
+                          preClassName="overflow-auto max-h-48 rounded border bg-muted/30 p-2 font-mono text-xs leading-relaxed"
+                        />
                       </>
                     ) : null}
                     {Object.keys(msg.headers).length > 0 ? (
@@ -254,14 +259,6 @@ export function KafkaMessageViewer({
       ) : null}
     </div>
   );
-}
-
-function tryPretty(value: string): string {
-  try {
-    return JSON.stringify(JSON.parse(value), null, 2);
-  } catch {
-    return value;
-  }
 }
 
 function truncateValue(value: string): string {
