@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Pencil } from 'lucide-react';
 import { cn, valuesEqual } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { JsonView } from '@/components/ui/json-view';
 import { Switch } from '@/components/ui/switch';
 import {
   Select,
@@ -127,6 +128,21 @@ export function EditableCell({
   const isDirty = !valuesEqual(value, original);
   const canNavigate = !isNull && navigateTo !== undefined;
   const incomingTargets = isNull ? [] : incomingNavigateTo;
+  const displayValue = formatValue(value, kind);
+  const cellContent = isNull ? (
+    'NULL'
+  ) : isEmptyString ? (
+    '(empty)'
+  ) : kind === 'json' ? (
+    <JsonView
+      value={value}
+      text={typeof value === 'string' ? value : undefined}
+      fallback={displayValue}
+      inline
+    />
+  ) : (
+    displayValue
+  );
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string>(formatValue(value, kind));
@@ -179,7 +195,7 @@ export function EditableCell({
         <div className="group/cell flex w-full min-w-0 items-center gap-1">
           {canNavigate && navigateTo ? (
             <NavigationLink
-              value={formatValue(value, kind)}
+              value={displayValue}
               title={String(value)}
               table={navigateTo.table}
               onClick={navigateTo.onClick}
@@ -198,11 +214,7 @@ export function EditableCell({
                     : String(value)
               }
             >
-              {isNull
-                ? 'NULL'
-                : isEmptyString
-                  ? '(empty)'
-                  : formatValue(value, kind)}
+              {cellContent}
             </span>
           )}
           {onFkBrowse && <FkBrowseIcon onClick={onFkBrowse} />}
@@ -227,7 +239,7 @@ export function EditableCell({
           isNull ? 'NULL' : isEmptyString ? '(empty string)' : String(value)
         }
       >
-        {isNull ? 'NULL' : isEmptyString ? '(empty)' : formatValue(value, kind)}
+        {cellContent}
       </span>
     );
   }
@@ -271,11 +283,7 @@ export function EditableCell({
             'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
         >
-          {isNull
-            ? 'NULL'
-            : isEmptyString
-              ? '(empty)'
-              : formatValue(value, kind)}
+          {cellContent}
         </button>
         {canNavigate && navigateTo && (
           <NavigationLinkIcon
