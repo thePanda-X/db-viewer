@@ -40,6 +40,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { JsonView } from '@/components/ui/json-view';
 import { cn } from '@/lib/utils';
 import type { RedisConfig } from '@/types/connection';
 import type { RedisKeyMeta, RedisKeyValue } from '@/types/redis';
@@ -473,9 +474,10 @@ function StringView({
             className="h-full w-full resize-none rounded-md border border-input bg-background p-3 font-mono text-xs shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         ) : pretty && parsedJson !== null ? (
-          <pre className="h-full w-full overflow-auto rounded-md border border-border bg-muted/20 p-3 font-mono text-xs leading-relaxed">
-            {JSON.stringify(parsedJson, null, 2)}
-          </pre>
+          <JsonView
+            value={parsedJson}
+            preClassName="h-full w-full overflow-auto rounded-md border border-border bg-muted/20 p-3 font-mono text-xs leading-relaxed"
+          />
         ) : (
           <div className="group relative h-full w-full overflow-auto rounded-md border border-border bg-muted/20 p-3 font-mono text-xs leading-relaxed">
             <div className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-100">

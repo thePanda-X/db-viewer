@@ -51,6 +51,7 @@ import {
   ContextMenu,
   type ContextMenuItem,
 } from '@/components/ui/context-menu';
+import { JsonView } from '@/components/ui/json-view';
 
 interface OpenSearchTabProps {
   connection: Connection;
@@ -74,14 +75,13 @@ function JsonBlock({
   className?: string;
 }) {
   return (
-    <pre
-      className={cn(
+    <JsonView
+      value={value}
+      preClassName={cn(
         'overflow-auto rounded-md border bg-muted/30 p-3 text-xs leading-relaxed',
         className,
       )}
-    >
-      {pretty(value)}
-    </pre>
+    />
   );
 }
 
