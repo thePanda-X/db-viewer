@@ -116,7 +116,7 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           awk -v version="$version" '
             $0 ~ "^## \\[" version "\\]" { in_section = 1; next }
-            in_section && /^## \\[/ { exit }
+            in_section && /^## \[/ { exit }
             in_section { print }
           ' CHANGELOG.md > release-notes.md
 
