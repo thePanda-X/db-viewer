@@ -7,10 +7,16 @@ interface QueryBarProps {
   database: string;
   running: boolean;
   onRun: (sql: string) => void;
+  initialSql?: string;
 }
 
-export function QueryBar({ database, running, onRun }: QueryBarProps) {
-  const [sql, setSql] = useState<string>('SELECT now() AS server_time;');
+export function QueryBar({
+  database,
+  running,
+  onRun,
+  initialSql = 'SELECT now() AS server_time;',
+}: QueryBarProps) {
+  const [sql, setSql] = useState<string>(initialSql);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const run = useCallback(() => {

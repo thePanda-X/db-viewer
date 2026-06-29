@@ -18,7 +18,7 @@ export default defineConfig({
         entry: 'electron/main.ts',
         vite: {
           build: {
-            rollupOptions: {
+            rolldownOptions: {
               external: [
                 'pg',
                 'pg-native',
@@ -29,6 +29,7 @@ export default defineConfig({
                 'pgpass',
                 'amqplib',
                 'kafkajs',
+                'better-sqlite3',
               ],
             },
           },
