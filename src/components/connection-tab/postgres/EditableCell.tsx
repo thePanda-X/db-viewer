@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, Pencil } from 'lucide-react';
+import { Eye, Link, Pencil } from 'lucide-react';
 import { cn, valuesEqual } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { JsonView } from '@/components/ui/json-view';
@@ -17,6 +17,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import type { ColumnMeta, EditableColumnKind } from '@/types/postgres';
 import { editableKindFor } from '@/types/postgres';
 
@@ -104,6 +111,17 @@ function formatValue(value: unknown, kind: EditableColumnKind): string {
   return String(value);
 }
 
+function isComplexValue(value: unknown, kind: EditableColumnKind): boolean {
+  return (
+    !isNullish(value) &&
+    (kind === 'json' || Array.isArray(value) || typeof value === 'object')
+  );
+}
+
+function isNullish(value: unknown): value is null | undefined {
+  return value === null || value === undefined;
+}
+
 export function EditableCell({
   value,
   original,
@@ -129,21 +147,14 @@ export function EditableCell({
   const canNavigate = !isNull && navigateTo !== undefined;
   const incomingTargets = isNull ? [] : incomingNavigateTo;
   const displayValue = formatValue(value, kind);
-  const cellContent = isNull ? (
-    'NULL'
-  ) : isEmptyString ? (
-    '(empty)'
-  ) : kind === 'json' ? (
-    <JsonView
-      value={value}
-      text={typeof value === 'string' ? value : undefined}
-      fallback={displayValue}
-      inline
-    />
-  ) : (
-    displayValue
-  );
+  const isComplex = isComplexValue(value, kind);
+  const cellContent = isNull
+    ? 'NULL'
+    : isEmptyString
+      ? '(empty)'
+      : displayValue;
 
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<string>(formatValue(value, kind));
   const [isNullDraft, setIsNullDraft] = useState<boolean>(isNull);
@@ -192,55 +203,83 @@ export function EditableCell({
       onFkBrowse
     ) {
       return (
-        <div className="group/cell flex w-full min-w-0 items-center gap-1">
-          {canNavigate && navigateTo ? (
-            <NavigationLink
-              value={displayValue}
-              title={String(value)}
-              table={navigateTo.table}
-              onClick={navigateTo.onClick}
-            />
-          ) : (
-            <span
-              className={cn(
-                'block min-w-0 flex-1 truncate px-1.5 py-0.5 font-mono text-xs',
-                (isNull || isEmptyString) && 'italic text-muted-foreground',
-              )}
-              title={
-                isNull
-                  ? 'NULL'
-                  : isEmptyString
-                    ? '(empty string)'
-                    : String(value)
-              }
-            >
-              {cellContent}
-            </span>
-          )}
-          {onFkBrowse && <FkBrowseIcon onClick={onFkBrowse} />}
-          {incomingTargets.map((target) => (
-            <NavigationLinkIcon
-              key={target.table}
-              table={target.table}
-              onClick={target.onClick}
-              label="Open referencing rows in"
-            />
-          ))}
-        </div>
+        <>
+          <div className="group/cell flex w-full min-w-0 items-center gap-1">
+            {canNavigate && navigateTo ? (
+              <NavigationLink
+                value={displayValue}
+                title={String(value)}
+                table={navigateTo.table}
+                onClick={navigateTo.onClick}
+              />
+            ) : (
+              <span
+                className={cn(
+                  'block min-w-0 flex-1 truncate whitespace-nowrap px-1.5 py-0.5 font-mono text-xs',
+                  (isNull || isEmptyString) && 'italic text-muted-foreground',
+                )}
+                title={
+                  isNull
+                    ? 'NULL'
+                    : isEmptyString
+                      ? '(empty string)'
+                      : String(value)
+                }
+              >
+                {cellContent}
+              </span>
+            )}
+            {isComplex && (
+              <ViewComplexValueButton onClick={() => setViewerOpen(true)} />
+            )}
+            {onFkBrowse && <FkBrowseIcon onClick={onFkBrowse} />}
+            {incomingTargets.map((target) => (
+              <NavigationLinkIcon
+                key={target.table}
+                table={target.table}
+                onClick={target.onClick}
+                label="Open referencing rows in"
+              />
+            ))}
+          </div>
+          <ComplexValueDialog
+            open={viewerOpen}
+            onOpenChange={setViewerOpen}
+            title={column.name}
+            value={value}
+            text={typeof value === 'string' ? value : undefined}
+            fallback={displayValue}
+          />
+        </>
       );
     }
     return (
-      <span
-        className={cn(
-          'block truncate font-mono text-xs',
-          (isNull || isEmptyString) && 'italic text-muted-foreground',
-        )}
-        title={
-          isNull ? 'NULL' : isEmptyString ? '(empty string)' : String(value)
-        }
-      >
-        {cellContent}
-      </span>
+      <>
+        <span
+          className={cn(
+            'flex min-w-0 items-center gap-1 font-mono text-xs',
+            (isNull || isEmptyString) && 'italic text-muted-foreground',
+          )}
+          title={
+            isNull ? 'NULL' : isEmptyString ? '(empty string)' : String(value)
+          }
+        >
+          <span className="min-w-0 flex-1 truncate whitespace-nowrap">
+            {cellContent}
+          </span>
+          {isComplex && (
+            <ViewComplexValueButton onClick={() => setViewerOpen(true)} />
+          )}
+        </span>
+        <ComplexValueDialog
+          open={viewerOpen}
+          onOpenChange={setViewerOpen}
+          title={column.name}
+          value={value}
+          text={typeof value === 'string' ? value : undefined}
+          fallback={displayValue}
+        />
+      </>
     );
   }
 
@@ -283,8 +322,13 @@ export function EditableCell({
             'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
           )}
         >
-          {cellContent}
+          <span className="block truncate whitespace-nowrap">
+            {cellContent}
+          </span>
         </button>
+        {isComplex && (
+          <ViewComplexValueButton onClick={() => setViewerOpen(true)} />
+        )}
         {canNavigate && navigateTo && (
           <NavigationLinkIcon
             table={navigateTo.table}
@@ -306,6 +350,14 @@ export function EditableCell({
             aria-label="Modified"
           />
         )}
+        <ComplexValueDialog
+          open={viewerOpen}
+          onOpenChange={setViewerOpen}
+          title={column.name}
+          value={value}
+          text={typeof value === 'string' ? value : undefined}
+          fallback={displayValue}
+        />
       </div>
     );
   }
@@ -538,6 +590,53 @@ export function EditableCell({
       </div>
       {error && <span className="text-[10px] text-destructive">{error}</span>}
     </div>
+  );
+}
+
+function ViewComplexValueButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="shrink-0 rounded-sm p-0.5 text-muted-foreground opacity-70 hover:bg-muted hover:text-foreground hover:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      title="View full value"
+      aria-label="View full value"
+    >
+      <Eye className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+function ComplexValueDialog({
+  open,
+  onOpenChange,
+  title,
+  value,
+  text,
+  fallback,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  value: unknown;
+  text?: string;
+  fallback: string;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[82vh] max-w-3xl gap-3 overflow-hidden p-0">
+        <DialogHeader className="border-b border-border px-4 py-3">
+          <DialogTitle className="font-mono text-sm">{title}</DialogTitle>
+          <DialogDescription>Full JSON / array value</DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[65vh] overflow-auto px-4 pb-4">
+          <JsonView value={value} text={text} fallback={fallback} />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

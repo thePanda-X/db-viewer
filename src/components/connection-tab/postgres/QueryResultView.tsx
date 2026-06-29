@@ -1,4 +1,4 @@
-import { AlertCircle, Link, Loader2, X } from 'lucide-react';
+import { AlertCircle, Eye, Link, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -15,6 +15,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { JsonView } from '@/components/ui/json-view';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '@/lib/api';
@@ -91,6 +98,12 @@ export function QueryResultView({
   database,
   onNavigateRelation,
 }: QueryResultViewProps) {
+  const [viewer, setViewer] = useState<{
+    column: string;
+    value: unknown;
+    fallback: string;
+  } | null>(null);
+
   useEffect(() => {
     if (!refreshRef || !onRerun) return;
     refreshRef.current = () => {
@@ -241,44 +254,60 @@ export function QueryResultView({
                       const isNull = cell === null || cell === undefined;
                       const isEmptyString = !isNull && cell === '';
                       const display = formatCell(cell);
+                      const isJson = isJsonCell(cell);
                       if (nav && !isNull && onNavigateRelation) {
                         return (
                           <TableCell
                             key={j}
-                            className="max-w-[360px] truncate align-top font-mono text-xs"
+                            className="max-w-[360px] align-top font-mono text-xs"
                           >
-                            <TooltipProvider delayDuration={200}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      onNavigateRelation({
-                                        referencedSchema: nav.schema,
-                                        referencedTable: nav.table,
-                                        referencedColumn: 'id',
-                                        value: cell,
-                                        display,
-                                      })
-                                    }
-                                    className={cn(
-                                      'flex max-w-full items-center gap-1 truncate rounded-sm px-1 py-0.5 text-left text-sky-600 hover:bg-sky-500/10 hover:underline',
-                                      'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                                      'dark:text-sky-400 dark:hover:text-sky-300',
-                                    )}
-                                  >
-                                    <Link className="h-3 w-3 shrink-0 opacity-60" />
-                                    <span className="truncate">{display}</span>
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" sideOffset={4}>
-                                  Open row in{' '}
-                                  <span className="font-mono">
-                                    {nav.schema}.{nav.table}
-                                  </span>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            <div className="flex min-w-0 items-center gap-1">
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        onNavigateRelation({
+                                          referencedSchema: nav.schema,
+                                          referencedTable: nav.table,
+                                          referencedColumn: 'id',
+                                          value: cell,
+                                          display,
+                                        })
+                                      }
+                                      className={cn(
+                                        'flex min-w-0 flex-1 items-center gap-1 truncate rounded-sm px-1 py-0.5 text-left text-sky-600 hover:bg-sky-500/10 hover:underline',
+                                        'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                                        'dark:text-sky-400 dark:hover:text-sky-300',
+                                      )}
+                                    >
+                                      <Link className="h-3 w-3 shrink-0 opacity-60" />
+                                      <span className="truncate whitespace-nowrap">
+                                        {display}
+                                      </span>
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" sideOffset={4}>
+                                    Open row in{' '}
+                                    <span className="font-mono">
+                                      {nav.schema}.{nav.table}
+                                    </span>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              {isJson && (
+                                <ViewComplexValueButton
+                                  onClick={() =>
+                                    setViewer({
+                                      column: colName,
+                                      value: cell,
+                                      fallback: display,
+                                    })
+                                  }
+                                />
+                              )}
+                            </div>
                           </TableCell>
                         );
                       }
@@ -298,15 +327,26 @@ export function QueryResultView({
                                 : display
                           }
                         >
-                          {isNull ? (
-                            'NULL'
-                          ) : isEmptyString ? (
-                            '(empty)'
-                          ) : isJsonCell(cell) ? (
-                            <JsonView value={cell} fallback={display} inline />
-                          ) : (
-                            display
-                          )}
+                          <div className="flex min-w-0 items-center gap-1">
+                            <span className="min-w-0 flex-1 truncate whitespace-nowrap">
+                              {isNull
+                                ? 'NULL'
+                                : isEmptyString
+                                  ? '(empty)'
+                                  : display}
+                            </span>
+                            {isJson && (
+                              <ViewComplexValueButton
+                                onClick={() =>
+                                  setViewer({
+                                    column: colName,
+                                    value: cell,
+                                    fallback: display,
+                                  })
+                                }
+                              />
+                            )}
+                          </div>
                         </TableCell>
                       );
                     })}
@@ -329,6 +369,60 @@ export function QueryResultView({
           </div>
         )}
       </div>
+      <ComplexValueDialog
+        open={viewer !== null}
+        onOpenChange={(open) => {
+          if (!open) setViewer(null);
+        }}
+        title={viewer?.column ?? ''}
+        value={viewer?.value}
+        fallback={viewer?.fallback ?? ''}
+      />
     </div>
+  );
+}
+
+function ViewComplexValueButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="shrink-0 rounded-sm p-0.5 text-muted-foreground opacity-70 hover:bg-muted hover:text-foreground hover:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      title="View full value"
+      aria-label="View full value"
+    >
+      <Eye className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+function ComplexValueDialog({
+  open,
+  onOpenChange,
+  title,
+  value,
+  fallback,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  value: unknown;
+  fallback: string;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[82vh] max-w-3xl gap-3 overflow-hidden p-0">
+        <DialogHeader className="border-b border-border px-4 py-3">
+          <DialogTitle className="font-mono text-sm">{title}</DialogTitle>
+          <DialogDescription>Full JSON / array value</DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[65vh] overflow-auto px-4 pb-4">
+          <JsonView value={value} fallback={fallback} />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
