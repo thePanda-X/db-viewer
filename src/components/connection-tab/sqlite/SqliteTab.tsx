@@ -249,6 +249,7 @@ export function SqliteTab({ connection }: SqliteTabProps) {
             database="main"
             running={customRunning}
             onRun={runCustomQuery}
+            initialSql="SELECT datetime('now') AS server_time;"
           />
         </div>
       </div>

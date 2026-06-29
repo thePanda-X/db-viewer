@@ -47,7 +47,10 @@ This launches the Vite dev server with Electron hot-reload.
 ```bash
 bun run seed:opensearch
 bun run seed:kafka
+bun run seed:demo-db
 ```
+
+`seed:demo-db` seeds the Docker PostgreSQL database (`testdb`, schema `demo`) and creates `demo-data/demo.sqlite`. Override with `DATABASE_URL`, `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, `POSTGRES_DEMO_SCHEMA`, or `SQLITE_DEMO_FILE`. Set `POSTGRES_DEMO_SKIP=true` to generate only the SQLite demo file.
 
 ## Build for Distribution
 

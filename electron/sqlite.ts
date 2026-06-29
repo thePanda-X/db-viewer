@@ -1,4 +1,5 @@
-import Database from 'better-sqlite3';
+import { createRequire } from 'node:module';
+import type BetterSqlite3 from 'better-sqlite3';
 import type {
   ColumnMeta,
   DeleteRowsRequest,
@@ -18,13 +19,15 @@ import type {
 } from '../shared/types/sql';
 
 const DEFAULT_MAX_ROWS = 10_000;
+const require = createRequire(import.meta.url);
+const Database = require('better-sqlite3') as typeof import('better-sqlite3');
 
-const connections = new Map<string, Database.Database>();
+const connections = new Map<string, BetterSqlite3.Database>();
 
 function getDatabase(
   connectionId: string,
   filePath: string,
-): Database.Database {
+): BetterSqlite3.Database {
   const existing = connections.get(connectionId);
   if (existing) return existing;
 
@@ -57,7 +60,7 @@ function isLimitWrappedQuery(sql: string): boolean {
 }
 
 function runSqliteReadOnlyStatement(
-  db: Database.Database,
+  db: BetterSqlite3.Database,
   sql: string,
   params: unknown[],
   maxRows: number,

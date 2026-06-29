@@ -42,6 +42,7 @@ desktop.ini
 # Cache & temp
 .cache/
 .tmp/
+demo-data/
 *.tmp
 .eslintcache
 vite-out.txt
