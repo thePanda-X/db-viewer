@@ -36,6 +36,7 @@ import { api } from '@/lib/api';
 import { toast } from '@/state/toastStore';
 import type { RabbitMQConfig } from '@/types/connection';
 import type { RabbitMQMessageInfo, RabbitMQQueueInfo } from '@/types/rabbitmq';
+import { useHotkey } from '@/lib/hotkeys';
 
 interface QueueDetailProps {
   connectionId: string;
@@ -135,6 +136,31 @@ export function QueueDetail({ connectionId, config, queue }: QueueDetailProps) {
       setOperating(false);
     }
   };
+
+  useHotkey('Mod+R', {
+    label: 'Refresh queue messages',
+    group: 'RabbitMQ queue',
+    description: 'Refresh peeked messages for the active queue',
+    handler: () => {
+      void loadMessages();
+    },
+  });
+
+  useHotkey('Delete', {
+    label: 'Delete queue',
+    group: 'RabbitMQ queue',
+    description: 'Delete the active queue after confirmation',
+    handler: () => setDeleteDialogOpen(true),
+  });
+
+  useHotkey('Mod+Backspace', {
+    label: 'Purge queue',
+    group: 'RabbitMQ queue',
+    description: 'Purge the active queue after confirmation',
+    handler: () => {
+      if (queue.messages > 0) setPurgeDialogOpen(true);
+    },
+  });
 
   return (
     <div className="flex h-full flex-col overflow-hidden">

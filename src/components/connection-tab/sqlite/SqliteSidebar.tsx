@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Copy,
   Code2,
@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/state/toastStore';
+import { useHotkey } from '@/lib/hotkeys';
 import {
   ContextMenu,
   type ContextMenuItem,
@@ -57,6 +58,17 @@ export function SqliteSidebar({
   const [tablesError, setTablesError] = useState<string | null>(null);
   const [loadingTables, setLoadingTables] = useState(false);
   const [tableFilter, setTableFilter] = useState('');
+  const tableFilterRef = useRef<HTMLInputElement | null>(null);
+
+  useHotkey('Mod+K', {
+    label: 'Focus table filter',
+    group: 'SQLite',
+    description: 'Focus the table filter in the explorer',
+    handler: () => {
+      tableFilterRef.current?.focus();
+      tableFilterRef.current?.select();
+    },
+  });
 
   const fetchTables = useCallback(async () => {
     setLoadingTables(true);
@@ -136,6 +148,7 @@ export function SqliteSidebar({
               <div className="relative mb-2">
                 <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
+                  ref={tableFilterRef}
                   className="h-8 pl-7 text-xs"
                   placeholder="Filter tables..."
                   value={tableFilter}

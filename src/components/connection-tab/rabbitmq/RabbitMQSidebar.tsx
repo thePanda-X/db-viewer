@@ -9,6 +9,7 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react';
+import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   ContextMenu,
@@ -18,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { toast } from '@/state/toastStore';
+import { useHotkey } from '@/lib/hotkeys';
 import type { RabbitMQExchangeInfo, RabbitMQQueueInfo } from '@/types/rabbitmq';
 
 export type SidebarTab = 'exchanges' | 'queues';
@@ -61,12 +63,23 @@ export function RabbitMQSidebar({
   filter,
   onFilterChange,
 }: RabbitMQSidebarProps) {
+  const filterRef = useRef<HTMLInputElement | null>(null);
   const filteredExchanges = exchanges.filter(
     (e) => !filter || e.name.toLowerCase().includes(filter.toLowerCase()),
   );
   const filteredQueues = queues.filter(
     (q) => !filter || q.name.toLowerCase().includes(filter.toLowerCase()),
   );
+
+  useHotkey('Mod+K', {
+    label: 'Focus filter',
+    group: 'RabbitMQ',
+    description: 'Focus the exchange and queue filter',
+    handler: () => {
+      filterRef.current?.focus();
+      filterRef.current?.select();
+    },
+  });
 
   return (
     <aside className="flex h-full w-full flex-col border-r border-border bg-muted/20">
@@ -105,6 +118,7 @@ export function RabbitMQSidebar({
         <div className="relative">
           <Search className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
           <Input
+            ref={filterRef}
             value={filter}
             onChange={(e) => onFilterChange(e.target.value)}
             placeholder="Filter…"

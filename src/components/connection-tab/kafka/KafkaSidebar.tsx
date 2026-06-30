@@ -1,4 +1,5 @@
 import { Search } from 'lucide-react';
+import type { Ref } from 'react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +19,7 @@ interface KafkaSidebarProps {
   filter: string;
   onFilterChange: (value: string) => void;
   placeholder?: string;
+  filterInputRef?: Ref<HTMLInputElement>;
 }
 
 export function KafkaSidebar({
@@ -29,12 +31,14 @@ export function KafkaSidebar({
   filter,
   onFilterChange,
   placeholder = 'Filter...',
+  filterInputRef,
 }: KafkaSidebarProps) {
   return (
     <div className="space-y-2">
       <div className="relative">
         <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
         <Input
+          ref={filterInputRef}
           className="h-8 pl-7 text-xs"
           placeholder={placeholder}
           value={filter}

@@ -636,6 +636,49 @@ export function SqliteTableView({
   const hasNextPage = originalRows.length === limit;
   const hasPrevPage = offset > 0;
 
+  useHotkey('Mod+A', {
+    label: 'Select all rows',
+    group: 'Table view',
+    description: 'Select all rows currently loaded in the table',
+    handler: handleSelectAll,
+  });
+
+  useHotkey('Delete', {
+    label: 'Delete selected rows',
+    group: 'Table view',
+    description: 'Delete selected rows after confirmation',
+    handler: () => {
+      if (selectedRows.size > 0 && hasPrimaryKey) setConfirmDeleteOpen(true);
+    },
+  });
+
+  useHotkey('Mod+Z', {
+    label: 'Discard changes',
+    group: 'Table view',
+    description: 'Discard pending row edits',
+    handler: () => {
+      if (pendingCount > 0 && !saving) discardChanges();
+    },
+  });
+
+  useHotkey('Alt+ArrowLeft', {
+    label: 'Previous page',
+    group: 'Table view',
+    description: 'Go to the previous page of rows',
+    handler: () => {
+      if (hasPrevPage && !loading) goPage(Math.max(0, offset - limit));
+    },
+  });
+
+  useHotkey('Alt+ArrowRight', {
+    label: 'Next page',
+    group: 'Table view',
+    description: 'Go to the next page of rows',
+    handler: () => {
+      if (hasNextPage && !loading) goPage(offset + limit);
+    },
+  });
+
   const renderNewRow = () => (
     <TableRow className="border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/10">
       <TableCell className="w-10 align-top text-[10px] font-semibold uppercase text-amber-700 dark:text-amber-300">
