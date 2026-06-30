@@ -237,6 +237,9 @@ export async function runQuery(
   let client: pg.PoolClient | null = null;
   try {
     client = await pool.connect();
+    if (req.schema) {
+      await client.query(`SET search_path TO ${ident(req.schema)}, public`);
+    }
     let result: pg.QueryResult;
     if (
       req.sql.trim().toUpperCase().startsWith('SELECT') ||
@@ -264,7 +267,16 @@ export async function runQuery(
   } catch (err) {
     return { ok: false, error: toErrorMessage(err) };
   } finally {
-    if (client) client.release();
+    if (client) {
+      if (req.schema) {
+        try {
+          await client.query('RESET search_path');
+        } catch (resetErr) {
+          console.error('[postgres] reset search_path failed:', resetErr);
+        }
+      }
+      client.release();
+    }
   }
 }
 
@@ -282,6 +294,11 @@ export async function runReadOnlyQuery(
     client = await pool.connect();
     await client.query('BEGIN');
     await client.query('SET TRANSACTION READ ONLY');
+    if (req.schema) {
+      await client.query(
+        `SET LOCAL search_path TO ${ident(req.schema)}, public`,
+      );
+    }
     let result: pg.QueryResult;
     if (
       req.sql.trim().toUpperCase().startsWith('SELECT') ||
