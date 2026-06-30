@@ -18,6 +18,7 @@ interface ConnectionDialogProps {
   onOpenChange: (open: boolean) => void;
   mode?: 'create' | 'edit';
   connection?: Connection;
+  initialFolderId?: string;
 }
 
 type Step = 'pick' | 'form';
@@ -27,6 +28,7 @@ export function ConnectionDialog({
   onOpenChange,
   mode = 'create',
   connection,
+  initialFolderId,
 }: ConnectionDialogProps) {
   const add = useConnectionsStore((s) => s.add);
   const update = useConnectionsStore((s) => s.update);
@@ -123,6 +125,7 @@ export function ConnectionDialog({
                     name: '',
                     config: getConnectionTypeDef(selectedType)
                       .defaultConfig as unknown as Connection['config'],
+                    folderId: initialFolderId,
                   },
                 })}
             onSubmit={mode === 'edit' ? handleUpdate : handleCreate}

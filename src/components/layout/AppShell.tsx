@@ -142,6 +142,10 @@ export function AppShell() {
   const activeTabId = useTabsStore((s) => s.activeTabId);
 
   const isHome = activeTabId === HOME_TAB_ID;
+  const initialConnectionFolderId =
+    isHome && folderFilter !== 'all' && folderFilter !== 'unsorted'
+      ? folderFilter
+      : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -234,7 +238,11 @@ export function AppShell() {
           <TabContent onCreateClick={() => setDialogOpen(true)} />
         )}
       </main>
-      <ConnectionDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <ConnectionDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        initialFolderId={initialConnectionFolderId}
+      />
       <ShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <ChangelogDialog
         open={changelogOpen}
