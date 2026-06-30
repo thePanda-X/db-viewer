@@ -1,9 +1,10 @@
-import { useCallback } from 'react';
-import { Plus } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { Plus, Search } from 'lucide-react';
 import { useConnectionsStore } from '@/state/connectionsStore';
 import { useActiveRefresh } from '@/lib/hotkeys';
 import { toast } from '@/state/toastStore';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ConnectionGrid } from './ConnectionGrid';
 import { EmptyConnections } from './EmptyConnections';
 import type { FolderFilter } from '@/components/sidebar/Sidebar';
@@ -14,6 +15,7 @@ interface HomeTabProps {
 }
 
 export function HomeTab({ onCreateClick, folderFilter }: HomeTabProps) {
+  const [search, setSearch] = useState('');
   const connections = useConnectionsStore((s) => s.connections);
   const loading = useConnectionsStore((s) => s.loading);
   const load = useConnectionsStore((s) => s.load);
@@ -50,6 +52,20 @@ export function HomeTab({ onCreateClick, folderFilter }: HomeTabProps) {
           )}
         </div>
 
+        {connections.length > 0 && (
+          <div className="mb-5 max-w-md">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search connections..."
+                className="pl-9"
+              />
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[0, 1, 2].map((i) => (
@@ -67,7 +83,7 @@ export function HomeTab({ onCreateClick, folderFilter }: HomeTabProps) {
         ) : connections.length === 0 ? (
           <EmptyConnections onCreateClick={onCreateClick} />
         ) : (
-          <ConnectionGrid folderFilter={folderFilter} />
+          <ConnectionGrid folderFilter={folderFilter} search={search} />
         )}
       </div>
     </div>

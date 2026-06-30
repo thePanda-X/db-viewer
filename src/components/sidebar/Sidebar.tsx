@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type DragEvent } from 'react';
 import {
   Check,
   ChevronsUpDown,
@@ -60,6 +60,7 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
   const folders = useFoldersStore((s) => s.folders);
   const addFolder = useFoldersStore((s) => s.add);
   const updateFolder = useFoldersStore((s) => s.update);
+  const reorderFolder = useFoldersStore((s) => s.reorder);
   const removeFolder = useFoldersStore((s) => s.remove);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -139,6 +140,36 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
     [editingFolder, updateFolder, addFolder],
   );
 
+  const handleConnectionDrop = useCallback(
+    async (connectionId: string, folderId: string | undefined) => {
+      await updateConnection(connectionId, { folderId: folderId ?? null });
+      const folderName = folderId
+        ? folders.find((f) => f.id === folderId)?.name
+        : 'Unsorted';
+      toast({ message: `Moved to "${folderName}"`, variant: 'info' });
+    },
+    [updateConnection, folders],
+  );
+
+  const handleUnsortedDrop = useCallback(
+    (event: DragEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      const connectionId = event.dataTransfer.getData(
+        'application/db-vwr-connection-id',
+      );
+      if (connectionId) void handleConnectionDrop(connectionId, undefined);
+    },
+    [handleConnectionDrop],
+  );
+
+  const handleFolderDrop = useCallback(
+    (activeFolderId: string, targetFolderId: string) => {
+      if (activeFolderId === targetFolderId) return;
+      void reorderFolder(activeFolderId, targetFolderId);
+    },
+    [reorderFolder],
+  );
+
   return (
     <aside className="flex h-full w-full flex-col border-r border-border/70 bg-muted/35 backdrop-blur-xl">
       <div className="flex items-center justify-between px-3 py-3">
@@ -173,9 +204,14 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
             </span>
           </button>
 
-          {connections.some((c) => !c.folderId) && (
+          {connections.length > 0 && (
             <button
               onClick={() => onSelectFilter('unsorted')}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+              }}
+              onDrop={handleUnsortedDrop}
               className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-200 hover:bg-accent/60 hover:text-accent-foreground ${
                 selectedFilter === 'unsorted'
                   ? 'bg-accent text-accent-foreground shadow-sm'
@@ -190,7 +226,7 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
             </button>
           )}
 
-          {folders.length > 0 && connections.some((c) => c.folderId) && (
+          {folders.length > 0 && (
             <>
               <Separator className="my-1" />
               {folders.map((folder) => (
@@ -202,6 +238,8 @@ export function Sidebar({ selectedFilter, onSelectFilter }: SidebarProps) {
                   onClick={() => onSelectFilter(folder.id)}
                   onRename={() => handleRename(folder)}
                   onDelete={() => handleDeleteRequest(folder)}
+                  onConnectionDrop={handleConnectionDrop}
+                  onFolderDrop={handleFolderDrop}
                 />
               ))}
             </>

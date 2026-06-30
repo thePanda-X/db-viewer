@@ -4,6 +4,15 @@ A multi-database desktop viewer and explorer built with Electron.
 
 Browse, query, and manage multiple data systems through a single unified interface.
 
+## Features
+
+- Manage saved connections for PostgreSQL, SQLite, Redis, OpenSearch, Kafka, and RabbitMQ.
+- Search saved connections by name, data source type, or connection details from the home view.
+- Organize connections into color-coded folders from the sidebar.
+- Drag connection cards onto folders, or onto Unsorted, to reorganize them quickly.
+- Drag folders in the sidebar to persist a custom folder order.
+- Browse and edit supported data sources through focused, connection-specific views.
+
 ## Supported Data Sources
 
 | Type             | Library                          | Capabilities                                                                               |

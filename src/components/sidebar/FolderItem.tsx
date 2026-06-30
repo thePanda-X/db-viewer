@@ -10,6 +10,8 @@ interface FolderItemProps {
   onClick: () => void;
   onRename: () => void;
   onDelete: () => void;
+  onConnectionDrop: (connectionId: string, folderId: string) => void;
+  onFolderDrop: (activeFolderId: string, targetFolderId: string) => void;
 }
 
 export function FolderItem({
@@ -19,12 +21,37 @@ export function FolderItem({
   onClick,
   onRename,
   onDelete,
+  onConnectionDrop,
+  onFolderDrop,
 }: FolderItemProps) {
   return (
     <button
+      draggable
       onClick={onClick}
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('application/db-vwr-folder-id', folder.id);
+      }}
+      onDragOver={(event) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        const connectionId = event.dataTransfer.getData(
+          'application/db-vwr-connection-id',
+        );
+        if (connectionId) {
+          onConnectionDrop(connectionId, folder.id);
+          return;
+        }
+        const draggedFolderId = event.dataTransfer.getData(
+          'application/db-vwr-folder-id',
+        );
+        if (draggedFolderId) onFolderDrop(draggedFolderId, folder.id);
+      }}
       className={cn(
-        'group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent/50',
+        'group flex w-full cursor-grab items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent/50 active:cursor-grabbing',
         selected && 'bg-accent text-accent-foreground',
       )}
     >

@@ -13,6 +13,7 @@ interface FoldersState {
     id: string,
     patch: { name?: string; color?: string },
   ) => Promise<void>;
+  reorder: (activeId: string, targetId: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
 }
 
@@ -59,6 +60,23 @@ export const useFoldersStore = create<FoldersState>((set, get) => ({
         ...(patch.color !== undefined ? { color: patch.color } : null),
         updatedAt: new Date().toISOString(),
       };
+    });
+    const saved = await persist(next);
+    set({ folders: saved });
+  },
+
+  reorder: async (activeId, targetId) => {
+    if (activeId === targetId) return;
+    const folders = get().folders;
+    const activeIndex = folders.findIndex((f) => f.id === activeId);
+    const targetIndex = folders.findIndex((f) => f.id === targetId);
+    if (activeIndex === -1 || targetIndex === -1) return;
+
+    const next = [...folders];
+    const [active] = next.splice(activeIndex, 1);
+    next.splice(targetIndex, 0, {
+      ...active,
+      updatedAt: new Date().toISOString(),
     });
     const saved = await persist(next);
     set({ folders: saved });
