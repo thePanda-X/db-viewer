@@ -26,6 +26,7 @@ interface PostgresExposedConfig {
 
 interface PostgresQueryRequest {
   sql: string;
+  schema?: string;
   params?: unknown[];
   maxRows?: number;
 }

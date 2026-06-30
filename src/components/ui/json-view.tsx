@@ -70,7 +70,7 @@ export function formatJson(value?: unknown, text?: string): string | null {
     if (text !== undefined) {
       return JSON.stringify(JSON.parse(text), null, 2);
     }
-    return JSON.stringify(value, null, 2);
+    return JSON.stringify(value, null, 2) ?? null;
   } catch {
     return null;
   }

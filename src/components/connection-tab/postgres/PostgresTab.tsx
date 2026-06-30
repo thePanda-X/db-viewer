@@ -130,6 +130,11 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
 
   useActiveRefresh(refreshAll, connection.name);
 
+  const refreshAfterCustomQuery = useCallback(() => {
+    sidebarRefreshRef.current.current?.();
+    tableRefreshRef.current.current?.();
+  }, []);
+
   const prevDatabase = useRef(database);
   useEffect(() => {
     if (prevDatabase.current !== database) {
@@ -330,14 +335,15 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
       setCustomError(null);
       setCustomResult(null);
       try {
-        const res = await api.postgres.readOnlyQuery({
+        const res = await api.postgres.query({
           connectionId: connection.id,
           config: currentConfig,
-          request: { sql },
+          request: { sql, schema },
         });
         if (seq !== runSeq.current) return;
         if (res.ok) {
           setCustomResult(res.result);
+          refreshAfterCustomQuery();
         } else {
           setCustomError(res.error);
         }
@@ -348,7 +354,7 @@ export function PostgresTab({ connection, tab }: PostgresTabProps) {
         if (seq === runSeq.current) setCustomRunning(false);
       }
     },
-    [connection.id, currentConfig],
+    [connection.id, currentConfig, refreshAfterCustomQuery, schema],
   );
 
   const runCustomQuery = useCallback(

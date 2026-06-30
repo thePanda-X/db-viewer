@@ -69,6 +69,11 @@ export function SqliteTab({ connection }: SqliteTabProps) {
 
   useActiveRefresh(refreshAll, connection.name);
 
+  const refreshAfterCustomQuery = useCallback(() => {
+    sidebarRefreshRef.current.current?.();
+    tableRefreshRef.current.current?.();
+  }, []);
+
   useEffect(() => {
     return () => {
       void api.sqlite.disconnect({ connectionId: connection.id });
@@ -112,7 +117,7 @@ export function SqliteTab({ connection }: SqliteTabProps) {
       setCustomError(null);
       setCustomResult(null);
       try {
-        const res = await api.sqlite.readOnlyQuery({
+        const res = await api.sqlite.query({
           connectionId: connection.id,
           filePath: config.filePath,
           request: { sql },
@@ -120,6 +125,7 @@ export function SqliteTab({ connection }: SqliteTabProps) {
         if (seq !== runSeq.current) return;
         if (res.ok) {
           setCustomResult(res.result);
+          refreshAfterCustomQuery();
         } else {
           setCustomError(res.error);
         }
@@ -130,7 +136,7 @@ export function SqliteTab({ connection }: SqliteTabProps) {
         if (seq === runSeq.current) setCustomRunning(false);
       }
     },
-    [connection.id, config.filePath],
+    [connection.id, config.filePath, refreshAfterCustomQuery],
   );
 
   const runCustomQuery = useCallback(

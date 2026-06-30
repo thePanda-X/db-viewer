@@ -1,5 +1,6 @@
 export interface SqlQueryRequest {
   sql: string;
+  schema?: string;
   params?: unknown[];
   maxRows?: number;
 }

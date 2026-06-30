@@ -169,11 +169,6 @@ export function QueryResultView({
           <span className="font-semibold tracking-tight">
             Custom query result
           </span>
-          {result && (
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              read-only
-            </span>
-          )}
         </div>
         <Button
           size="sm"
@@ -207,6 +202,17 @@ export function QueryResultView({
                 </span>{' '}
                 {result.rowCount === 1 ? 'row' : 'rows'}
               </span>
+              {result.affectedRows !== null && (
+                <>
+                  <span>·</span>
+                  <span>
+                    <span className="font-mono text-foreground">
+                      {result.affectedRows.toLocaleString()}
+                    </span>{' '}
+                    affected
+                  </span>
+                </>
+              )}
               <span>·</span>
               <span>
                 <span className="font-mono text-foreground">
@@ -228,81 +234,121 @@ export function QueryResultView({
                 </span>
               )}
             </div>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {result.columns.map((c) => (
-                    <TableHead
-                      key={c}
-                      className="whitespace-nowrap font-mono text-xs"
-                    >
-                      {c}
-                      {navigationByColumn.has(c) && (
-                        <span
-                          className="ml-1 align-middle text-[10px] text-sky-600/70 dark:text-sky-400/70"
-                          title="Heuristic FK link"
-                        >
-                          <Link className="inline h-2.5 w-2.5" />
-                        </span>
-                      )}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {result.rows.map((row, i) => (
-                  <TableRow key={i}>
-                    {row.map((cell, j) => {
-                      const colName = result.columns[j];
-                      const nav = navigationByColumn.get(colName);
-                      const isNull = cell === null || cell === undefined;
-                      const isEmptyString = !isNull && cell === '';
-                      const display = formatCell(cell);
-                      const isJson = isJsonCell(cell);
-                      const cellDisplay = isJson
-                        ? truncateJsonDisplay(display)
-                        : display;
-                      if (nav && !isNull && onNavigateRelation) {
+            {result.columns.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {result.columns.map((c) => (
+                      <TableHead
+                        key={c}
+                        className="whitespace-nowrap font-mono text-xs"
+                      >
+                        {c}
+                        {navigationByColumn.has(c) && (
+                          <span
+                            className="ml-1 align-middle text-[10px] text-sky-600/70 dark:text-sky-400/70"
+                            title="Heuristic FK link"
+                          >
+                            <Link className="inline h-2.5 w-2.5" />
+                          </span>
+                        )}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {result.rows.map((row, i) => (
+                    <TableRow key={i}>
+                      {row.map((cell, j) => {
+                        const colName = result.columns[j];
+                        const nav = navigationByColumn.get(colName);
+                        const isNull = cell === null || cell === undefined;
+                        const isEmptyString = !isNull && cell === '';
+                        const display = formatCell(cell);
+                        const isJson = isJsonCell(cell);
+                        const cellDisplay = isJson
+                          ? truncateJsonDisplay(display)
+                          : display;
+                        if (nav && !isNull && onNavigateRelation) {
+                          return (
+                            <TableCell
+                              key={j}
+                              className="max-w-[360px] align-top font-mono text-xs"
+                            >
+                              <div className="flex min-w-0 items-center gap-1">
+                                <TooltipProvider delayDuration={200}>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          onNavigateRelation({
+                                            referencedSchema: nav.schema,
+                                            referencedTable: nav.table,
+                                            referencedColumn: 'id',
+                                            value: cell,
+                                            display: cellDisplay,
+                                          })
+                                        }
+                                        className={cn(
+                                          'flex min-w-0 flex-1 items-center gap-1 truncate rounded-sm px-1 py-0.5 text-left text-sky-600 hover:bg-sky-500/10 hover:underline',
+                                          'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                                          'dark:text-sky-400 dark:hover:text-sky-300',
+                                        )}
+                                      >
+                                        <Link className="h-3 w-3 shrink-0 opacity-60" />
+                                        <span className="truncate whitespace-nowrap">
+                                          {cellDisplay}
+                                        </span>
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" sideOffset={4}>
+                                      Open row in{' '}
+                                      <span className="font-mono">
+                                        {nav.schema}.{nav.table}
+                                      </span>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                                {isJson && (
+                                  <ViewComplexValueButton
+                                    onClick={() =>
+                                      setViewer({
+                                        column: colName,
+                                        value: cell,
+                                        fallback: display,
+                                      })
+                                    }
+                                  />
+                                )}
+                              </div>
+                            </TableCell>
+                          );
+                        }
                         return (
                           <TableCell
                             key={j}
-                            className="max-w-[360px] align-top font-mono text-xs"
+                            className={cn(
+                              'max-w-[360px] truncate align-top font-mono text-xs',
+                              (isNull || isEmptyString) &&
+                                'italic text-muted-foreground',
+                            )}
+                            title={
+                              isNull
+                                ? 'NULL'
+                                : isEmptyString
+                                  ? '(empty string)'
+                                  : display
+                            }
                           >
                             <div className="flex min-w-0 items-center gap-1">
-                              <TooltipProvider delayDuration={200}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        onNavigateRelation({
-                                          referencedSchema: nav.schema,
-                                          referencedTable: nav.table,
-                                          referencedColumn: 'id',
-                                          value: cell,
-                                          display: cellDisplay,
-                                        })
-                                      }
-                                      className={cn(
-                                        'flex min-w-0 flex-1 items-center gap-1 truncate rounded-sm px-1 py-0.5 text-left text-sky-600 hover:bg-sky-500/10 hover:underline',
-                                        'focus:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                                        'dark:text-sky-400 dark:hover:text-sky-300',
-                                      )}
-                                    >
-                                      <Link className="h-3 w-3 shrink-0 opacity-60" />
-                                      <span className="truncate whitespace-nowrap">
-                                        {cellDisplay}
-                                      </span>
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" sideOffset={4}>
-                                    Open row in{' '}
-                                    <span className="font-mono">
-                                      {nav.schema}.{nav.table}
-                                    </span>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                              <span className="min-w-0 flex-1 truncate whitespace-nowrap">
+                                {isNull
+                                  ? 'NULL'
+                                  : isEmptyString
+                                    ? '(empty)'
+                                    : cellDisplay}
+                              </span>
                               {isJson && (
                                 <ViewComplexValueButton
                                   onClick={() =>
@@ -317,50 +363,16 @@ export function QueryResultView({
                             </div>
                           </TableCell>
                         );
-                      }
-                      return (
-                        <TableCell
-                          key={j}
-                          className={cn(
-                            'max-w-[360px] truncate align-top font-mono text-xs',
-                            (isNull || isEmptyString) &&
-                              'italic text-muted-foreground',
-                          )}
-                          title={
-                            isNull
-                              ? 'NULL'
-                              : isEmptyString
-                                ? '(empty string)'
-                                : display
-                          }
-                        >
-                          <div className="flex min-w-0 items-center gap-1">
-                            <span className="min-w-0 flex-1 truncate whitespace-nowrap">
-                              {isNull
-                                ? 'NULL'
-                                : isEmptyString
-                                  ? '(empty)'
-                                  : cellDisplay}
-                            </span>
-                            {isJson && (
-                              <ViewComplexValueButton
-                                onClick={() =>
-                                  setViewer({
-                                    column: colName,
-                                    value: cell,
-                                    fallback: display,
-                                  })
-                                }
-                              />
-                            )}
-                          </div>
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex h-full items-center justify-center p-8 text-center text-xs text-muted-foreground">
+                Query completed successfully.
+              </div>
+            )}
           </>
         ) : (
           <div className="flex h-full items-center justify-center p-8 text-center">
@@ -368,9 +380,8 @@ export function QueryResultView({
               <p className="font-medium text-foreground">Run a custom query</p>
               <p className="mt-1">
                 Type a query in the bar below and press{' '}
-                <span className="font-mono">⌘/Ctrl + ↵</span>. Queries run
-                inside a <span className="font-mono">READ ONLY</span>{' '}
-                transaction — writes are rejected.
+                <span className="font-mono">⌘/Ctrl + ↵</span>. Queries execute
+                directly against the selected database and can modify data.
               </p>
             </div>
           </div>
@@ -427,7 +438,7 @@ function ComplexValueDialog({
           <DialogDescription>Full JSON / array value</DialogDescription>
         </DialogHeader>
         <div className="max-h-[65vh] overflow-auto px-4 pb-4">
-          <JsonView value={value} fallback={fallback} />
+          {open && <JsonView value={value} fallback={fallback} />}
         </div>
       </DialogContent>
     </Dialog>
