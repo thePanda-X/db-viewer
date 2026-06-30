@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, type DragEvent } from 'react';
 import {
   MoreHorizontal,
   Pencil,
@@ -58,6 +58,18 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
   const handleConnect = useCallback(() => {
     openConnection(connection);
   }, [openConnection, connection]);
+
+  const handleDragStart = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData(
+        'application/db-vwr-connection-id',
+        connection.id,
+      );
+      event.dataTransfer.setData('text/plain', connection.name);
+    },
+    [connection.id, connection.name],
+  );
 
   const handleMoveToFolder = useCallback(
     async (folderId: string | undefined) => {
@@ -126,7 +138,11 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
   return (
     <>
       <ContextMenu items={contextMenuItems}>
-        <Card className="group flex min-h-44 flex-col gap-4 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:bg-card hover:shadow-md">
+        <Card
+          draggable
+          onDragStart={handleDragStart}
+          className="group flex min-h-44 cursor-grab flex-col gap-4 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-primary/35 hover:bg-card hover:shadow-md active:cursor-grabbing"
+        >
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted ring-1 ring-border/70 transition-transform duration-300 group-hover:scale-105">
