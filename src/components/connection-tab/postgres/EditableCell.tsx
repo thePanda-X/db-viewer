@@ -111,6 +111,10 @@ function formatValue(value: unknown, kind: EditableColumnKind): string {
   return String(value);
 }
 
+function truncateJsonDisplay(value: string): string {
+  return value.length > 20 ? `${value.slice(0, 20)}...` : value;
+}
+
 function isComplexValue(value: unknown, kind: EditableColumnKind): boolean {
   return (
     !isNullish(value) &&
@@ -148,11 +152,13 @@ export function EditableCell({
   const incomingTargets = isNull ? [] : incomingNavigateTo;
   const displayValue = formatValue(value, kind);
   const isComplex = isComplexValue(value, kind);
+  const displayCellValue =
+    kind === 'json' ? truncateJsonDisplay(displayValue) : displayValue;
   const cellContent = isNull
     ? 'NULL'
     : isEmptyString
       ? '(empty)'
-      : displayValue;
+      : displayCellValue;
 
   const [viewerOpen, setViewerOpen] = useState(false);
   const [editing, setEditing] = useState(false);
