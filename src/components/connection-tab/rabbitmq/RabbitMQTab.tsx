@@ -13,7 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { api } from '@/lib/api';
-import { useActiveRefresh } from '@/lib/hotkeys';
+import { useActiveRefresh, useHotkey } from '@/lib/hotkeys';
 import { toast } from '@/state/toastStore';
 import { cn } from '@/lib/utils';
 import { ResizableSidebar } from '@/components/ui/resizable-sidebar';
@@ -188,6 +188,48 @@ export function RabbitMQTab({ connection }: RabbitMQTabProps) {
     if (sidebarTab === 'exchanges' && activeQueue) setActiveQueue(null);
     if (sidebarTab === 'queues' && activeExchange) setActiveExchange(null);
   }, [sidebarTab, activeQueue, activeExchange]);
+
+  useHotkey('Alt+1', {
+    label: 'Show exchanges',
+    group: 'RabbitMQ',
+    description: 'Switch to the exchanges list',
+    handler: () => setSidebarTab('exchanges'),
+  });
+
+  useHotkey('Alt+2', {
+    label: 'Show queues',
+    group: 'RabbitMQ',
+    description: 'Switch to the queues list',
+    handler: () => setSidebarTab('queues'),
+  });
+
+  useHotkey('Escape', {
+    label: 'Clear selection',
+    group: 'RabbitMQ',
+    description: 'Clear the active exchange or queue',
+    handler: () => {
+      setActiveExchange(null);
+      setActiveQueue(null);
+    },
+  });
+
+  useHotkey('Delete', {
+    label: 'Delete active queue',
+    group: 'RabbitMQ',
+    description: 'Delete the active queue after confirmation',
+    handler: () => {
+      if (activeQueue) setPendingDeleteQueue(activeQueue);
+    },
+  });
+
+  useHotkey('Mod+Backspace', {
+    label: 'Purge active queue',
+    group: 'RabbitMQ',
+    description: 'Purge the active queue after confirmation',
+    handler: () => {
+      if (activeQueue) setPendingPurgeQueue(activeQueue);
+    },
+  });
 
   const host = `${config.host}:${config.port}`;
 

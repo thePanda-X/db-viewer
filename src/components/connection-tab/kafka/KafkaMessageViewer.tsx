@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import type { KafkaConfig } from '@/types/connection';
 import type { KafkaConsumeResult } from '@/types/kafka';
+import { useHotkey } from '@/lib/hotkeys';
 
 interface KafkaMessageViewerProps {
   connectionId: string;
@@ -84,6 +85,23 @@ export function KafkaMessageViewer({
       void consume(lastOffset);
     }
   };
+
+  useHotkey('Mod+Enter', {
+    label: 'Fetch messages',
+    group: 'Kafka messages',
+    description: 'Fetch messages for the selected partition',
+    allowInInputs: true,
+    handler: () => {
+      void consume(mode === 'offset' ? customOffset : '0');
+    },
+  });
+
+  useHotkey('Mod+ArrowDown', {
+    label: 'Load more messages',
+    group: 'Kafka messages',
+    description: 'Load the next page of messages',
+    handler: loadMore,
+  });
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {

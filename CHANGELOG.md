@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-06-30
+
+### Added
+
+- Added connection-specific keyboard shortcuts for PostgreSQL, SQLite, Redis, OpenSearch, Kafka, and RabbitMQ workflows.
+- Added `Ctrl+R` as a refresh shortcut across all connection types, including OpenSearch.
+- Added shortcuts for common actions such as focusing filters, selecting rows or keys, deleting selected items, paging results, switching subviews, running commands, sending requests, and publishing messages.
+
 ## [1.8.0] - 2026-06-30
 
 ### Added

@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Layers, Loader2, RefreshCw } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { ResizableSidebar } from '@/components/ui/resizable-sidebar';
-import { useActiveRefresh } from '@/lib/hotkeys';
+import { useActiveRefresh, useHotkey } from '@/lib/hotkeys';
 import { toast } from '@/state/toastStore';
 import type { Connection, KafkaConfig } from '@/types/connection';
 import type {
@@ -35,6 +35,7 @@ export function KafkaTab({ connection }: KafkaTabProps) {
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [topicFilter, setTopicFilter] = useState('');
   const [groupFilter, setGroupFilter] = useState('');
+  const filterInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadAll = useCallback(async () => {
     setTopicsLoading(true);
@@ -112,6 +113,46 @@ export function KafkaTab({ connection }: KafkaTabProps) {
           ),
     [groups, groupFilter],
   );
+
+  useHotkey('Mod+K', {
+    label: 'Focus filter',
+    group: 'Kafka',
+    description: 'Focus the active topic or group filter',
+    handler: () => {
+      filterInputRef.current?.focus();
+      filterInputRef.current?.select();
+    },
+  });
+
+  useHotkey('Alt+1', {
+    label: 'Show topics',
+    group: 'Kafka',
+    description: 'Switch to the topics list',
+    handler: () => {
+      setActiveTab('topics');
+      setActiveGroup(null);
+    },
+  });
+
+  useHotkey('Alt+2', {
+    label: 'Show groups',
+    group: 'Kafka',
+    description: 'Switch to the consumer groups list',
+    handler: () => {
+      setActiveTab('groups');
+      setActiveTopic(null);
+    },
+  });
+
+  useHotkey('Escape', {
+    label: 'Back to Kafka list',
+    group: 'Kafka',
+    description: 'Close the active topic or group detail view',
+    handler: () => {
+      setActiveTopic(null);
+      setActiveGroup(null);
+    },
+  });
 
   return (
     <div className="flex h-full min-h-0 bg-background">
@@ -196,6 +237,7 @@ export function KafkaTab({ connection }: KafkaTabProps) {
                   filter={topicFilter}
                   onFilterChange={setTopicFilter}
                   placeholder="Filter topics..."
+                  filterInputRef={filterInputRef}
                 />
               ) : (
                 <KafkaSidebar
@@ -212,6 +254,7 @@ export function KafkaTab({ connection }: KafkaTabProps) {
                   filter={groupFilter}
                   onFilterChange={setGroupFilter}
                   placeholder="Filter groups..."
+                  filterInputRef={filterInputRef}
                 />
               )}
             </div>

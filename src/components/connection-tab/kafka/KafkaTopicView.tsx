@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import type { KafkaConfig } from '@/types/connection';
 import type { KafkaTopicMeta, KafkaPartitionInfo } from '@/types/kafka';
 import { KafkaMessageViewer } from './KafkaMessageViewer';
+import { useHotkey } from '@/lib/hotkeys';
 
 interface KafkaTopicViewProps {
   connectionId: string;
@@ -52,6 +53,42 @@ export function KafkaTopicView({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useHotkey('Alt+ArrowLeft', {
+    label: 'Back to topics',
+    group: 'Kafka topic',
+    description: 'Return to the topics list',
+    handler: onBack,
+  });
+
+  useHotkey('ArrowUp', {
+    label: 'Previous partition',
+    group: 'Kafka topic',
+    description: 'Select the previous partition',
+    handler: () => {
+      if (!meta || selectedPartition === null) return;
+      const idx = meta.partitions.findIndex(
+        (p) => p.partition === selectedPartition,
+      );
+      const prev = meta.partitions[Math.max(0, idx - 1)];
+      if (prev) setSelectedPartition(prev.partition);
+    },
+  });
+
+  useHotkey('ArrowDown', {
+    label: 'Next partition',
+    group: 'Kafka topic',
+    description: 'Select the next partition',
+    handler: () => {
+      if (!meta || selectedPartition === null) return;
+      const idx = meta.partitions.findIndex(
+        (p) => p.partition === selectedPartition,
+      );
+      const next =
+        meta.partitions[Math.min(meta.partitions.length - 1, idx + 1)];
+      if (next) setSelectedPartition(next.partition);
+    },
+  });
 
   if (loading && !meta) {
     return (

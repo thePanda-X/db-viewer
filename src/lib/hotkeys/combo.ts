@@ -1,6 +1,7 @@
 export interface NormalizedCombo {
   key: string;
   mod: boolean;
+  ctrl: boolean;
   shift: boolean;
   alt: boolean;
 }
@@ -46,6 +47,7 @@ export function parseCombo(combo: string): NormalizedCombo {
   const result: NormalizedCombo = {
     key: '',
     mod: false,
+    ctrl: false,
     shift: false,
     alt: false,
   };
@@ -54,7 +56,7 @@ export function parseCombo(combo: string): NormalizedCombo {
     if (MOD_ALIASES.has(lower)) result.mod = true;
     else if (SHIFT_ALIASES.has(lower)) result.shift = true;
     else if (ALT_ALIASES.has(lower)) result.alt = true;
-    else if (CTRL_ALIASES.has(lower)) result.mod = true;
+    else if (CTRL_ALIASES.has(lower)) result.ctrl = true;
     else if (META_ALIASES.has(lower)) result.mod = true;
     else result.key = normalizeKey(part);
   }
@@ -74,8 +76,17 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 }
 
 export function matches(combo: NormalizedCombo, event: KeyboardEvent): boolean {
-  const mod = IS_MAC ? event.metaKey : event.ctrlKey;
-  if (combo.mod !== mod) return false;
+  const platformMod = IS_MAC ? event.metaKey : event.ctrlKey;
+  if (combo.mod) {
+    if (!platformMod) return false;
+  } else if (IS_MAC && event.metaKey) {
+    return false;
+  }
+  if (combo.ctrl) {
+    if (!event.ctrlKey) return false;
+  } else if (event.ctrlKey && !(combo.mod && !IS_MAC)) {
+    return false;
+  }
   if (combo.alt !== event.altKey) return false;
 
   const eventKey = event.key.toLowerCase();

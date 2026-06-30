@@ -26,12 +26,14 @@ describe('hotkey combo helpers', () => {
     expect(parseCombo('Mod + Shift + Return')).toEqual({
       key: 'enter',
       mod: true,
+      ctrl: false,
       shift: true,
       alt: false,
     });
     expect(parseCombo('Ctrl+Option+K')).toEqual({
       key: 'k',
-      mod: true,
+      mod: false,
+      ctrl: true,
       shift: false,
       alt: true,
     });
@@ -42,6 +44,12 @@ describe('hotkey combo helpers', () => {
       true,
     );
     expect(matches(parseCombo('Mod+K'), keyEvent('k'))).toBe(false);
+    expect(
+      matches(parseCombo('Ctrl+R'), keyEvent('r', { ctrlKey: true })),
+    ).toBe(true);
+    expect(matches(parseCombo('R'), keyEvent('r', { ctrlKey: true }))).toBe(
+      false,
+    );
     expect(
       matches(
         parseCombo('Shift+ArrowUp'),

@@ -4,7 +4,7 @@ import { api } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useActiveRefresh } from '@/lib/hotkeys';
+import { useActiveRefresh, useHotkey } from '@/lib/hotkeys';
 import { toast } from '@/state/toastStore';
 import {
   AlertDialog,
@@ -264,6 +264,37 @@ export function RedisTab({ connection }: RedisTabProps) {
       setPendingDeleteKeys(null);
     }
   }, [pendingDeleteKeys, connection.id, config, handleKeysDeleted]);
+
+  useHotkey('Mod+A', {
+    label: 'Select all keys',
+    group: 'Redis',
+    description: 'Select all visible keys',
+    handler: () => {
+      setSelectedKeys(new Set(visibleKeys));
+      setSelectionAnchorKey(visibleKeys[0] ?? null);
+      setActiveKey(visibleKeys[0] ?? null);
+    },
+  });
+
+  useHotkey('Escape', {
+    label: 'Clear key selection',
+    group: 'Redis',
+    description: 'Clear selected keys and the active key',
+    handler: () => {
+      setSelectedKeys(new Set());
+      setSelectionAnchorKey(null);
+      setActiveKey(null);
+    },
+  });
+
+  useHotkey('Mod+Backspace', {
+    label: 'Delete selected keys',
+    group: 'Redis',
+    description: 'Delete selected keys after confirmation',
+    handler: () => {
+      if (selectedKeys.size > 0) setPendingDeleteKeys(Array.from(selectedKeys));
+    },
+  });
 
   const host = `${config.host}:${config.port}`;
 

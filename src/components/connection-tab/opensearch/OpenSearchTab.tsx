@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type MouseEvent,
 } from 'react';
@@ -52,6 +53,7 @@ import {
   type ContextMenuItem,
 } from '@/components/ui/context-menu';
 import { JsonView } from '@/components/ui/json-view';
+import { useActiveRefresh, useHotkey } from '@/lib/hotkeys';
 
 interface OpenSearchTabProps {
   connection: Connection;
@@ -228,6 +230,27 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
   useEffect(() => {
     if (view === 'mappings' || view === 'settings') void refreshMeta();
   }, [refreshMeta, view]);
+
+  const refreshAll = useCallback(() => {
+    void refreshIndices();
+    if (activeIndex) {
+      if (view === 'documents') void refreshDocuments();
+      if (view === 'mappings' || view === 'settings') void refreshMeta();
+    }
+    toast({
+      message: `Refreshed ${connection.name}`,
+      detail: activeIndex ? `${activeIndex} · ${view}` : 'indices',
+    });
+  }, [
+    activeIndex,
+    connection.name,
+    refreshDocuments,
+    refreshIndices,
+    refreshMeta,
+    view,
+  ]);
+
+  useActiveRefresh(refreshAll, connection.name);
 
   useEffect(() => {
     const available = new Set(indices.map((index) => index.name));
@@ -536,6 +559,58 @@ export function OpenSearchTab({ connection }: OpenSearchTabProps) {
       disabled: loadingIndices,
     },
   ];
+
+  useHotkey('Alt+1', {
+    label: 'Show documents',
+    group: 'OpenSearch',
+    description: 'Switch to the documents view',
+    handler: () => setView('documents'),
+  });
+
+  useHotkey('Alt+2', {
+    label: 'Show mappings',
+    group: 'OpenSearch',
+    description: 'Switch to the mappings view',
+    handler: () => setView('mappings'),
+  });
+
+  useHotkey('Alt+3', {
+    label: 'Show settings',
+    group: 'OpenSearch',
+    description: 'Switch to the settings view',
+    handler: () => setView('settings'),
+  });
+
+  useHotkey('Alt+4', {
+    label: 'Show REST console',
+    group: 'OpenSearch',
+    description: 'Switch to the REST console',
+    handler: () => setView('console'),
+  });
+
+  useHotkey('Mod+A', {
+    label: 'Select all indices',
+    group: 'OpenSearch',
+    description: 'Select all indices in the sidebar',
+    handler: () => toggleAllIndices(true),
+  });
+
+  useHotkey('Delete', {
+    label: 'Delete selected indices',
+    group: 'OpenSearch',
+    description: 'Delete selected indices after confirmation',
+    handler: () => {
+      if (selectedIndexNames.length > 0)
+        setDeleteIndexTarget(selectedIndexNames);
+    },
+  });
+
+  useHotkey('Escape', {
+    label: 'Cancel import',
+    group: 'OpenSearch',
+    description: 'Cancel the pending import prompt',
+    handler: () => setImportFilePath(null),
+  });
 
   return (
     <div className="flex h-full min-h-0 bg-background">
@@ -890,6 +965,77 @@ function DocumentsView(props: {
   onSearch: () => void;
   onToggleExpand: (id: string | null) => void;
 }) {
+  const queryInputRef = useRef<HTMLInputElement | null>(null);
+  const expandedHit =
+    props.result?.hits.find((hit) => hit.id === props.expandedId) ?? null;
+
+  useHotkey('Mod+K', {
+    label: 'Focus document search',
+    group: 'OpenSearch documents',
+    description: 'Focus the document search input',
+    handler: () => {
+      queryInputRef.current?.focus();
+      queryInputRef.current?.select();
+    },
+  });
+
+  useHotkey('Mod+Enter', {
+    label: 'Search documents',
+    group: 'OpenSearch documents',
+    description: 'Run the current document search',
+    allowInInputs: true,
+    handler: () => props.onSearch(),
+  });
+
+  useHotkey('Mod+S', {
+    label: 'Save document',
+    group: 'OpenSearch documents',
+    description: 'Save the document JSON editor',
+    allowInInputs: true,
+    handler: () => {
+      if (props.editing) props.onSaveEdit();
+    },
+  });
+
+  useHotkey('Delete', {
+    label: 'Delete expanded document',
+    group: 'OpenSearch documents',
+    description: 'Delete the expanded document after confirmation',
+    handler: () => {
+      if (expandedHit) props.onDelete(expandedHit);
+    },
+  });
+
+  useHotkey('Escape', {
+    label: 'Cancel document action',
+    group: 'OpenSearch documents',
+    description: 'Cancel edit or delete prompts',
+    handler: () => {
+      if (props.editing) props.onCancelEdit();
+      else if (props.deleteTarget) props.onCancelDelete();
+      else if (props.deleteIndexTarget) props.onCancelDeleteIndex();
+      else if (props.expandedId) props.onToggleExpand(null);
+    },
+  });
+
+  useHotkey('Alt+ArrowLeft', {
+    label: 'Previous result page',
+    group: 'OpenSearch documents',
+    description: 'Go to the previous document result page',
+    handler: () => {
+      if (props.page > 0) props.onPage(props.page - 1);
+    },
+  });
+
+  useHotkey('Alt+ArrowRight', {
+    label: 'Next result page',
+    group: 'OpenSearch documents',
+    description: 'Go to the next document result page',
+    handler: () => {
+      if (props.page + 1 < props.totalPages) props.onPage(props.page + 1);
+    },
+  });
+
   if (!props.activeIndex)
     return (
       <EmptyState
@@ -910,6 +1056,7 @@ function DocumentsView(props: {
         <div className="relative min-w-0 flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
+            ref={queryInputRef}
             className="pl-8"
             placeholder="query_string search, e.g. status:200 AND service:api"
             value={props.query}
@@ -1177,6 +1324,16 @@ function RestConsole({
     }
     setResult(res.result);
   };
+
+  useHotkey('Mod+Enter', {
+    label: 'Send REST request',
+    group: 'OpenSearch console',
+    description: 'Send the REST console request',
+    allowInInputs: true,
+    handler: () => {
+      void execute();
+    },
+  });
 
   return (
     <div className="space-y-4">

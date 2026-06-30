@@ -8,6 +8,7 @@ import type {
   KafkaConsumerGroupDetail,
   KafkaConsumerGroupTopic,
 } from '@/types/kafka';
+import { useHotkey } from '@/lib/hotkeys';
 
 interface KafkaConsumerGroupsViewProps {
   connectionId: string;
@@ -51,6 +52,13 @@ export function KafkaConsumerGroupsView({
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useHotkey('Alt+ArrowLeft', {
+    label: 'Back to groups',
+    group: 'Kafka group',
+    description: 'Return to the consumer groups list',
+    handler: onBack,
+  });
 
   if (loading && !detail) {
     return (

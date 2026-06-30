@@ -215,6 +215,19 @@ export function CommandBar({
     handler: () => inputRef.current?.focus(),
   });
 
+  useHotkey('Mod+Enter', {
+    label: 'Run command',
+    group: 'Redis',
+    description: 'Run the command in the command bar',
+    allowInInputs: true,
+    handler: () => {
+      if (document.activeElement !== inputRef.current) return;
+      const value = input;
+      setInput('');
+      void run(value);
+    },
+  });
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();

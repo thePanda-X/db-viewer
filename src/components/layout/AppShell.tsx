@@ -31,6 +31,16 @@ function GlobalHotkeys({
     },
   });
 
+  useHotkey('Ctrl+R', {
+    label: 'Refresh with Control',
+    group: 'App',
+    description: 'Refresh the current view with Control+R',
+    handler: () => {
+      const top = useRefreshBusStore.getState().top();
+      if (top) top.refresh();
+    },
+  });
+
   useHotkey('F5', {
     label: 'Refresh',
     group: 'App',

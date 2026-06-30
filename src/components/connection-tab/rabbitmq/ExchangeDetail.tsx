@@ -11,6 +11,7 @@ import type {
   RabbitMQExchangeInfo,
 } from '@/types/rabbitmq';
 import { PublishMessageDialog } from './PublishMessageDialog';
+import { useHotkey } from '@/lib/hotkeys';
 
 interface ExchangeDetailProps {
   connectionId: string;
@@ -53,6 +54,13 @@ export function ExchangeDetail({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useHotkey('Mod+Enter', {
+    label: 'Publish message',
+    group: 'RabbitMQ exchange',
+    description: 'Open the publish message dialog',
+    handler: () => setPublishOpen(true),
+  });
 
   return (
     <div className="flex h-full flex-col overflow-hidden">

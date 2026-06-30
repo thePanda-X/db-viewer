@@ -14,6 +14,7 @@ import { Loader2, Send } from 'lucide-react';
 import { api } from '@/lib/api';
 import type { RabbitMQConfig } from '@/types/connection';
 import { toast } from '@/state/toastStore';
+import { useHotkey } from '@/lib/hotkeys';
 
 interface PublishMessageDialogProps {
   open: boolean;
@@ -77,6 +78,16 @@ export function PublishMessageDialog({
       setPublishing(false);
     }
   };
+
+  useHotkey('Mod+Enter', {
+    label: 'Publish message',
+    group: 'RabbitMQ publish',
+    description: 'Publish the message from the dialog',
+    allowInInputs: true,
+    handler: () => {
+      if (open && body && !publishing) void handlePublish();
+    },
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
