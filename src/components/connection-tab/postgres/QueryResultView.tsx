@@ -64,6 +64,10 @@ function formatCell(value: unknown): string {
   return String(value);
 }
 
+function truncateJsonDisplay(value: string): string {
+  return value.length > 20 ? `${value.slice(0, 20)}...` : value;
+}
+
 function isJsonCell(value: unknown): boolean {
   return typeof value === 'object' && value !== null;
 }
@@ -255,6 +259,9 @@ export function QueryResultView({
                       const isEmptyString = !isNull && cell === '';
                       const display = formatCell(cell);
                       const isJson = isJsonCell(cell);
+                      const cellDisplay = isJson
+                        ? truncateJsonDisplay(display)
+                        : display;
                       if (nav && !isNull && onNavigateRelation) {
                         return (
                           <TableCell
@@ -273,7 +280,7 @@ export function QueryResultView({
                                           referencedTable: nav.table,
                                           referencedColumn: 'id',
                                           value: cell,
-                                          display,
+                                          display: cellDisplay,
                                         })
                                       }
                                       className={cn(
@@ -284,7 +291,7 @@ export function QueryResultView({
                                     >
                                       <Link className="h-3 w-3 shrink-0 opacity-60" />
                                       <span className="truncate whitespace-nowrap">
-                                        {display}
+                                        {cellDisplay}
                                       </span>
                                     </button>
                                   </TooltipTrigger>
@@ -333,7 +340,7 @@ export function QueryResultView({
                                 ? 'NULL'
                                 : isEmptyString
                                   ? '(empty)'
-                                  : display}
+                                  : cellDisplay}
                             </span>
                             {isJson && (
                               <ViewComplexValueButton
