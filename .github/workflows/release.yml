@@ -52,7 +52,7 @@ jobs:
         run: npx electron-builder --publish never --win
 
       - name: Upload Windows installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-installer
           path: |
@@ -81,7 +81,7 @@ jobs:
         run: npx electron-builder --publish never --linux
 
       - name: Upload Linux installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-installer
           path: |
